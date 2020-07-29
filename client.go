@@ -42,8 +42,19 @@ type Client struct {
 	conf *types.ConfigList
 }
 
+// Sandbox information
+type Sandbox struct {
+	// ID of the sandbox
+	ID string
+}
+
 // Invoke the ConfList of nri plugins
 func (c *Client) Invoke(ctx context.Context, task containerd.Task, state types.State) ([]*types.Result, error) {
+	return c.InvokeWithSandbox(ctx, task, state, nil)
+}
+
+// Invoke the ConfList of nri plugins
+func (c *Client) InvokeWithSandbox(ctx context.Context, task containerd.Task, state types.State, sandbox *Sandbox) ([]*types.Result, error) {
 	spec, err := task.Spec(ctx)
 	if err != nil {
 		return nil, err
@@ -58,6 +69,9 @@ func (c *Client) Invoke(ctx context.Context, task containerd.Task, state types.S
 		Pid:     int(task.Pid()),
 		State:   state,
 		Spec:    rs,
+	}
+	if sandbox != nil {
+		r.SandboxID = sandbox.ID
 	}
 	for _, p := range c.conf.Plugins {
 		r.Conf = p.Conf
@@ -81,11 +95,11 @@ func (c *Client) invokePlugin(ctx context.Context, name string, r *types.Request
 
 	out, err := cmd.Output()
 	if err != nil {
+		// ExitError is returned when there is a non-zero exit status
 		if _, ok := err.(*exec.ExitError); ok {
-			// ExitError is returned when there is a non-zero exit status
 			var pe types.PluginError
 			if err := json.Unmarshal(out, &pe); err != nil {
-				return nil, errors.Wrapf(err, "%s", out)
+				return nil, errors.Wrapf(err, "%s: %s", name, out)
 			}
 			return nil, &pe
 		}
@@ -101,6 +115,7 @@ func (c *Client) invokePlugin(ctx context.Context, name string, r *types.Request
 func loadConfig(path string) (*types.ConfigList, error) {
 	f, err := os.Open(path)
 	if err != nil {
+		// if we don't have a config list on disk, create a new one for use
 		if os.IsNotExist(err) {
 			return &types.ConfigList{
 				Version: Version,

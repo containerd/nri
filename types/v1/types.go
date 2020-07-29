@@ -56,7 +56,7 @@ const (
 // Request for a plugin invocation
 type Request struct {
 	// Conf specific for the plugin
-	Conf json.RawMessage `json:"conf"`
+	Conf json.RawMessage `json:"conf,omitempty"`
 
 	// Version of the plugin
 	Version string `json:"version"`

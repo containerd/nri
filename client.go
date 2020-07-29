@@ -19,6 +19,8 @@ const (
 	DefaultBinaryPath = "/opt/nri/bin"
 	// DefaultConfPath for the global nri configuration
 	DefaultConfPath = "/etc/nri/conf.json"
+	// Version of NRI
+	Version = "0.1"
 )
 
 // New nri client
@@ -101,7 +103,7 @@ func loadConfig(path string) (*types.ConfigList, error) {
 	if err != nil {
 		if os.IsNotExist(err) {
 			return &types.ConfigList{
-				Version: "0.1",
+				Version: Version,
 			}, nil
 		}
 		return nil, err

@@ -10,7 +10,7 @@ import (
 
 	"github.com/containerd/containerd"
 	"github.com/containerd/containerd/oci"
-	"github.com/containerd/nri/types"
+	types "github.com/containerd/nri/types/v1"
 	"github.com/pkg/errors"
 )
 

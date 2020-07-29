@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"os"
 
-	"github.com/containerd/nri/types"
+	types "github.com/containerd/nri/types/v1"
 	"github.com/pkg/errors"
 )
 

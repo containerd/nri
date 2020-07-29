@@ -1,6 +1,9 @@
 package v1
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"fmt"
+)
 
 // Plugin type and configuration
 type Plugin struct {
@@ -65,13 +68,28 @@ type Request struct {
 	//
 	// If ID and SandboxID are the same, this is a request for the sandbox
 	// SandboxID is empty for a non sandboxed container
-	SandboxID string `json:"sandboxID"`
+	SandboxID string `json:"sandboxID,omitempty"`
 	// Pid of the container
 	//
 	// -1 if there is no pid
 	Pid int `json:"pid,omitempty"`
 	// Spec generated from the OCI runtime specification
 	Spec *Spec `json:"spec"`
+	// Results from previous plugins in the chain
+	Results []*Result `json:"results,omitempty"`
+}
+
+// PluginError for specific plugin execution
+type PluginError struct {
+	// Plugin name
+	Plugin string `json:"plugin"`
+	// Message for the error
+	Message string `json:"message"`
+}
+
+// Error as a string
+func (p *PluginError) Error() string {
+	return fmt.Sprintf("%s: %s", p.Plugin, p.Message)
 }
 
 // IsSandbox returns true if the request is for a sandbox
@@ -80,26 +98,20 @@ func (r *Request) IsSandbox() bool {
 }
 
 // NewResult returns a result from the original request
-func (r *Request) NewResult() *Result {
+func (r *Request) NewResult(plugin string) *Result {
 	return &Result{
-		ID:          r.ID,
-		State:       r.State,
-		Pid:         r.Pid,
-		Version:     r.Version,
-		CgroupsPath: r.Spec.CgroupsPath,
+		Plugin:   plugin,
+		Version:  r.Version,
+		Metadata: make(map[string]string),
 	}
 }
 
 // Result of the plugin invocation
 type Result struct {
+	// Plugin name that populated the result
+	Plugin string `json:"plugin"`
 	// Version of the plugin
 	Version string `json:"version"`
-	// State of the invocation
-	State State `json:"state"`
-	// ID of the container
-	ID string `json:"id"`
-	// Pid of the container
-	Pid int `json:"pid"`
-	// CgroupsPath of the container
-	CgroupsPath string `json:"cgroupsPath"`
+	// Metadata specific to actions taken by the plugin
+	Metadata map[string]string `json:"metadata,omitempty"`
 }

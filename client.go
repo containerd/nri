@@ -50,7 +50,6 @@ func (c *Client) Invoke(ctx context.Context, task containerd.Task, state types.S
 	if err != nil {
 		return nil, err
 	}
-	var results []*types.Result
 	r := &types.Request{
 		Version: c.conf.Version,
 		ID:      task.ID(),
@@ -62,37 +61,11 @@ func (c *Client) Invoke(ctx context.Context, task containerd.Task, state types.S
 		r.Conf = p.Conf
 		result, err := c.invokePlugin(ctx, p.Type, r)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrapf(err, "plugin: %s", p.Type)
 		}
-		results = append(results, result)
+		r.Results = append(r.Results, result)
 	}
-	return results, nil
-}
-
-func createSpec(spec *oci.Spec) (*types.Spec, error) {
-	s := types.Spec{
-		Namespaces:  make(map[string]string),
-		Annotations: spec.Annotations,
-	}
-	switch {
-	case spec.Linux != nil:
-		s.CgroupsPath = spec.Linux.CgroupsPath
-		data, err := json.Marshal(spec.Linux.Resources)
-		if err != nil {
-			return nil, err
-		}
-		s.Resources = json.RawMessage(data)
-		for _, ns := range spec.Linux.Namespaces {
-			s.Namespaces[string(ns.Type)] = ns.Path
-		}
-	case spec.Windows != nil:
-		data, err := json.Marshal(spec.Windows.Resources)
-		if err != nil {
-			return nil, err
-		}
-		s.Resources = json.RawMessage(data)
-	}
-	return &s, nil
+	return r.Results, nil
 }
 
 func (c *Client) invokePlugin(ctx context.Context, name string, r *types.Request) (*types.Result, error) {
@@ -106,6 +79,14 @@ func (c *Client) invokePlugin(ctx context.Context, name string, r *types.Request
 
 	out, err := cmd.Output()
 	if err != nil {
+		if _, ok := err.(*exec.ExitError); ok {
+			// ExitError is returned when there is a non-zero exit status
+			var pe types.PluginError
+			if err := json.Unmarshal(out, &pe); err != nil {
+				return nil, errors.Wrapf(err, "%s", out)
+			}
+			return nil, &pe
+		}
 		return nil, errors.Wrapf(err, "%s: %s", name, out)
 	}
 	var result types.Result
@@ -132,4 +113,30 @@ func loadConfig(path string) (*types.ConfigList, error) {
 		return nil, err
 	}
 	return &c, nil
+}
+
+func createSpec(spec *oci.Spec) (*types.Spec, error) {
+	s := types.Spec{
+		Namespaces:  make(map[string]string),
+		Annotations: spec.Annotations,
+	}
+	switch {
+	case spec.Linux != nil:
+		s.CgroupsPath = spec.Linux.CgroupsPath
+		data, err := json.Marshal(spec.Linux.Resources)
+		if err != nil {
+			return nil, err
+		}
+		s.Resources = json.RawMessage(data)
+		for _, ns := range spec.Linux.Namespaces {
+			s.Namespaces[string(ns.Type)] = ns.Path
+		}
+	case spec.Windows != nil:
+		data, err := json.Marshal(spec.Windows.Resources)
+		if err != nil {
+			return nil, err
+		}
+		s.Resources = json.RawMessage(data)
+	}
+	return &s, nil
 }

@@ -50,6 +50,41 @@ type Sandbox struct {
 	Labels map[string]string
 }
 
+// InvokePre the ConfList of nri plugins before a runtime object has been created.
+func (c *Client) InvokePre(ctx context.Context, container containerd.Container, sandbox *Sandbox) ([]*types.Result, error) {
+	if len(c.conf.Plugins) == 0 {
+		return nil, nil
+	}
+	spec, err := container.Spec(ctx)
+	if err != nil {
+		return nil, err
+	}
+	rs, err := createSpec(spec)
+	if err != nil {
+		return nil, err
+	}
+	r := &types.Request{
+		Version: c.conf.Version,
+		ID:      container.ID(),
+		Pid:     -1,
+		State:   types.PreCreate,
+		Spec:    rs,
+	}
+	if sandbox != nil {
+		r.SandboxID = sandbox.ID
+		r.Labels = sandbox.Labels
+	}
+	for _, p := range c.conf.Plugins {
+		r.Conf = p.Conf
+		result, err := c.invokePlugin(ctx, p.Type, r)
+		if err != nil {
+			return nil, errors.Wrapf(err, "plugin: %s", p.Type)
+		}
+		r.Results = append(r.Results, result)
+	}
+	return r.Results, nil
+}
+
 // Invoke the ConfList of nri plugins
 func (c *Client) Invoke(ctx context.Context, task containerd.Task, state types.State) ([]*types.Result, error) {
 	return c.InvokeWithSandbox(ctx, task, state, nil)

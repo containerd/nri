@@ -41,6 +41,9 @@ type Spec struct {
 type State string
 
 const (
+	// PreCreate happens before any runtime tasks are created
+	// from the calling runtime/process
+	PreCreate State = "pre-create"
 	// Create the initial resource for the container
 	Create State = "create"
 	// Delete any resources for the container

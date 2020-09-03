@@ -31,7 +31,11 @@ func Run(ctx context.Context, plugin Plugin) error {
 	case "invoke":
 		result, err := plugin.Invoke(ctx, &request)
 		if err != nil {
-			return err
+			pe := types.NewPluginError(plugin.Type(), err)
+			if err := enc.Encode(pe); err != nil {
+				return err
+			}
+			return pe
 		}
 		out = result
 	default:

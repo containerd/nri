@@ -105,23 +105,41 @@ func (c *Client) invokePlugin(ctx context.Context, name string, r *types.Request
 	}
 	cmd := exec.CommandContext(ctx, name, "invoke")
 	cmd.Stdin = bytes.NewBuffer(payload)
-	cmd.Stderr = os.Stderr
 
-	out, err := cmd.Output()
+	cmdout := bytes.Buffer{}
+	cmderr := bytes.Buffer{}
+	cmd.Stdout = &cmdout
+	cmd.Stderr = &cmderr
+
+	err = cmd.Run()
+
+	msg := "plugin exec details:"
+	if cmdout.Len() > 0 {
+		msg = fmt.Sprintf("%s plugin output: \"%s\"", msg, cmdout.Bytes())
+	} else {
+		msg = fmt.Sprintf("%s plugin output: <empty>", msg)
+	}
+	if cmderr.Len() > 0 {
+		msg = fmt.Sprintf("%s plugin error: \"%s\"", msg, cmderr.Bytes())
+	} else {
+		msg = fmt.Sprintf("%s plugin error: <empty>", msg)
+	}
+
 	if err != nil {
 		// ExitError is returned when there is a non-zero exit status
-		if _, ok := err.(*exec.ExitError); ok {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			msg = fmt.Sprintf("%s plugin exit code: %d", msg, exitErr.ExitCode())
 			var pe types.PluginError
-			if err := json.Unmarshal(out, &pe); err != nil {
-				return nil, errors.Wrapf(err, "%s: %s", name, out)
+			if err := json.Unmarshal(cmdout.Bytes(), &pe); err != nil {
+				return nil, errors.Errorf("failed to unmarshal plugin error: %s: %s", err.Error(), msg)
 			}
 			return nil, &pe
 		}
-		return nil, errors.Wrapf(err, "%s: %s", name, out)
+		return nil, err
 	}
 	var result types.Result
-	if err := json.Unmarshal(out, &result); err != nil {
-		return nil, err
+	if err := json.Unmarshal(cmdout.Bytes(), &result); err != nil {
+		return nil, errors.Errorf("failed to unmarshal plugin result: %s: %s", err.Error(), msg)
 	}
 	return &result, nil
 }

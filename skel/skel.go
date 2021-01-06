@@ -31,15 +31,19 @@ func Run(ctx context.Context, plugin Plugin) error {
 	case "invoke":
 		result, err := plugin.Invoke(ctx, &request)
 		if err != nil {
-			pe := types.NewPluginError(plugin.Type(), err)
-			if err := enc.Encode(pe); err != nil {
-				return err
-			}
-			return pe
+			// if the plugin sets ErrorMessage we ignore it
+			result = request.NewResult(plugin.Type())
+			result.Error = err.Error()
 		}
-		out = result
+		if err := enc.Encode(result); err != nil {
+			return errors.Wrap(err, "unable to encode plugin error to stdout")
+		}
 	default:
-		return errors.New("undefined arg")
+		result := request.NewResult(plugin.Type())
+		result.Error = fmt.Sprintf("invalid arg %s", os.Args[1])
+		if err := enc.Encode(result); err != nil {
+			return errors.Wrap(err, "unable to encode invalid parameter error to stdout")
+		}
 	}
-	return enc.Encode(out)
+	return nil
 }

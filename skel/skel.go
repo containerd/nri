@@ -3,6 +3,7 @@ package skel
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 
 	types "github.com/containerd/nri/types/v1"
@@ -19,10 +20,7 @@ type Plugin interface {
 
 // Run the plugin from a main() function
 func Run(ctx context.Context, plugin Plugin) error {
-	var (
-		enc = json.NewEncoder(os.Stdout)
-		out interface{}
-	)
+	enc := json.NewEncoder(os.Stdout)
 	var request types.Request
 	if err := json.NewDecoder(os.Stdin).Decode(&request); err != nil {
 		return err

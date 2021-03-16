@@ -10,7 +10,6 @@ require (
 	github.com/containerd/fifo v0.0.0-20200410184934-f15a3290365b // indirect
 	github.com/containerd/ttrpc v1.0.1 // indirect
 	github.com/containerd/typeurl v1.0.1 // indirect
-	github.com/docker/distribution v2.7.1+incompatible // indirect
 	github.com/docker/go-events v0.0.0-20190806004212-e31b211e4f1c // indirect
 	github.com/gogo/googleapis v1.4.0 // indirect
 	github.com/google/go-cmp v0.5.1 // indirect
@@ -27,4 +26,5 @@ require (
 	golang.org/x/sync v0.0.0-20200625203802-6e8e738ad208 // indirect
 	golang.org/x/sys v0.0.0-20200728102440-3e129f6d46b1 // indirect
 	google.golang.org/grpc v1.30.0 // indirect
+	gotest.tools/v3 v3.0.3 // indirect
 )

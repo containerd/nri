@@ -4,7 +4,7 @@ go 1.14
 
 require (
 	// when updating containerd, adjust the replace rules accordingly
-	github.com/containerd/containerd v1.5.1
+	github.com/containerd/containerd v1.5.2
 	github.com/pkg/errors v0.9.1
 )
 

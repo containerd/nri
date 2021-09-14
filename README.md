@@ -101,59 +101,7 @@ A Go based API and client package will be created for both producers of plugins 
 
 ### Sample Plugin
 
-**clearcfs**
-
-Clear the cfs quotas for `ls` services.
-
-
-```go
-package main
-
-import (
-	"context"
-	"fmt"
-	"os"
-
-	"github.com/containerd/containerd/pkg/nri/skel"
-	"github.com/containerd/containerd/pkg/nri/types"
-	"github.com/sirupsen/logrus"
-)
-
-var max = []byte("max")
-
-// clearCFS clears any cfs quotas for the containers
-type clearCFS struct {
-}
-
-func (c *clearCFS) Type() string {
-	return "clearcfs"
-}
-
-func (c *clearCFS) Invoke(ctx context.Context, r *types.Request) (*types.Result, error) {
-	result := r.NewResult()
-	if r.State != types.Create {
-		return result, nil
-	}
-	switch r.Spec.Annotations["qos.class"] {
-	case "ls":
-		logrus.Debugf("clearing cfs for %s", r.ID)
-		group, err := cg.Load(r.Spec.CgroupsPath)
-		if err != nil {
-			return nil, err
-		}
-		return result, group.Write(cg.CFSMax)
-	}
-	return result, nil
-}
-
-func main() {
-	ctx := context.Background()
-	if err := skel.Run(ctx, &clearCFS{}); err != nil {
-		fmt.Fprintf(os.Stderr, "%s", err)
-		os.Exit(1)
-	}
-}
-```
+* [clearcfs](examples/clearcfs/main.go)
 
 ## Project details
 

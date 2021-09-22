@@ -1,12 +1,9 @@
 module github.com/containerd/nri
 
-go 1.14
+go 1.16
 
-require (
-	// when updating containerd, adjust the replace rules accordingly
-	github.com/containerd/containerd v1.5.2
-	github.com/pkg/errors v0.9.1
-)
+// when updating containerd, adjust the replace rules accordingly
+require github.com/containerd/containerd v1.5.5
 
 replace (
 	github.com/gogo/googleapis => github.com/gogo/googleapis v1.3.2

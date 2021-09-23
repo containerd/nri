@@ -23,7 +23,6 @@ import (
 	"os"
 
 	types "github.com/containerd/nri/types/v1"
-	"github.com/pkg/errors"
 )
 
 // Plugin for modifications of resources
@@ -50,13 +49,13 @@ func Run(ctx context.Context, plugin Plugin) error {
 			result.Error = err.Error()
 		}
 		if err := enc.Encode(result); err != nil {
-			return errors.Wrap(err, "unable to encode plugin error to stdout")
+			return fmt.Errorf("unable to encode plugin error to stdout: %w", err)
 		}
 	default:
 		result := request.NewResult(plugin.Type())
 		result.Error = fmt.Sprintf("invalid arg %s", os.Args[1])
 		if err := enc.Encode(result); err != nil {
-			return errors.Wrap(err, "unable to encode invalid parameter error to stdout")
+			return fmt.Errorf("unable to encode invalid parameter error to stdout: %w", err)
 		}
 	}
 	return nil

@@ -23,11 +23,19 @@ PROTO_COMPILE = PATH=$(PATH):$(shell go env GOPATH)/bin; protoc $(PROTO_OPTIONS)
 GO_CMD     := go
 GO_BUILD   := $(GO_CMD) build
 GO_INSTALL := $(GO_CMD) install
+GO_TEST    := $(GO_CMD) test
 GO_LINT    := golint -set_exit_status
 GO_FMT     := gofmt
 GO_VET     := $(GO_CMD) vet
 
+GO_MODULES := $(shell $(GO_CMD) list ./...)
+
 GOLANG_CILINT := golangci-lint
+GINKGO        := ginkgo
+
+BUILD_PATH    := $(shell pwd)/build
+BIN_PATH      := $(BUILD_PATH)/bin
+COVERAGE_PATH := $(BUILD_PATH)/coverage
 
 ifneq ($(V),1)
   Q := @
@@ -42,6 +50,8 @@ all: build
 build: build-proto build-check
 
 allclean: clean-cache
+
+test: test-gopkgs
 
 #
 # build targets
@@ -58,6 +68,29 @@ build-check:
 
 clean-cache:
 	$(Q)$(GO_CMD) clean -cache -testcache
+
+#
+# test targets
+#
+
+test-gopkgs: ginkgo-tests
+
+ginkgo-tests:
+	$(Q)$(GINKGO) run \
+	    --race \
+	    --trace \
+	    --cover \
+	    --covermode atomic \
+	    --output-dir $(COVERAGE_PATH) \
+	    --junit-report junit.xml \
+	    --coverprofile coverprofile \
+	    --succinct \
+	    -r .; \
+	$(GO_CMD) tool cover -html=$(COVERAGE_PATH)/coverprofile -o $(COVERAGE_PATH)/coverage.html
+
+codecov: SHELL := $(shell which bash)
+codecov:
+	bash <(curl -s https://codecov.io/bash) -f $(COVERAGE_PATH)/coverprofile
 
 #
 # other validation targets
@@ -95,3 +128,6 @@ install-ttrpc-plugin:
 
 install-protoc-dependencies:
 	$(Q)$(GO_INSTALL) google.golang.org/protobuf/cmd/protoc-gen-go@v1.28.0
+
+install-ginkgo:
+	$(Q)$(GO_INSTALL) -mod=mod github.com/onsi/ginkgo/v2/ginkgo

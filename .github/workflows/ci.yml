@@ -80,6 +80,5 @@ jobs:
           echo "${{ github.workspace }}/bin" >> $GITHUB_PATH
 
       - run: |
-          go test -v -race -covermode=atomic -coverprofile=coverage.txt -test.root -exec "sudo -n"  ./...
-          bash <(curl -s https://codecov.io/bash)
+          make install-ginkgo test codecov
         working-directory: src/github.com/containerd/nri

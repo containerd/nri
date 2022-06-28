@@ -37,6 +37,9 @@ BUILD_PATH    := $(shell pwd)/build
 BIN_PATH      := $(BUILD_PATH)/bin
 COVERAGE_PATH := $(BUILD_PATH)/coverage
 
+PLUGINS := \
+	$(BIN_PATH)/logger
+
 ifneq ($(V),1)
   Q := @
 endif
@@ -45,11 +48,13 @@ endif
 # top-level targets
 #
 
-all: build
+all: build build-plugins
 
 build: build-proto build-check
 
-allclean: clean-cache
+clean: clean-plugins
+
+allclean: clean clean-cache
 
 test: test-gopkgs
 
@@ -59,6 +64,8 @@ test: test-gopkgs
 
 build-proto: $(PROTO_GOFILES)
 
+build-plugins: $(PLUGINS)
+
 build-check:
 	$(Q)$(GO_BUILD) -v $(GO_MODULES)
 
@@ -66,8 +73,19 @@ build-check:
 # clean targets
 #
 
+clean-plugins:
+	$(Q)rm -f $(PLUGINS)
+
 clean-cache:
 	$(Q)$(GO_CMD) clean -cache -testcache
+
+#
+# plugins build targets
+#
+
+$(BIN_PATH)/logger: $(wildcard plugins/logger/*.go)
+	$(Q)echo "Building $@..."; \
+	cd $(dir $<) && $(GO_BUILD) -o $@ .
 
 #
 # test targets

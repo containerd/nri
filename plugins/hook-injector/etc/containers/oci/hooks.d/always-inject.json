@@ -1,0 +1,14 @@
+{
+    "version": "1.0.0",
+    "hook": {
+        "path": "/usr/local/sbin/demo-hook.sh",
+        "args": ["this", "hook", "is", "always", "injected"],
+        "env": [
+            "DEMO_HOOK_ALWAYS_INJECTED=true"
+        ]
+    },
+    "when": {
+        "always": true
+    },
+    "stages": ["prestart", "poststop"]
+}

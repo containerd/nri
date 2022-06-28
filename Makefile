@@ -38,7 +38,8 @@ BIN_PATH      := $(BUILD_PATH)/bin
 COVERAGE_PATH := $(BUILD_PATH)/coverage
 
 PLUGINS := \
-	$(BIN_PATH)/logger
+	$(BIN_PATH)/logger \
+	$(BIN_PATH)/device-injector
 
 ifneq ($(V),1)
   Q := @
@@ -84,6 +85,10 @@ clean-cache:
 #
 
 $(BIN_PATH)/logger: $(wildcard plugins/logger/*.go)
+	$(Q)echo "Building $@..."; \
+	cd $(dir $<) && $(GO_BUILD) -o $@ .
+
+$(BIN_PATH)/device-injector: $(wildcard plugins/device-injector/*.go)
 	$(Q)echo "Building $@..."; \
 	cd $(dir $<) && $(GO_BUILD) -o $@ .
 

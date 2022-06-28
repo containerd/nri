@@ -1,0 +1,75 @@
+#
+# Once this pod is running, you can verify the results by running
+#   kubectl exec -c c0 bbdev0 -- ls -ls /dev/nri-null
+#   kubectl exec -c c1 bbdev0 -- ls -ls /dev/nri-zero
+#   kubectl exec -c c2 bbdev0 -- mount | grep host-home
+#
+apiVersion: v1
+kind: Pod
+metadata:
+  name: bbdev0
+  labels:
+    app: bbdev0
+  annotations:
+    devices.nri.io/container.c0: |+
+      - path: /dev/nri-null
+        type: c
+        major: 1
+        minor: 3
+    devices.nri.io/container.c1: |+
+      - path: /dev/nri-zero
+        type: c
+        major: 1
+        minor: 5
+    mounts.nri.io/container.c2: |+
+      - source: /home
+        destination: /host-home
+        type: bind
+        options:
+        - bind
+        - ro
+spec:
+  containers:
+  - name: c0
+    image: busybox
+    imagePullPolicy: IfNotPresent
+    command:
+      - sh
+      - -c
+      - echo bbdev0c0 $(sleep inf)
+    resources:
+      requests:
+        cpu: 500m
+        memory: '100M'
+      limits:
+        cpu: 500m
+        memory: '100M'
+  - name: c1
+    image: busybox
+    imagePullPolicy: IfNotPresent
+    command:
+      - sh
+      - -c
+      - echo bbdev0c1 $(sleep inf)
+    resources:
+      requests:
+        cpu: 1
+        memory: '100M'
+      limits:
+        cpu: 1
+        memory: '100M'
+  - name: c2
+    image: busybox
+    imagePullPolicy: IfNotPresent
+    command:
+      - sh
+      - -c
+      - echo bbdev0c1 $(sleep inf)
+    resources:
+      requests:
+        cpu: 1
+        memory: '100M'
+      limits:
+        cpu: 1
+        memory: '100M'
+  terminationGracePeriodSeconds: 1

@@ -10,13 +10,13 @@ jobs:
 
   checks:
     name: Project Checks
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-22.04
     timeout-minutes: 5
 
     steps:
-      - uses: actions/setup-go@v2
+      - uses: actions/setup-go@v3
         with:
-          go-version: 1.16.x
+          go-version: 1.19.x
 
       - name: Set env
         shell: bash
@@ -24,7 +24,7 @@ jobs:
           echo "GOPATH=${{ github.workspace }}" >> $GITHUB_ENV
           echo "${{ github.workspace }}/bin" >> $GITHUB_PATH
 
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           path: src/github.com/containerd/nri
           fetch-depth: 25
@@ -40,11 +40,11 @@ jobs:
 
     strategy:
       matrix:
-        go-version: [1.16.x]
-        os: [ubuntu-18.04]
+        go-version: [1.19.x]
+        os: [ubuntu-22.04]
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           path: src/github.com/containerd/nri
 
@@ -54,24 +54,24 @@ jobs:
           echo "GOPATH=${{ github.workspace }}" >> $GITHUB_ENV
           echo "${{ github.workspace }}/bin" >> $GITHUB_PATH
 
-      - uses: golangci/golangci-lint-action@v2
+      - uses: golangci/golangci-lint-action@v3
         with:
-          version: v1.29
+          version: v1.50.1
           working-directory: src/github.com/containerd/nri
 
   tests:
     name: Tests
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-22.04
     timeout-minutes: 5
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           path: src/github.com/containerd/nri
 
-      - uses: actions/setup-go@v2
+      - uses: actions/setup-go@v3
         with:
-          go-version: 1.16.x
+          go-version: 1.19.x
 
       - name: Set env
         shell: bash

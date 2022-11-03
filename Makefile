@@ -41,7 +41,8 @@ PLUGINS := \
 	$(BIN_PATH)/logger \
 	$(BIN_PATH)/device-injector \
 	$(BIN_PATH)/hook-injector \
-	$(BIN_PATH)/differ
+	$(BIN_PATH)/differ \
+	$(BIN_PATH)/template
 
 
 ifneq ($(V),1)
@@ -100,6 +101,10 @@ $(BIN_PATH)/hook-injector: $(wildcard plugins/hook-injector/*.go)
 	cd $(dir $<) && $(GO_BUILD) -o $@ .
 
 $(BIN_PATH)/differ: $(wildcard plugins/differ/*.go)
+	$(Q)echo "Building $@..."; \
+	cd $(dir $<) && $(GO_BUILD) -o $@ .
+
+$(BIN_PATH)/template: $(wildcard plugins/template/*.go)
 	$(Q)echo "Building $@..."; \
 	cd $(dir $<) && $(GO_BUILD) -o $@ .
 

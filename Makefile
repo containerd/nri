@@ -42,6 +42,7 @@ PLUGINS := \
 	$(BIN_PATH)/device-injector \
 	$(BIN_PATH)/hook-injector \
 	$(BIN_PATH)/differ \
+	$(BIN_PATH)/v010-adapter \
 	$(BIN_PATH)/template
 
 
@@ -101,6 +102,10 @@ $(BIN_PATH)/hook-injector: $(wildcard plugins/hook-injector/*.go)
 	cd $(dir $<) && $(GO_BUILD) -o $@ .
 
 $(BIN_PATH)/differ: $(wildcard plugins/differ/*.go)
+	$(Q)echo "Building $@..."; \
+	cd $(dir $<) && $(GO_BUILD) -o $@ .
+
+$(BIN_PATH)/v010-adapter: $(wildcard plugins/v010-adapter/*.go)
 	$(Q)echo "Building $@..."; \
 	cd $(dir $<) && $(GO_BUILD) -o $@ .
 

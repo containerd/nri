@@ -1,4 +1,4 @@
-module github.com/containerd/nri/v2/plugins/hook-injector
+module github.com/containerd/nri/plugins/hook-injector
 
 go 1.18
 

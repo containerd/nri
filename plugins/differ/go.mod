@@ -1,4 +1,4 @@
-module github.com/containerd/nri/v2/plugins/differ
+module github.com/containerd/nri/plugins/differ
 
 go 1.18
 

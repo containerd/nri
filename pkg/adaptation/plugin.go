@@ -372,7 +372,7 @@ func (p *plugin) createContainer(ctx context.Context, req *CreateContainerReques
 	rpl, err := p.stub.CreateContainer(ctx, req)
 	if err != nil {
 		if isFatalError(err) {
-			log.Errorf(ctx, "closing plugin %s, failed to handle CreateContainer request: %w",
+			log.Errorf(ctx, "closing plugin %s, failed to handle CreateContainer request: %v",
 				p.name(), err)
 			p.close()
 			return nil, nil
@@ -395,7 +395,7 @@ func (p *plugin) updateContainer(ctx context.Context, req *UpdateContainerReques
 	rpl, err := p.stub.UpdateContainer(ctx, req)
 	if err != nil {
 		if isFatalError(err) {
-			log.Errorf(ctx, "closing plugin %s, failed to handle UpdateContainer request: %w",
+			log.Errorf(ctx, "closing plugin %s, failed to handle UpdateContainer request: %v",
 				p.name(), err)
 			p.close()
 			return nil, nil
@@ -418,7 +418,7 @@ func (p *plugin) stopContainer(ctx context.Context, req *StopContainerRequest) (
 	rpl, err := p.stub.StopContainer(ctx, req)
 	if err != nil {
 		if isFatalError(err) {
-			log.Errorf(ctx, "closing plugin %s, failed to handle StopContainer request: %w",
+			log.Errorf(ctx, "closing plugin %s, failed to handle StopContainer request: %v",
 				p.name(), err)
 			p.close()
 			return nil, nil
@@ -441,7 +441,7 @@ func (p *plugin) StateChange(ctx context.Context, evt *StateChangeEvent) error {
 	_, err := p.stub.StateChange(ctx, evt)
 	if err != nil {
 		if isFatalError(err) {
-			log.Errorf(ctx, "closing plugin %s, failed to handle event %d: %w",
+			log.Errorf(ctx, "closing plugin %s, failed to handle event %d: %v",
 				p.name(), evt.Event, err)
 			p.close()
 			return nil

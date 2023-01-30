@@ -60,7 +60,7 @@ type plugin struct {
 }
 
 // Launch a pre-installed plugin with a pre-connected socketpair.
-func newLaunchedPlugin(dir, idx, base, cfg string) (p *plugin, retErr error) {
+func (r *Adaptation) newLaunchedPlugin(dir, idx, base, cfg string) (p *plugin, retErr error) {
 	name := idx + "-" + base
 
 	sockets, err := net.NewSocketPair()
@@ -97,6 +97,7 @@ func newLaunchedPlugin(dir, idx, base, cfg string) (p *plugin, retErr error) {
 		base:   base,
 		regC:   make(chan error, 1),
 		closeC: make(chan struct{}),
+		r:      r,
 	}
 
 	if err = p.cmd.Start(); err != nil {
@@ -111,10 +112,11 @@ func newLaunchedPlugin(dir, idx, base, cfg string) (p *plugin, retErr error) {
 }
 
 // Create a plugin (stub) for an accepted external plugin connection.
-func newExternalPlugin(conn stdnet.Conn) (p *plugin, retErr error) {
+func (r *Adaptation) newExternalPlugin(conn stdnet.Conn) (p *plugin, retErr error) {
 	p = &plugin{
 		regC:   make(chan error, 1),
 		closeC: make(chan struct{}),
+		r:      r,
 	}
 	if err := p.connect(conn); err != nil {
 		return nil, err

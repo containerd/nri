@@ -18,12 +18,15 @@ package adaptation_test
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 
 	"sigs.k8s.io/yaml"
 
+	nri "github.com/containerd/nri/pkg/adaptation"
 	"github.com/containerd/nri/pkg/api"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -117,6 +120,66 @@ var _ = Describe("Configuration", func() {
 		})
 	})
 
+})
+
+var _ = Describe("Adaptation", func() {
+	When("SyncFn is nil", func() {
+		var (
+			syncFn   func(ctx context.Context, cb nri.SyncCB) error
+			updateFn = func(ctx context.Context, updates []*nri.ContainerUpdate) ([]*nri.ContainerUpdate, error) {
+				return nil, nil
+			}
+		)
+
+		It("should prevent Adaptation creation with an error", func() {
+			var (
+				dir = GinkgoT().TempDir()
+				etc = filepath.Join(dir, "etc", "nri")
+				cfg = filepath.Join(etc, "nri.conf")
+			)
+
+			Expect(os.MkdirAll(etc, 0o755)).To(Succeed())
+			Expect(os.WriteFile(cfg, []byte(""), 0o644)).To(Succeed())
+
+			r, err := nri.New("mockRuntime", "0.0.1", syncFn, updateFn,
+				nri.WithConfigPath(filepath.Join(dir, "etc", "nri", "nri.conf")),
+				nri.WithPluginPath(filepath.Join(dir, "opt", "nri", "plugins")),
+				nri.WithSocketPath(filepath.Join(dir, "nri.sock")),
+			)
+
+			Expect(r).To(BeNil())
+			Expect(err).ToNot(BeNil())
+		})
+	})
+
+	When("UpdateFn is nil", func() {
+		var (
+			updateFn func(ctx context.Context, updates []*nri.ContainerUpdate) ([]*nri.ContainerUpdate, error)
+			syncFn   = func(ctx context.Context, cb nri.SyncCB) error {
+				return nil
+			}
+		)
+
+		It("should prevent Adaptation creation with an error", func() {
+			var (
+				dir = GinkgoT().TempDir()
+				etc = filepath.Join(dir, "etc", "nri")
+				cfg = filepath.Join(etc, "nri.conf")
+			)
+
+			Expect(os.MkdirAll(etc, 0o755)).To(Succeed())
+			Expect(os.WriteFile(cfg, []byte(""), 0o644)).To(Succeed())
+
+			r, err := nri.New("mockRuntime", "0.0.1", syncFn, updateFn,
+				nri.WithConfigPath(filepath.Join(dir, "etc", "nri", "nri.conf")),
+				nri.WithPluginPath(filepath.Join(dir, "opt", "nri", "plugins")),
+				nri.WithSocketPath(filepath.Join(dir, "nri.sock")),
+			)
+
+			Expect(r).To(BeNil())
+			Expect(err).ToNot(BeNil())
+		})
+	})
 })
 
 var _ = Describe("Plugin connection", func() {
@@ -1210,6 +1273,73 @@ var _ = Describe("Plugin container updates during creation", func() {
 				},
 			),
 		)
+	})
+})
+
+var _ = Describe("Unsolicited container update requests", func() {
+	var (
+		s = &Suite{}
+	)
+
+	AfterEach(func() {
+		s.Cleanup()
+	})
+
+	When("when there are plugins", func() {
+		BeforeEach(func() {
+			var (
+				config = ""
+			)
+
+			s.Prepare(config, &mockRuntime{}, &mockPlugin{idx: "00", name: "test"})
+		})
+
+		It("should be delivered, without crash/panic", func() {
+			var (
+				runtime = s.runtime
+				plugin  = s.plugins[0]
+				ctx     = context.Background()
+
+				pod = &api.PodSandbox{
+					Id:        "pod0",
+					Name:      "pod0",
+					Uid:       "uid0",
+					Namespace: "default",
+				}
+				ctr = &api.Container{
+					Id:           "ctr0",
+					PodSandboxId: "pod0",
+					Name:         "ctr0",
+					State:        api.ContainerState_CONTAINER_CREATED,
+				}
+
+				recordedUpdates []*nri.ContainerUpdate
+			)
+
+			runtime.updateFn = func(ctx context.Context, updates []*nri.ContainerUpdate) ([]*nri.ContainerUpdate, error) {
+				recordedUpdates = updates
+				return nil, nil
+			}
+
+			s.Startup()
+			Expect(runtime.startStopPodAndContainer(ctx, pod, ctr)).To(Succeed())
+
+			requestedUpdates := []*api.ContainerUpdate{
+				{
+					ContainerId: "pod0",
+					Linux: &api.LinuxContainerUpdate{
+						Resources: &api.LinuxResources{
+							RdtClass: api.String("test"),
+						},
+					},
+				},
+			}
+			failed, err := plugin.stub.UpdateContainers(requestedUpdates)
+
+			Expect(failed).To(BeNil())
+			Expect(err).To(BeNil())
+			Expect(recordedUpdates).ToNot(Equal(requestedUpdates))
+		})
 	})
 })
 

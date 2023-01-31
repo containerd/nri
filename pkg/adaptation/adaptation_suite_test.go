@@ -41,27 +41,9 @@ var _ = Describe("Configuration", func() {
 		s.Cleanup()
 	})
 
-	When("invalid", func() {
-		var (
-			invalidConfig = "xyzzy gibberish foobar"
-		)
-
+	When("no (extra) options given", func() {
 		BeforeEach(func() {
-			s.Prepare(invalidConfig, &mockRuntime{})
-		})
-
-		It("should prevent startup with an error", func() {
-			Expect(s.runtime.Start(s.dir)).ToNot(Succeed())
-		})
-	})
-
-	When("empty", func() {
-		var (
-			emptyConfig = ""
-		)
-
-		BeforeEach(func() {
-			s.Prepare(emptyConfig, &mockRuntime{}, &mockPlugin{idx: "00", name: "test"})
+			s.Prepare(&mockRuntime{}, &mockPlugin{idx: "00", name: "test"})
 		})
 
 		It("should allow startup", func() {
@@ -81,12 +63,17 @@ var _ = Describe("Configuration", func() {
 	})
 
 	When("external connections are explicitly disabled", func() {
-		var (
-			config = "disableConnections: true"
-		)
+		var ()
 
 		BeforeEach(func() {
-			s.Prepare(config, &mockRuntime{}, &mockPlugin{idx: "00", name: "test"})
+			s.Prepare(
+				&mockRuntime{
+					options: []nri.Option{
+						nri.WithDisabledExternalConnections(),
+					},
+				},
+				&mockPlugin{idx: "00", name: "test"},
+			)
 		})
 
 		It("should prevent plugins from connecting", func() {
@@ -98,28 +85,6 @@ var _ = Describe("Configuration", func() {
 			Expect(plugin.Start(s.dir)).ToNot(Succeed())
 		})
 	})
-
-	When("external connections are explicitly enabled", func() {
-		var (
-			config = "disableConnections: false"
-		)
-
-		BeforeEach(func() {
-			s.Prepare(config, &mockRuntime{}, &mockPlugin{idx: "00", name: "test"})
-		})
-
-		It("should allow plugins to connect", func() {
-			var (
-				runtime = s.runtime
-				plugin  = s.plugins[0]
-				timeout = time.After(startupTimeout)
-			)
-			Expect(runtime.Start(s.dir)).To(Succeed())
-			Expect(plugin.Start(s.dir)).To(Succeed())
-			Expect(plugin.Wait(PluginSynchronized, timeout)).To(Succeed())
-		})
-	})
-
 })
 
 var _ = Describe("Adaptation", func() {
@@ -135,15 +100,13 @@ var _ = Describe("Adaptation", func() {
 			var (
 				dir = GinkgoT().TempDir()
 				etc = filepath.Join(dir, "etc", "nri")
-				cfg = filepath.Join(etc, "nri.conf")
 			)
 
 			Expect(os.MkdirAll(etc, 0o755)).To(Succeed())
-			Expect(os.WriteFile(cfg, []byte(""), 0o644)).To(Succeed())
 
 			r, err := nri.New("mockRuntime", "0.0.1", syncFn, updateFn,
-				nri.WithConfigPath(filepath.Join(dir, "etc", "nri", "nri.conf")),
 				nri.WithPluginPath(filepath.Join(dir, "opt", "nri", "plugins")),
+				nri.WithPluginConfigPath(filepath.Join(dir, "etc", "nri", "conf.d")),
 				nri.WithSocketPath(filepath.Join(dir, "nri.sock")),
 			)
 
@@ -164,15 +127,13 @@ var _ = Describe("Adaptation", func() {
 			var (
 				dir = GinkgoT().TempDir()
 				etc = filepath.Join(dir, "etc", "nri")
-				cfg = filepath.Join(etc, "nri.conf")
 			)
 
 			Expect(os.MkdirAll(etc, 0o755)).To(Succeed())
-			Expect(os.WriteFile(cfg, []byte(""), 0o644)).To(Succeed())
 
 			r, err := nri.New("mockRuntime", "0.0.1", syncFn, updateFn,
-				nri.WithConfigPath(filepath.Join(dir, "etc", "nri", "nri.conf")),
 				nri.WithPluginPath(filepath.Join(dir, "opt", "nri", "plugins")),
+				nri.WithPluginConfigPath(filepath.Join(dir, "etc", "nri", "conf.d")),
 				nri.WithSocketPath(filepath.Join(dir, "nri.sock")),
 			)
 
@@ -188,11 +149,7 @@ var _ = Describe("Plugin connection", func() {
 	)
 
 	BeforeEach(func() {
-		var (
-			config = ""
-		)
-
-		s.Prepare(config,
+		s.Prepare(
 			&mockRuntime{
 				pods: map[string]*api.PodSandbox{
 					"pod0": {
@@ -285,11 +242,7 @@ var _ = Describe("Pod and container requests and events", func() {
 
 	When("there are no plugins", func() {
 		BeforeEach(func() {
-			var (
-				config = ""
-			)
-
-			s.Prepare(config, &mockRuntime{})
+			s.Prepare(&mockRuntime{})
 		})
 
 		It("should always succeed", func() {
@@ -330,11 +283,7 @@ var _ = Describe("Pod and container requests and events", func() {
 
 	When("when there are plugins", func() {
 		BeforeEach(func() {
-			var (
-				config = ""
-			)
-
-			s.Prepare(config, &mockRuntime{}, &mockPlugin{idx: "00", name: "test"})
+			s.Prepare(&mockRuntime{}, &mockPlugin{idx: "00", name: "test"})
 		})
 
 		DescribeTable("should honor plugins' event subscriptions",
@@ -405,12 +354,7 @@ var _ = Describe("Pod and container requests and events", func() {
 
 	When("when there are multiple plugins", func() {
 		BeforeEach(func() {
-			var (
-				config = ""
-			)
-
 			s.Prepare(
-				config,
 				&mockRuntime{},
 				&mockPlugin{idx: "20", name: "test"},
 				&mockPlugin{idx: "99", name: "foo"},
@@ -584,11 +528,7 @@ var _ = Describe("Plugin container creation adjustments", func() {
 
 	When("there is a single plugin", func() {
 		BeforeEach(func() {
-			var (
-				config = ""
-			)
-
-			s.Prepare(config, &mockRuntime{}, &mockPlugin{idx: "00", name: "test"})
+			s.Prepare(&mockRuntime{}, &mockPlugin{idx: "00", name: "test"})
 		})
 
 		DescribeTable("should be successfully collected without conflicts",
@@ -770,12 +710,7 @@ var _ = Describe("Plugin container creation adjustments", func() {
 
 	When("there are multiple plugins", func() {
 		BeforeEach(func() {
-			var (
-				config = ""
-			)
-
 			s.Prepare(
-				config,
 				&mockRuntime{},
 				&mockPlugin{idx: "10", name: "foo"},
 				&mockPlugin{idx: "00", name: "bar"},
@@ -956,11 +891,7 @@ var _ = Describe("Plugin container updates during creation", func() {
 
 	When("there is a single plugin", func() {
 		BeforeEach(func() {
-			var (
-				config = ""
-			)
-
-			s.Prepare(config, &mockRuntime{}, &mockPlugin{idx: "00", name: "test"})
+			s.Prepare(&mockRuntime{}, &mockPlugin{idx: "00", name: "test"})
 		})
 
 		DescribeTable("should be successfully collected without conflicts",
@@ -1110,12 +1041,7 @@ var _ = Describe("Plugin container updates during creation", func() {
 
 	When("there are multiple plugins", func() {
 		BeforeEach(func() {
-			var (
-				config = ""
-			)
-
 			s.Prepare(
-				config,
 				&mockRuntime{},
 				&mockPlugin{idx: "10", name: "foo"},
 				&mockPlugin{idx: "00", name: "bar"},
@@ -1287,11 +1213,7 @@ var _ = Describe("Unsolicited container update requests", func() {
 
 	When("when there are plugins", func() {
 		BeforeEach(func() {
-			var (
-				config = ""
-			)
-
-			s.Prepare(config, &mockRuntime{}, &mockPlugin{idx: "00", name: "test"})
+			s.Prepare(&mockRuntime{}, &mockPlugin{idx: "00", name: "test"})
 		})
 
 		It("should be delivered, without crash/panic", func() {

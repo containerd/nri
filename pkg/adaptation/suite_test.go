@@ -48,7 +48,7 @@ const (
 
 // A test suite consist of a runtime and a set of plugins.
 type Suite struct {
-	dir     string        //  directory to create for test
+	dir     string        // directory to create for test
 	runtime *mockRuntime  // runtime instance for test
 	plugins []*mockPlugin // plugin intances for test
 }
@@ -56,22 +56,19 @@ type Suite struct {
 // SuiteOption can be applied to a suite.
 type SuiteOption func(s *Suite) error
 
-// Prepare test suite, creating test directory and configuration.
-func (s *Suite) Prepare(config string, runtime *mockRuntime, plugins ...*mockPlugin) string {
+// Prepare test suite, creating test directory.
+func (s *Suite) Prepare(runtime *mockRuntime, plugins ...*mockPlugin) string {
 	var (
 		dir string
 		etc string
-		cfg string
 	)
 
 	logrus.SetLevel(logrus.ErrorLevel)
 
 	dir = GinkgoT().TempDir()
 	etc = filepath.Join(dir, "etc", "nri")
-	cfg = filepath.Join(etc, "nri.conf")
 
 	Expect(os.MkdirAll(etc, 0o755)).To(Succeed())
-	Expect(os.WriteFile(cfg, []byte(config), 0o644)).To(Succeed())
 
 	s.dir = dir
 	s.runtime = runtime
@@ -124,6 +121,7 @@ func Log(format string, args ...interface{}) {
 }
 
 type mockRuntime struct {
+	options []nri.Option
 	runtime *nri.Adaptation
 	pods    map[string]*api.PodSandbox
 	ctrs    map[string]*api.Container
@@ -132,17 +130,21 @@ type mockRuntime struct {
 }
 
 func (m *mockRuntime) Start(dir string) error {
-	var err error
+	var (
+		options = []nri.Option{
+			nri.WithPluginPath(filepath.Join(dir, "opt", "nri", "plugins")),
+			nri.WithPluginConfigPath(filepath.Join(dir, "etc", "nri", "conf.d")),
+			nri.WithSocketPath(filepath.Join(dir, "nri.sock")),
+		}
+		err error
+	)
 
 	if m.runtime != nil {
 		return errors.New("mock runtime already started")
 	}
 
-	m.runtime, err = nri.New("mockRuntime", "0.0.1", m.synchronize, m.update,
-		nri.WithConfigPath(filepath.Join(dir, "etc", "nri", "nri.conf")),
-		nri.WithPluginPath(filepath.Join(dir, "opt", "nri", "plugins")),
-		nri.WithSocketPath(filepath.Join(dir, "nri.sock")),
-	)
+	options = append(options, m.options...)
+	m.runtime, err = nri.New("mockRuntime", "0.0.1", m.synchronize, m.update, options...)
 	if err != nil {
 		return err
 	}

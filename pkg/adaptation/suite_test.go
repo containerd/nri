@@ -80,6 +80,11 @@ func (s *Suite) Prepare(config string, runtime *mockRuntime, plugins ...*mockPlu
 	return dir
 }
 
+// Dir returns the suite's temporary test directory.
+func (s *Suite) Dir() string {
+	return s.dir
+}
+
 // Startup starts up the test suite.
 func (s *Suite) Startup() {
 	s.StartRuntime()
@@ -357,11 +362,11 @@ func (m *mockPlugin) EventQ() *EventQ {
 	return m.q
 }
 
-func (m *mockPlugin) Start(dir string) error {
+func (m *mockPlugin) Init(dir string) error {
 	var err error
 
 	if m.stub != nil {
-		return fmt.Errorf("plugin %s-%s already started", m.idx, m.name)
+		return fmt.Errorf("plugin %s-%s already initialized", m.idx, m.name)
 	}
 
 	if m.name == "" {
@@ -376,7 +381,7 @@ func (m *mockPlugin) Start(dir string) error {
 
 	m.q = &EventQ{}
 
-	m.Log("Start()...")
+	m.Log("Init()...")
 
 	m.stub, err = stub.New(m,
 		stub.WithPluginName(m.name),
@@ -426,8 +431,17 @@ func (m *mockPlugin) Start(dir string) error {
 		m.removeContainer = nopEvent
 	}
 
-	err = m.stub.Start(context.Background())
-	if err != nil {
+	return nil
+}
+
+func (m *mockPlugin) Start(dir string) error {
+	if m.stub == nil {
+		if err := m.Init(dir); err != nil {
+			return err
+		}
+	}
+
+	if err := m.stub.Start(context.Background()); err != nil {
 		m.q.Add(PluginStartupError)
 		return err
 	}

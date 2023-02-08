@@ -1285,13 +1285,35 @@ var _ = Describe("Unsolicited container update requests", func() {
 		s.Cleanup()
 	})
 
-	When("when there are plugins", func() {
+	When("there are plugins", func() {
 		BeforeEach(func() {
 			var (
 				config = ""
 			)
 
 			s.Prepare(config, &mockRuntime{}, &mockPlugin{idx: "00", name: "test"})
+		})
+
+		It("should fail gracefully without unstarted plugins", func() {
+			var (
+				plugin = s.plugins[0]
+			)
+
+			s.StartRuntime()
+			Expect(plugin.Init(s.Dir())).To(Succeed())
+
+			updates := []*api.ContainerUpdate{
+				{
+					ContainerId: "pod0",
+					Linux: &api.LinuxContainerUpdate{
+						Resources: &api.LinuxResources{
+							RdtClass: api.String("test"),
+						},
+					},
+				},
+			}
+			_, err := plugin.stub.UpdateContainers(updates)
+			Expect(err).ToNot(BeNil())
 		})
 
 		It("should be delivered, without crash/panic", func() {

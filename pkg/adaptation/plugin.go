@@ -125,6 +125,27 @@ func (r *Adaptation) newExternalPlugin(conn stdnet.Conn) (p *plugin, retErr erro
 	return p, nil
 }
 
+// Get plugin-specific configuration for an NRI-launched plugin.
+func (r *Adaptation) getPluginConfig(id, base string) (string, error) {
+	name := id + "-" + base
+	dropIns := []string{
+		filepath.Join(r.dropinPath, name+".conf"),
+		filepath.Join(r.dropinPath, base+".conf"),
+	}
+
+	for _, path := range dropIns {
+		buf, err := os.ReadFile(path)
+		if err == nil {
+			return string(buf), nil
+		}
+		if !os.IsNotExist(err) {
+			return "", fmt.Errorf("failed to read configuration for plugin %q: %w", name, err)
+		}
+	}
+
+	return "", nil
+}
+
 // Check if the plugin is external (was not launched by us).
 func (p *plugin) isExternal() bool {
 	return p.cmd == nil

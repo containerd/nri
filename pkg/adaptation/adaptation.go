@@ -373,7 +373,7 @@ func (r *Adaptation) startListener() error {
 	}
 
 	os.Remove(r.socketPath)
-	if err := os.MkdirAll(filepath.Dir(r.socketPath), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(r.socketPath), 0700); err != nil {
 		return fmt.Errorf("failed to create socket %q: %w", r.socketPath, err)
 	}
 

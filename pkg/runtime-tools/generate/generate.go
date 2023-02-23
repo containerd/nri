@@ -212,13 +212,27 @@ func (g *Generator) AdjustResources(r *nri.LinuxResources) error {
 	g.initConfigLinux()
 
 	if r.Cpu != nil {
-		g.SetLinuxResourcesCPUPeriod(r.Cpu.GetPeriod().GetValue())
-		g.SetLinuxResourcesCPUQuota(r.Cpu.GetQuota().GetValue())
-		g.SetLinuxResourcesCPUShares(r.Cpu.GetShares().GetValue())
-		g.SetLinuxResourcesCPUCpus(r.Cpu.GetCpus())
-		g.SetLinuxResourcesCPUMems(r.Cpu.GetMems())
-		g.SetLinuxResourcesCPURealtimeRuntime(r.Cpu.GetRealtimeRuntime().GetValue())
-		g.SetLinuxResourcesCPURealtimePeriod(r.Cpu.GetRealtimePeriod().GetValue())
+		if r.Cpu.Period != nil {
+			g.SetLinuxResourcesCPUPeriod(r.Cpu.GetPeriod().GetValue())
+		}
+		if r.Cpu.Quota != nil {
+			g.SetLinuxResourcesCPUQuota(r.Cpu.GetQuota().GetValue())
+		}
+		if r.Cpu.Shares != nil {
+			g.SetLinuxResourcesCPUShares(r.Cpu.GetShares().GetValue())
+		}
+		if r.Cpu.Cpus != "" {
+			g.SetLinuxResourcesCPUCpus(r.Cpu.GetCpus())
+		}
+		if r.Cpu.Mems != "" {
+			g.SetLinuxResourcesCPUMems(r.Cpu.GetMems())
+		}
+		if r.Cpu.RealtimeRuntime != nil {
+			g.SetLinuxResourcesCPURealtimeRuntime(r.Cpu.GetRealtimeRuntime().GetValue())
+		}
+		if r.Cpu.RealtimePeriod != nil {
+			g.SetLinuxResourcesCPURealtimePeriod(r.Cpu.GetRealtimePeriod().GetValue())
+		}
 	}
 	if r.Memory != nil {
 		if l := r.Memory.GetLimit().GetValue(); l != 0 {

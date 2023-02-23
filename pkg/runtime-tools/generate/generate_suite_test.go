@@ -212,6 +212,60 @@ var _ = Describe("Adjustment", func() {
 			Expect(spec).To(Equal(makeSpec(withCPUSetMems("5,6"))))
 		})
 	})
+
+	When("has mounts", func() {
+		It("it sorts the Spec mount slice", func() {
+			var (
+				spec   = makeSpec()
+				adjust = &api.ContainerAdjustment{
+					Mounts: []*api.Mount{
+						{
+							Destination: "/a/b/c/d/e",
+							Source:      "/host/e",
+						},
+						{
+							Destination: "/a/b/c",
+							Source:      "/host/c",
+						},
+						{
+							Destination: "/a/b",
+							Source:      "/host/b",
+						},
+						{
+							Destination: "/a",
+							Source:      "/host/a",
+						},
+					},
+				}
+			)
+
+			rg := &rgen.Generator{Config: spec}
+			xg := xgen.SpecGenerator(rg)
+
+			Expect(xg).ToNot(BeNil())
+			Expect(xg.Adjust(adjust)).To(Succeed())
+			Expect(spec).To(Equal(makeSpec(
+				withMounts([]rspec.Mount{
+					{
+						Destination: "/a",
+						Source:      "/host/a",
+					},
+					{
+						Destination: "/a/b",
+						Source:      "/host/b",
+					},
+					{
+						Destination: "/a/b/c",
+						Source:      "/host/c",
+					},
+					{
+						Destination: "/a/b/c/d/e",
+						Source:      "/host/e",
+					},
+				}),
+			)))
+		})
+	})
 })
 
 type specOption func(*rspec.Spec)
@@ -318,6 +372,12 @@ func withCPUSetMems(v string) specOption {
 			spec.Linux.Resources.CPU = &rspec.LinuxCPU{}
 		}
 		spec.Linux.Resources.CPU.Mems = v
+	}
+}
+
+func withMounts(mounts []rspec.Mount) specOption {
+	return func(spec *rspec.Spec) {
+		spec.Mounts = append(spec.Mounts, mounts...)
 	}
 }
 

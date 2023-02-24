@@ -18,6 +18,9 @@ package generate
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
+	"sort"
 	"strings"
 
 	rspec "github.com/opencontainers/runtime-spec/specs-go"
@@ -319,19 +322,20 @@ func (g *Generator) AdjustDevices(devices []*nri.LinuxDevice) {
 
 // AdjustMounts adjusts the mounts in the OCI Spec.
 func (g *Generator) AdjustMounts(mounts []*nri.Mount) error {
-	var (
-		propagation string
-	)
+	if len(mounts) == 0 {
+		return nil
+	}
 
+	propagation := ""
 	for _, m := range mounts {
 		if destination, marked := m.IsMarkedForRemoval(); marked {
 			g.RemoveMount(destination)
 			continue
 		}
+
 		g.RemoveMount(m.Destination)
 
 		mnt := m.ToOCI(&propagation)
-
 		switch propagation {
 		case "rprivate":
 		case "rshared":
@@ -354,8 +358,58 @@ func (g *Generator) AdjustMounts(mounts []*nri.Mount) error {
 		}
 		g.AddMount(mnt)
 	}
+	g.sortMounts()
 
 	return nil
+}
+
+// sortMounts sorts the mounts in the generated OCI Spec.
+func (g *Generator) sortMounts() {
+	mounts := g.Generator.Mounts()
+	g.Generator.ClearMounts()
+	sort.Sort(orderedMounts(mounts))
+
+	// TODO(klihub): This is now a bit ugly maybe we should introduce a
+	// SetMounts([]rspec.Mount) to runtime-tools/generate.Generator. That
+	// could also take care of properly sorting the mount slice.
+
+	g.Generator.Config.Mounts = mounts
+}
+
+// orderedMounts defines how to sort an OCI Spec Mount slice.
+// This is the almost the same implementation sa used by CRI-O and Docker,
+// with a minor tweak for stable sorting order (easier to test):
+//
+//	https://github.com/moby/moby/blob/17.05.x/daemon/volumes.go#L26
+type orderedMounts []rspec.Mount
+
+// Len returns the number of mounts. Used in sorting.
+func (m orderedMounts) Len() int {
+	return len(m)
+}
+
+// Less returns true if the number of parts (a/b/c would be 3 parts) in the
+// mount indexed by parameter 1 is less than that of the mount indexed by
+// parameter 2. Used in sorting.
+func (m orderedMounts) Less(i, j int) bool {
+	ip, jp := m.parts(i), m.parts(j)
+	if ip < jp {
+		return true
+	}
+	if jp < ip {
+		return false
+	}
+	return m[i].Destination < m[j].Destination
+}
+
+// Swap swaps two items in an array of mounts. Used in sorting
+func (m orderedMounts) Swap(i, j int) {
+	m[i], m[j] = m[j], m[i]
+}
+
+// parts returns the number of parts in the destination of a mount. Used in sorting.
+func (m orderedMounts) parts(i int) int {
+	return strings.Count(filepath.Clean(m[i].Destination), string(os.PathSeparator))
 }
 
 func nopFilter(m map[string]string) (map[string]string, error) {

@@ -1,6 +1,6 @@
 module github.com/containerd/nri
 
-go 1.18
+go 1.19
 
 // when updating containerd, adjust the replace rules accordingly
 require (

@@ -312,6 +312,48 @@ The following sample plugins exist for NRI:
 Please see the documentation of these plugins for further details
 about what and how each of these plugins can be used for.
 
+## Security Considerations
+
+From a security perspective NRI plugins should be considered part of the
+container runtime. NRI does not implement granular access control to the
+functionality it offers. Access to NRI is controlled by restricting access
+to the systemwide NRI socket. If a process can connect to the NRI socket
+and send data, it has access to the full scope of functionality available
+via NRI.
+
+In particular this includes
+
+  - injection of OCI hooks, which allow for arbitrary execution of processes with the same privilege level as the container runtime
+  - arbitrary changes to mounts, including new bind-mounts, changes to the proc, sys, mqueue, shm, and tmpfs mounts
+  - the addition or removal of arbitrary devices
+  - arbitrary changes to the limits for memory, CPU, block I/O, and RDT resources available, including the ability to deny service by setting limits very low
+
+The same precautions and principles apply to protecting the NRI socket as
+to protecting the socket of the runtime itself. Unless it already exists,
+NRI itself creates the directory to hold its socket with permissions that
+allow access only for the user ID of the runtime process. By default this
+limits NRI access to processes running as root (UID 0). Changing the default
+socket permissions is strongly advised against. Enabling more permissive
+access control to NRI should never be done without fully understanding the
+full implications and potential consequences to container security.
+
+### Plugins as Kubernetes DaemonSets
+
+When the runtime manages pods and containers in a Kubernetes cluster, it
+is convenient to deploy and manage NRI plugins using Kubernetes DaemonSets.
+Among other things, this requires bind-mounting the NRI socket into the
+filesystem of a privileged container running the plugin. Similar precautions
+apply and the same care should be taken for protecting the NRI socket and
+NRI plugins as for the kubelet DeviceManager socket and Kubernetes Device
+Plugins.
+
+The cluster configuration should make sure that unauthorized users cannot
+bind-mount host directories and create privileged containers which gain
+access to these sockets and can act as NRI or Device Plugins. See the
+[related documentation](https://kubernetes.io/docs/concepts/security/)
+and [best practices](https://kubernetes.io/docs/setup/best-practices/enforcing-pod-security-standards/)
+about Kubernetes security.
+
 ## Project details
 
 nri is a containerd sub-project, licensed under the [Apache 2.0 license](./LICENSE).

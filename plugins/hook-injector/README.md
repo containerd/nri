@@ -4,7 +4,7 @@ The [OCI runtime configuration](https://github.com/opencontainers/runtime-spec/b
 
 ## Testing
 
-You can test this plugin using a Kubernetes cluster/node with a container runtime that has NRI support enabled ([Enabling NRI in Containerd](https://github.com/containerd/containerd/blob/main/docs/NRI.md#enabling-nri-support-in-containerd)). Once you've enabled NRI on your runtime, you can use the [sample hook configuration](etc/containers/oci/hooks.d), placing it at `/etc/containers/oci/hooks.d`, and the [sample hook](usr/local/sbin/demo-hook.sh), placing it at `/usr/local/sbin/`.
+You can test this plugin using a Kubernetes cluster/node with a container runtime that has NRI support enabled ([Enabling NRI in Containerd](https://github.com/containerd/containerd/blob/main/docs/NRI.md#enabling-nri-support-in-containerd)). Once you've enabled NRI on your runtime, you can use the sample hook configuration, placing it at `/etc/containers/oci/hooks.d`, and the [sample hook](usr/local/sbin/demo-hook.sh), placing it at `/usr/local/sbin/`.
 
 >*Note:* OCI hook configuration details and default file paths can be found in the [OCI Configuration Package Documentation](https://pkg.go.dev/github.com/containers/podman/v3/pkg/hooks)
 

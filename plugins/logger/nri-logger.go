@@ -50,7 +50,7 @@ var (
 	_   = stub.ConfigureInterface(&plugin{})
 )
 
-func (p *plugin) Configure(config, runtime, version string) (stub.EventMask, error) {
+func (p *plugin) Configure(_ context.Context, config, runtime, version string) (stub.EventMask, error) {
 	log.Infof("got configuration data: %q from runtime %s %s", config, runtime, version)
 	if config == "" {
 		return p.mask, nil
@@ -79,7 +79,7 @@ func (p *plugin) Configure(config, runtime, version string) (stub.EventMask, err
 	return p.mask, nil
 }
 
-func (p *plugin) Synchronize(pods []*api.PodSandbox, containers []*api.Container) ([]*api.ContainerUpdate, error) {
+func (p *plugin) Synchronize(_ context.Context, pods []*api.PodSandbox, containers []*api.Container) ([]*api.ContainerUpdate, error) {
 	dump("Synchronize", "pods", pods, "containers", containers)
 	return nil, nil
 }
@@ -88,22 +88,22 @@ func (p *plugin) Shutdown() {
 	dump("Shutdown")
 }
 
-func (p *plugin) RunPodSandbox(pod *api.PodSandbox) error {
+func (p *plugin) RunPodSandbox(_ context.Context, pod *api.PodSandbox) error {
 	dump("RunPodSandbox", "pod", pod)
 	return nil
 }
 
-func (p *plugin) StopPodSandbox(pod *api.PodSandbox) error {
+func (p *plugin) StopPodSandbox(_ context.Context, pod *api.PodSandbox) error {
 	dump("StopPodSandbox", "pod", pod)
 	return nil
 }
 
-func (p *plugin) RemovePodSandbox(pod *api.PodSandbox) error {
+func (p *plugin) RemovePodSandbox(_ context.Context, pod *api.PodSandbox) error {
 	dump("RemovePodSandbox", "pod", pod)
 	return nil
 }
 
-func (p *plugin) CreateContainer(pod *api.PodSandbox, container *api.Container) (*api.ContainerAdjustment, []*api.ContainerUpdate, error) {
+func (p *plugin) CreateContainer(_ context.Context, pod *api.PodSandbox, container *api.Container) (*api.ContainerAdjustment, []*api.ContainerUpdate, error) {
 	dump("CreateContainer", "pod", pod, "container", container)
 
 	adjust := &api.ContainerAdjustment{}
@@ -126,37 +126,37 @@ func (p *plugin) CreateContainer(pod *api.PodSandbox, container *api.Container) 
 	return adjust, nil, nil
 }
 
-func (p *plugin) PostCreateContainer(pod *api.PodSandbox, container *api.Container) error {
+func (p *plugin) PostCreateContainer(_ context.Context, pod *api.PodSandbox, container *api.Container) error {
 	dump("PostCreateContainer", "pod", pod, "container", container)
 	return nil
 }
 
-func (p *plugin) StartContainer(pod *api.PodSandbox, container *api.Container) error {
+func (p *plugin) StartContainer(_ context.Context, pod *api.PodSandbox, container *api.Container) error {
 	dump("StartContainer", "pod", pod, "container", container)
 	return nil
 }
 
-func (p *plugin) PostStartContainer(pod *api.PodSandbox, container *api.Container) error {
+func (p *plugin) PostStartContainer(_ context.Context, pod *api.PodSandbox, container *api.Container) error {
 	dump("PostStartContainer", "pod", pod, "container", container)
 	return nil
 }
 
-func (p *plugin) UpdateContainer(pod *api.PodSandbox, container *api.Container) ([]*api.ContainerUpdate, error) {
+func (p *plugin) UpdateContainer(_ context.Context, pod *api.PodSandbox, container *api.Container) ([]*api.ContainerUpdate, error) {
 	dump("UpdateContainer", "pod", pod, "container", container)
 	return nil, nil
 }
 
-func (p *plugin) PostUpdateContainer(pod *api.PodSandbox, container *api.Container) error {
+func (p *plugin) PostUpdateContainer(_ context.Context, pod *api.PodSandbox, container *api.Container) error {
 	dump("PostUpdateContainer", "pod", pod, "container", container)
 	return nil
 }
 
-func (p *plugin) StopContainer(pod *api.PodSandbox, container *api.Container) ([]*api.ContainerUpdate, error) {
+func (p *plugin) StopContainer(_ context.Context, pod *api.PodSandbox, container *api.Container) ([]*api.ContainerUpdate, error) {
 	dump("StopContainer", "pod", pod, "container", container)
 	return nil, nil
 }
 
-func (p *plugin) RemoveContainer(pod *api.PodSandbox, container *api.Container) error {
+func (p *plugin) RemoveContainer(_ context.Context, pod *api.PodSandbox, container *api.Container) error {
 	dump("RemoveContainer", "pod", pod, "container", container)
 	return nil
 }

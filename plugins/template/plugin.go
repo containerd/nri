@@ -43,7 +43,7 @@ var (
 	log *logrus.Logger
 )
 
-func (p *plugin) Configure(config, runtime, version string) (stub.EventMask, error) {
+func (p *plugin) Configure(_ context.Context, config, runtime, version string) (stub.EventMask, error) {
 	log.Infof("Connected to %s/%s...", runtime, version)
 
 	if config == "" {
@@ -60,31 +60,31 @@ func (p *plugin) Configure(config, runtime, version string) (stub.EventMask, err
 	return 0, nil
 }
 
-func (p *plugin) Synchronize(pods []*api.PodSandbox, containers []*api.Container) ([]*api.ContainerUpdate, error) {
+func (p *plugin) Synchronize(_ context.Context, pods []*api.PodSandbox, containers []*api.Container) ([]*api.ContainerUpdate, error) {
 	log.Info("Synchronizing state with the runtime...")
 	return nil, nil
 }
 
-func (p *plugin) Shutdown() {
+func (p *plugin) Shutdown(_ context.Context) {
 	log.Info("Runtime shutting down...")
 }
 
-func (p *plugin) RunPodSandbox(pod *api.PodSandbox) error {
+func (p *plugin) RunPodSandbox(_ context.Context, pod *api.PodSandbox) error {
 	log.Infof("Started pod %s/%s...", pod.GetNamespace(), pod.GetName())
 	return nil
 }
 
-func (p *plugin) StopPodSandbox(pod *api.PodSandbox) error {
+func (p *plugin) StopPodSandbox(_ context.Context, pod *api.PodSandbox) error {
 	log.Infof("Stopped pod %s/%s...", pod.GetNamespace(), pod.GetName())
 	return nil
 }
 
-func (p *plugin) RemovePodSandbox(pod *api.PodSandbox) error {
+func (p *plugin) RemovePodSandbox(_ context.Context, pod *api.PodSandbox) error {
 	log.Infof("Removed pod %s/%s...", pod.GetNamespace(), pod.GetName())
 	return nil
 }
 
-func (p *plugin) CreateContainer(pod *api.PodSandbox, ctr *api.Container) (*api.ContainerAdjustment, []*api.ContainerUpdate, error) {
+func (p *plugin) CreateContainer(_ context.Context, pod *api.PodSandbox, ctr *api.Container) (*api.ContainerAdjustment, []*api.ContainerUpdate, error) {
 	log.Infof("Creating container %s/%s/%s...", pod.GetNamespace(), pod.GetName(), ctr.GetName())
 
 	//
@@ -105,22 +105,22 @@ func (p *plugin) CreateContainer(pod *api.PodSandbox, ctr *api.Container) (*api.
 	return adjustment, updates, nil
 }
 
-func (p *plugin) PostCreateContainer(pod *api.PodSandbox, ctr *api.Container) error {
+func (p *plugin) PostCreateContainer(_ context.Context, pod *api.PodSandbox, ctr *api.Container) error {
 	log.Infof("Created container %s/%s/%s...", pod.GetNamespace(), pod.GetName(), ctr.GetName())
 	return nil
 }
 
-func (p *plugin) StartContainer(pod *api.PodSandbox, ctr *api.Container) error {
+func (p *plugin) StartContainer(_ context.Context, pod *api.PodSandbox, ctr *api.Container) error {
 	log.Infof("Starting container %s/%s/%s...", pod.GetNamespace(), pod.GetName(), ctr.GetName())
 	return nil
 }
 
-func (p *plugin) PostStartContainer(pod *api.PodSandbox, ctr *api.Container) error {
+func (p *plugin) PostStartContainer(_ context.Context, pod *api.PodSandbox, ctr *api.Container) error {
 	log.Infof("Started container %s/%s/%s...", pod.GetNamespace(), pod.GetName(), ctr.GetName())
 	return nil
 }
 
-func (p *plugin) UpdateContainer(pod *api.PodSandbox, ctr *api.Container) ([]*api.ContainerUpdate, error) {
+func (p *plugin) UpdateContainer(_ context.Context, pod *api.PodSandbox, ctr *api.Container) ([]*api.ContainerUpdate, error) {
 	log.Infof("Updating container %s/%s/%s...", pod.GetNamespace(), pod.GetName(), ctr.GetName())
 
 	//
@@ -137,12 +137,12 @@ func (p *plugin) UpdateContainer(pod *api.PodSandbox, ctr *api.Container) ([]*ap
 	return updates, nil
 }
 
-func (p *plugin) PostUpdateContainer(pod *api.PodSandbox, ctr *api.Container) error {
+func (p *plugin) PostUpdateContainer(_ context.Context, pod *api.PodSandbox, ctr *api.Container) error {
 	log.Infof("Updated container %s/%s/%s...", pod.GetNamespace(), pod.GetName(), ctr.GetName())
 	return nil
 }
 
-func (p *plugin) StopContainer(pod *api.PodSandbox, ctr *api.Container) ([]*api.ContainerUpdate, error) {
+func (p *plugin) StopContainer(_ context.Context, pod *api.PodSandbox, ctr *api.Container) ([]*api.ContainerUpdate, error) {
 	log.Infof("Stopped container %s/%s/%s...", pod.GetNamespace(), pod.GetName(), ctr.GetName())
 
 	//
@@ -154,7 +154,7 @@ func (p *plugin) StopContainer(pod *api.PodSandbox, ctr *api.Container) ([]*api.
 	return []*api.ContainerUpdate{}, nil
 }
 
-func (p *plugin) RemoveContainer(pod *api.PodSandbox, ctr *api.Container) error {
+func (p *plugin) RemoveContainer(_ context.Context, pod *api.PodSandbox, ctr *api.Container) error {
 	log.Infof("Removed container %s/%s/%s...", pod.GetNamespace(), pod.GetName(), ctr.GetName())
 	return nil
 }

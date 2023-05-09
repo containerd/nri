@@ -68,7 +68,7 @@ var (
 	indices map[int]pluginIndex
 )
 
-func (p *plugin) Configure(nriCfg string) (stub.EventMask, error) {
+func (p *plugin) Configure(_ context.Context, nriCfg string) (stub.EventMask, error) {
 	log.Infof("got configuration data: %q", nriCfg)
 	if nriCfg == "" {
 		return p.mask, nil
@@ -177,7 +177,7 @@ func (p *plugin) differ(apifunc string, pod *api.PodSandbox, container *api.Cont
 	}
 }
 
-func (p *plugin) Synchronize(pods []*api.PodSandbox, containers []*api.Container) ([]*api.ContainerUpdate, error) {
+func (p *plugin) Synchronize(_ context.Context, pods []*api.PodSandbox, containers []*api.Container) ([]*api.ContainerUpdate, error) {
 	if cfg.VerboseLevel > 2 {
 		p.dump("Synchronize", "pods", pods, "containers", containers)
 	}
@@ -185,26 +185,26 @@ func (p *plugin) Synchronize(pods []*api.PodSandbox, containers []*api.Container
 	return nil, nil
 }
 
-func (p *plugin) Shutdown() {
+func (p *plugin) Shutdown(_ context.Context) {
 	p.dump("Shutdown")
 }
 
-func (p *plugin) RunPodSandbox(pod *api.PodSandbox) error {
+func (p *plugin) RunPodSandbox(_ context.Context, pod *api.PodSandbox) error {
 	p.differ("RunPodSandbox", pod, nil)
 	return nil
 }
 
-func (p *plugin) StopPodSandbox(pod *api.PodSandbox) error {
+func (p *plugin) StopPodSandbox(_ context.Context, pod *api.PodSandbox) error {
 	p.differ("StopPodSandbox", pod, nil)
 	return nil
 }
 
-func (p *plugin) RemovePodSandbox(pod *api.PodSandbox) error {
+func (p *plugin) RemovePodSandbox(_ context.Context, pod *api.PodSandbox) error {
 	p.differ("RemovePodSandbox", pod, nil)
 	return nil
 }
 
-func (p *plugin) CreateContainer(pod *api.PodSandbox, container *api.Container) (*api.ContainerAdjustment, []*api.ContainerUpdate, error) {
+func (p *plugin) CreateContainer(_ context.Context, pod *api.PodSandbox, container *api.Container) (*api.ContainerAdjustment, []*api.ContainerUpdate, error) {
 	p.differ("CreateContainer", pod, container)
 
 	adjust := &api.ContainerAdjustment{}
@@ -212,39 +212,39 @@ func (p *plugin) CreateContainer(pod *api.PodSandbox, container *api.Container) 
 	return adjust, nil, nil
 }
 
-func (p *plugin) PostCreateContainer(pod *api.PodSandbox, container *api.Container) error {
+func (p *plugin) PostCreateContainer(_ context.Context, pod *api.PodSandbox, container *api.Container) error {
 	p.differ("PostCreateContainer", pod, container)
 	return nil
 }
 
-func (p *plugin) StartContainer(pod *api.PodSandbox, container *api.Container) error {
+func (p *plugin) StartContainer(_ context.Context, pod *api.PodSandbox, container *api.Container) error {
 	p.differ("StartContainer", pod, container)
 	return nil
 }
 
-func (p *plugin) PostStartContainer(pod *api.PodSandbox, container *api.Container) error {
+func (p *plugin) PostStartContainer(_ context.Context, pod *api.PodSandbox, container *api.Container) error {
 	p.differ("PostStartContainer", pod, container)
 	return nil
 }
 
-func (p *plugin) UpdateContainer(pod *api.PodSandbox, container *api.Container) ([]*api.ContainerUpdate, error) {
+func (p *plugin) UpdateContainer(_ context.Context, pod *api.PodSandbox, container *api.Container) ([]*api.ContainerUpdate, error) {
 	p.differ("UpdateContainer", pod, container)
 
 	return nil, nil
 }
 
-func (p *plugin) PostUpdateContainer(pod *api.PodSandbox, container *api.Container) error {
+func (p *plugin) PostUpdateContainer(_ context.Context, pod *api.PodSandbox, container *api.Container) error {
 	p.differ("PostUpdateContainer", pod, container)
 	return nil
 }
 
-func (p *plugin) StopContainer(pod *api.PodSandbox, container *api.Container) ([]*api.ContainerUpdate, error) {
+func (p *plugin) StopContainer(_ context.Context, pod *api.PodSandbox, container *api.Container) ([]*api.ContainerUpdate, error) {
 	p.differ("StopContainer", pod, container)
 
 	return nil, nil
 }
 
-func (p *plugin) RemoveContainer(pod *api.PodSandbox, container *api.Container) error {
+func (p *plugin) RemoveContainer(_ context.Context, pod *api.PodSandbox, container *api.Container) error {
 	p.differ("RemoveContainer", pod, container)
 	return nil
 }

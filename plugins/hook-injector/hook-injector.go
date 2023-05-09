@@ -43,7 +43,7 @@ type plugin struct {
 	mgr  *hooks.Manager
 }
 
-func (p *plugin) CreateContainer(pod *api.PodSandbox, container *api.Container) (*api.ContainerAdjustment, []*api.ContainerUpdate, error) {
+func (p *plugin) CreateContainer(_ context.Context, pod *api.PodSandbox, container *api.Container) (*api.ContainerAdjustment, []*api.ContainerUpdate, error) {
 	ctrName := containerName(pod, container)
 
 	if verbose {

@@ -31,6 +31,7 @@ import (
 	nrilog "github.com/containerd/nri/pkg/log"
 	"github.com/containerd/nri/pkg/net"
 	"github.com/containerd/nri/pkg/net/multiplex"
+	"github.com/containerd/otelttrpc"
 	"github.com/containerd/ttrpc"
 )
 
@@ -227,6 +228,14 @@ func WithDialer(d func(string) (stdnet.Conn, error)) Option {
 	}
 }
 
+// WithOpenTelemetry enables opentelemetry instrumentation.
+func WithOpenTelemetry() Option {
+	return func(s *stub) error {
+		s.withOtel = true
+		return nil
+	}
+}
+
 // stub implements Stub.
 type stub struct {
 	sync.Mutex
@@ -239,6 +248,7 @@ type stub struct {
 	dialer     func(string) (stdnet.Conn, error)
 	conn       stdnet.Conn
 	onClose    func()
+	withOtel   bool
 	rpcm       multiplex.Mux
 	rpcl       stdnet.Listener
 	rpcs       *ttrpc.Server
@@ -334,7 +344,16 @@ func (stub *stub) Start(ctx context.Context) (retErr error) {
 		}
 	}()
 
-	rpcs, err := ttrpc.NewServer()
+	var srvOpts []ttrpc.ServerOpt
+	if stub.withOtel {
+		srvOpts = append(srvOpts,
+			ttrpc.WithUnaryServerInterceptor(
+				otelttrpc.UnaryServerInterceptor(),
+			),
+		)
+	}
+
+	rpcs, err := ttrpc.NewServer(srvOpts...)
 	if err != nil {
 		return fmt.Errorf("failed to create ttrpc server: %w", err)
 	}
@@ -351,11 +370,21 @@ func (stub *stub) Start(ctx context.Context) (retErr error) {
 	if err != nil {
 		return fmt.Errorf("failed to multiplex ttrpc client connection: %w", err)
 	}
-	rpcc := ttrpc.NewClient(conn,
+
+	cliOpts := []ttrpc.ClientOpts{
 		ttrpc.WithOnClose(func() {
 			stub.connClosed()
 		}),
-	)
+	}
+	if stub.withOtel {
+		cliOpts = append(cliOpts,
+			ttrpc.WithUnaryClientInterceptor(
+				otelttrpc.UnaryClientInterceptor(),
+			),
+		)
+	}
+
+	rpcc := ttrpc.NewClient(conn, cliOpts...)
 	defer func() {
 		if retErr != nil {
 			rpcc.Close()

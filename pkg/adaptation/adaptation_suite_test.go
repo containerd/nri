@@ -1202,6 +1202,544 @@ var _ = Describe("Plugin container updates during creation", func() {
 	})
 })
 
+var _ = Describe("Solicited container updates by plugins", func() {
+	var (
+		s = &Suite{}
+	)
+
+	update := func(subject, which string, p *mockPlugin, pod *api.PodSandbox, ctr *api.Container, r, exp *api.LinuxResources) ([]*api.ContainerUpdate, error) {
+		plugin := p.idx + "-" + p.name
+
+		if which != plugin && which != "*" && which != "both" {
+			return nil, nil
+		}
+		if ctr.Name != "ctr0" {
+			return nil, nil
+		}
+
+		u := &api.ContainerUpdate{}
+		u.SetContainerId(ctr.Id)
+
+		switch subject {
+		case "resources/cpu":
+			u.SetLinuxCPUShares(123)
+			u.SetLinuxCPUQuota(456)
+			u.SetLinuxCPUPeriod(789)
+			u.SetLinuxCPURealtimeRuntime(321)
+			u.SetLinuxCPURealtimePeriod(654)
+			u.SetLinuxCPUSetCPUs("0-1")
+			u.SetLinuxCPUSetMems("2-3")
+
+		case "resources/memory":
+			u.SetLinuxMemoryLimit(1234000)
+			u.SetLinuxMemoryReservation(4000)
+			u.SetLinuxMemorySwap(34000)
+			u.SetLinuxMemoryKernel(30000)
+			u.SetLinuxMemoryKernelTCP(2000)
+			u.SetLinuxMemorySwappiness(987)
+			u.SetLinuxMemoryDisableOomKiller()
+			u.SetLinuxMemoryUseHierarchy()
+
+		case "resources/classes":
+			u.SetLinuxRDTClass(plugin)
+			u.SetLinuxBlockIOClass(plugin)
+
+		case "resources/hugepagelimits":
+			u.AddLinuxHugepageLimit("1M", 4096)
+			u.AddLinuxHugepageLimit("4M", 1024)
+
+		case "resources/unified":
+			u.AddLinuxUnified("resource.1", "value1")
+			u.AddLinuxUnified("resource.2", "value2")
+		}
+
+		return []*api.ContainerUpdate{u}, nil
+	}
+
+	AfterEach(func() {
+		s.Cleanup()
+	})
+
+	When("there is a single plugin", func() {
+		BeforeEach(func() {
+			s.Prepare(&mockRuntime{}, &mockPlugin{idx: "00", name: "test"})
+		})
+
+		DescribeTable("should be successfully collected without conflicts",
+			func(subject string, expected *api.ContainerUpdate) {
+				var (
+					runtime = s.runtime
+					plugin  = s.plugins[0]
+					ctx     = context.Background()
+
+					pod0 = &api.PodSandbox{
+						Id:        "pod0",
+						Name:      "pod0",
+						Uid:       "uid0",
+						Namespace: "default",
+					}
+					ctr0 = &api.Container{
+						Id:           "ctr0",
+						PodSandboxId: "pod0",
+						Name:         "ctr0",
+						State:        api.ContainerState_CONTAINER_CREATED, // XXX FIXME-kludge
+					}
+
+					reply *api.UpdateContainerResponse
+				)
+
+				updateContainer := func(p *mockPlugin, pod *api.PodSandbox, ctr *api.Container, r *api.LinuxResources) ([]*api.ContainerUpdate, error) {
+					plugin := p.idx + "-" + p.name
+					return update(subject, plugin, p, pod, ctr, r, nil)
+				}
+				plugin.updateContainer = updateContainer
+
+				s.Startup()
+
+				podReq := &api.RunPodSandboxRequest{Pod: pod0}
+				Expect(runtime.runtime.RunPodSandbox(ctx, podReq)).To(Succeed())
+				ctrReq := &api.CreateContainerRequest{
+					Pod:       pod0,
+					Container: ctr0,
+				}
+				_, err := runtime.runtime.CreateContainer(ctx, ctrReq)
+				Expect(err).To(BeNil())
+
+				updReq := &api.UpdateContainerRequest{
+					Pod:       pod0,
+					Container: ctr0,
+					LinuxResources: &api.LinuxResources{
+						Cpu: &api.LinuxCPU{
+							Shares:          api.UInt64(999),
+							Quota:           api.Int64(888),
+							Period:          api.UInt64(777),
+							RealtimeRuntime: api.Int64(666),
+							RealtimePeriod:  api.UInt64(555),
+							Cpus:            "444",
+							Mems:            "333",
+						},
+						Memory: &api.LinuxMemory{
+							Limit:            api.Int64(9999),
+							Reservation:      api.Int64(8888),
+							Swap:             api.Int64(7777),
+							Kernel:           api.Int64(6666),
+							KernelTcp:        api.Int64(5555),
+							Swappiness:       api.UInt64(444),
+							DisableOomKiller: api.Bool(false),
+							UseHierarchy:     api.Bool(false),
+						},
+					},
+				}
+				reply, err = runtime.runtime.UpdateContainer(ctx, updReq)
+
+				Expect(len(reply.Update)).To(Equal(1))
+				Expect(err).To(BeNil())
+				expected.ContainerId = reply.Update[0].ContainerId
+				Expect(stripUpdate(reply.Update[0])).Should(Equal(stripUpdate(expected)))
+			},
+
+			Entry("update CPU resources", "resources/cpu",
+				&api.ContainerUpdate{
+					Linux: &api.LinuxContainerUpdate{
+						Resources: &api.LinuxResources{
+							Cpu: &api.LinuxCPU{
+								Shares:          api.UInt64(123),
+								Quota:           api.Int64(456),
+								Period:          api.UInt64(789),
+								RealtimeRuntime: api.Int64(321),
+								RealtimePeriod:  api.UInt64(654),
+								Cpus:            "0-1",
+								Mems:            "2-3",
+							},
+							Memory: &api.LinuxMemory{
+								Limit:            api.Int64(9999),
+								Reservation:      api.Int64(8888),
+								Swap:             api.Int64(7777),
+								Kernel:           api.Int64(6666),
+								KernelTcp:        api.Int64(5555),
+								Swappiness:       api.UInt64(444),
+								DisableOomKiller: api.Bool(false),
+								UseHierarchy:     api.Bool(false),
+							},
+						},
+					},
+				},
+			),
+			Entry("update memory resources", "resources/memory",
+				&api.ContainerUpdate{
+					Linux: &api.LinuxContainerUpdate{
+						Resources: &api.LinuxResources{
+							Cpu: &api.LinuxCPU{
+								Shares:          api.UInt64(999),
+								Quota:           api.Int64(888),
+								Period:          api.UInt64(777),
+								RealtimeRuntime: api.Int64(666),
+								RealtimePeriod:  api.UInt64(555),
+								Cpus:            "444",
+								Mems:            "333",
+							},
+							Memory: &api.LinuxMemory{
+								Limit:            api.Int64(1234000),
+								Reservation:      api.Int64(4000),
+								Swap:             api.Int64(34000),
+								Kernel:           api.Int64(30000),
+								KernelTcp:        api.Int64(2000),
+								Swappiness:       api.UInt64(987),
+								DisableOomKiller: api.Bool(true),
+								UseHierarchy:     api.Bool(true),
+							},
+						},
+					},
+				},
+			),
+			Entry("update class-based resources", "resources/classes",
+				&api.ContainerUpdate{
+					Linux: &api.LinuxContainerUpdate{
+						Resources: &api.LinuxResources{
+							Cpu: &api.LinuxCPU{
+								Shares:          api.UInt64(999),
+								Quota:           api.Int64(888),
+								Period:          api.UInt64(777),
+								RealtimeRuntime: api.Int64(666),
+								RealtimePeriod:  api.UInt64(555),
+								Cpus:            "444",
+								Mems:            "333",
+							},
+							Memory: &api.LinuxMemory{
+								Limit:            api.Int64(9999),
+								Reservation:      api.Int64(8888),
+								Swap:             api.Int64(7777),
+								Kernel:           api.Int64(6666),
+								KernelTcp:        api.Int64(5555),
+								Swappiness:       api.UInt64(444),
+								DisableOomKiller: api.Bool(false),
+								UseHierarchy:     api.Bool(false),
+							},
+
+							RdtClass:     api.String("00-test"),
+							BlockioClass: api.String("00-test"),
+						},
+					},
+				},
+			),
+			Entry("update hugepage limits", "resources/hugepagelimits",
+				&api.ContainerUpdate{
+					Linux: &api.LinuxContainerUpdate{
+						Resources: &api.LinuxResources{
+							Cpu: &api.LinuxCPU{
+								Shares:          api.UInt64(999),
+								Quota:           api.Int64(888),
+								Period:          api.UInt64(777),
+								RealtimeRuntime: api.Int64(666),
+								RealtimePeriod:  api.UInt64(555),
+								Cpus:            "444",
+								Mems:            "333",
+							},
+							Memory: &api.LinuxMemory{
+								Limit:            api.Int64(9999),
+								Reservation:      api.Int64(8888),
+								Swap:             api.Int64(7777),
+								Kernel:           api.Int64(6666),
+								KernelTcp:        api.Int64(5555),
+								Swappiness:       api.UInt64(444),
+								DisableOomKiller: api.Bool(false),
+								UseHierarchy:     api.Bool(false),
+							},
+							HugepageLimits: []*api.HugepageLimit{
+								{
+									PageSize: "1M",
+									Limit:    4096,
+								},
+								{
+									PageSize: "4M",
+									Limit:    1024,
+								},
+							},
+						},
+					},
+				},
+			),
+			Entry("update cgroupv2 unified resources", "resources/unified",
+				&api.ContainerUpdate{
+					Linux: &api.LinuxContainerUpdate{
+						Resources: &api.LinuxResources{
+							Cpu: &api.LinuxCPU{
+								Shares:          api.UInt64(999),
+								Quota:           api.Int64(888),
+								Period:          api.UInt64(777),
+								RealtimeRuntime: api.Int64(666),
+								RealtimePeriod:  api.UInt64(555),
+								Cpus:            "444",
+								Mems:            "333",
+							},
+							Memory: &api.LinuxMemory{
+								Limit:            api.Int64(9999),
+								Reservation:      api.Int64(8888),
+								Swap:             api.Int64(7777),
+								Kernel:           api.Int64(6666),
+								KernelTcp:        api.Int64(5555),
+								Swappiness:       api.UInt64(444),
+								DisableOomKiller: api.Bool(false),
+								UseHierarchy:     api.Bool(false),
+							},
+
+							Unified: map[string]string{
+								"resource.1": "value1",
+								"resource.2": "value2",
+							},
+						},
+					},
+				},
+			),
+		)
+	})
+
+	When("there are multiple plugins", func() {
+		BeforeEach(func() {
+			s.Prepare(
+				&mockRuntime{},
+				&mockPlugin{idx: "10", name: "foo"},
+				&mockPlugin{idx: "00", name: "bar"},
+			)
+		})
+
+		DescribeTable("should fail with conflicts, successfully collected otherwise",
+			func(subject string, which string, expected *api.ContainerUpdate) {
+				var (
+					runtime = s.runtime
+					plugins = s.plugins
+					ctx     = context.Background()
+
+					pod0 = &api.PodSandbox{
+						Id:        "pod0",
+						Name:      "pod0",
+						Uid:       "uid0",
+						Namespace: "default",
+					}
+					ctr0 = &api.Container{
+						Id:           "ctr0",
+						PodSandboxId: "pod0",
+						Name:         "ctr0",
+						State:        api.ContainerState_CONTAINER_CREATED, // XXX FIXME-kludge
+					}
+
+					reply *api.UpdateContainerResponse
+				)
+
+				updateContainer := func(p *mockPlugin, pod *api.PodSandbox, ctr *api.Container, r *api.LinuxResources) ([]*api.ContainerUpdate, error) {
+					return update(subject, which, p, pod, ctr, r, nil)
+				}
+
+				plugins[0].updateContainer = updateContainer
+				plugins[1].updateContainer = updateContainer
+
+				s.Startup()
+
+				podReq := &api.RunPodSandboxRequest{Pod: pod0}
+				Expect(runtime.runtime.RunPodSandbox(ctx, podReq)).To(Succeed())
+				ctrReq := &api.CreateContainerRequest{
+					Pod:       pod0,
+					Container: ctr0,
+				}
+				_, err := runtime.runtime.CreateContainer(ctx, ctrReq)
+				Expect(err).To(BeNil())
+
+				updReq := &api.UpdateContainerRequest{
+					Pod:       pod0,
+					Container: ctr0,
+					LinuxResources: &api.LinuxResources{
+						Cpu: &api.LinuxCPU{
+							Shares:          api.UInt64(999),
+							Quota:           api.Int64(888),
+							Period:          api.UInt64(777),
+							RealtimeRuntime: api.Int64(666),
+							RealtimePeriod:  api.UInt64(555),
+							Cpus:            "444",
+							Mems:            "333",
+						},
+						Memory: &api.LinuxMemory{
+							Limit:            api.Int64(9999),
+							Reservation:      api.Int64(8888),
+							Swap:             api.Int64(7777),
+							Kernel:           api.Int64(6666),
+							KernelTcp:        api.Int64(5555),
+							Swappiness:       api.UInt64(444),
+							DisableOomKiller: api.Bool(false),
+							UseHierarchy:     api.Bool(false),
+						},
+					},
+				}
+				reply, err = runtime.runtime.UpdateContainer(ctx, updReq)
+				if which == "both" {
+					Expect(err).ToNot(BeNil())
+				} else {
+					Expect(err).To(BeNil())
+					Expect(len(reply.Update)).To(Equal(1))
+					expected.ContainerId = reply.Update[0].ContainerId
+					Expect(stripUpdate(reply.Update[0])).Should(Equal(stripUpdate(expected)))
+				}
+			},
+
+			Entry("update CPU resources", "resources/cpu", "both", nil),
+			Entry("update CPU resources", "resources/cpu", "10-foo",
+				&api.ContainerUpdate{
+					Linux: &api.LinuxContainerUpdate{
+						Resources: &api.LinuxResources{
+							Cpu: &api.LinuxCPU{
+								Shares:          api.UInt64(123),
+								Quota:           api.Int64(456),
+								Period:          api.UInt64(789),
+								RealtimeRuntime: api.Int64(321),
+								RealtimePeriod:  api.UInt64(654),
+								Cpus:            "0-1",
+								Mems:            "2-3",
+							},
+							Memory: &api.LinuxMemory{
+								Limit:            api.Int64(9999),
+								Reservation:      api.Int64(8888),
+								Swap:             api.Int64(7777),
+								Kernel:           api.Int64(6666),
+								KernelTcp:        api.Int64(5555),
+								Swappiness:       api.UInt64(444),
+								DisableOomKiller: api.Bool(false),
+								UseHierarchy:     api.Bool(false),
+							},
+						},
+					},
+				},
+			),
+			Entry("update memory resources", "resources/memory", "both", nil),
+			Entry("update memory resources", "resources/memory", "10-foo",
+				&api.ContainerUpdate{
+					Linux: &api.LinuxContainerUpdate{
+						Resources: &api.LinuxResources{
+							Cpu: &api.LinuxCPU{
+								Shares:          api.UInt64(999),
+								Quota:           api.Int64(888),
+								Period:          api.UInt64(777),
+								RealtimeRuntime: api.Int64(666),
+								RealtimePeriod:  api.UInt64(555),
+								Cpus:            "444",
+								Mems:            "333",
+							},
+							Memory: &api.LinuxMemory{
+								Limit:            api.Int64(1234000),
+								Reservation:      api.Int64(4000),
+								Swap:             api.Int64(34000),
+								Kernel:           api.Int64(30000),
+								KernelTcp:        api.Int64(2000),
+								Swappiness:       api.UInt64(987),
+								DisableOomKiller: api.Bool(true),
+								UseHierarchy:     api.Bool(true),
+							},
+						},
+					},
+				},
+			),
+			Entry("update class-based resources", "resources/classes", "both", nil),
+			Entry("update class-based resources", "resources/classes", "10-foo",
+				&api.ContainerUpdate{
+					Linux: &api.LinuxContainerUpdate{
+						Resources: &api.LinuxResources{
+							Cpu: &api.LinuxCPU{
+								Shares:          api.UInt64(999),
+								Quota:           api.Int64(888),
+								Period:          api.UInt64(777),
+								RealtimeRuntime: api.Int64(666),
+								RealtimePeriod:  api.UInt64(555),
+								Cpus:            "444",
+								Mems:            "333",
+							},
+							Memory: &api.LinuxMemory{
+								Limit:            api.Int64(9999),
+								Reservation:      api.Int64(8888),
+								Swap:             api.Int64(7777),
+								Kernel:           api.Int64(6666),
+								KernelTcp:        api.Int64(5555),
+								Swappiness:       api.UInt64(444),
+								DisableOomKiller: api.Bool(false),
+								UseHierarchy:     api.Bool(false),
+							},
+							RdtClass:     api.String("10-foo"),
+							BlockioClass: api.String("10-foo"),
+						},
+					},
+				},
+			),
+			Entry("update hugepage limits", "resources/hugepagelimits", "both", nil),
+			Entry("update hugepage limits", "resources/hugepagelimits", "10-foo",
+				&api.ContainerUpdate{
+					Linux: &api.LinuxContainerUpdate{
+						Resources: &api.LinuxResources{
+							Cpu: &api.LinuxCPU{
+								Shares:          api.UInt64(999),
+								Quota:           api.Int64(888),
+								Period:          api.UInt64(777),
+								RealtimeRuntime: api.Int64(666),
+								RealtimePeriod:  api.UInt64(555),
+								Cpus:            "444",
+								Mems:            "333",
+							},
+							Memory: &api.LinuxMemory{
+								Limit:            api.Int64(9999),
+								Reservation:      api.Int64(8888),
+								Swap:             api.Int64(7777),
+								Kernel:           api.Int64(6666),
+								KernelTcp:        api.Int64(5555),
+								Swappiness:       api.UInt64(444),
+								DisableOomKiller: api.Bool(false),
+								UseHierarchy:     api.Bool(false),
+							},
+							HugepageLimits: []*api.HugepageLimit{
+								{
+									PageSize: "1M",
+									Limit:    4096,
+								},
+								{
+									PageSize: "4M",
+									Limit:    1024,
+								},
+							},
+						},
+					},
+				},
+			),
+			Entry("update cgroupv2 unified resources", "resources/unified", "both", nil),
+			Entry("update cgroupv2 unified resources", "resources/unified", "10-foo",
+				&api.ContainerUpdate{
+					Linux: &api.LinuxContainerUpdate{
+						Resources: &api.LinuxResources{
+							Cpu: &api.LinuxCPU{
+								Shares:          api.UInt64(999),
+								Quota:           api.Int64(888),
+								Period:          api.UInt64(777),
+								RealtimeRuntime: api.Int64(666),
+								RealtimePeriod:  api.UInt64(555),
+								Cpus:            "444",
+								Mems:            "333",
+							},
+							Memory: &api.LinuxMemory{
+								Limit:            api.Int64(9999),
+								Reservation:      api.Int64(8888),
+								Swap:             api.Int64(7777),
+								Kernel:           api.Int64(6666),
+								KernelTcp:        api.Int64(5555),
+								Swappiness:       api.UInt64(444),
+								DisableOomKiller: api.Bool(false),
+								UseHierarchy:     api.Bool(false),
+							},
+							Unified: map[string]string{
+								"resource.1": "value1",
+								"resource.2": "value2",
+							},
+						},
+					},
+				},
+			),
+		)
+	})
+})
+
 var _ = Describe("Unsolicited container update requests", func() {
 	var (
 		s = &Suite{}

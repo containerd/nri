@@ -141,8 +141,8 @@ func (p *plugin) PostStartContainer(_ context.Context, pod *api.PodSandbox, cont
 	return nil
 }
 
-func (p *plugin) UpdateContainer(_ context.Context, pod *api.PodSandbox, container *api.Container) ([]*api.ContainerUpdate, error) {
-	dump("UpdateContainer", "pod", pod, "container", container)
+func (p *plugin) UpdateContainer(_ context.Context, pod *api.PodSandbox, container *api.Container, r *api.LinuxResources) ([]*api.ContainerUpdate, error) {
+	dump("UpdateContainer", "pod", pod, "container", container, "resources", r)
 	return nil, nil
 }
 

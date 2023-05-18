@@ -120,7 +120,7 @@ func (p *plugin) PostStartContainer(_ context.Context, pod *api.PodSandbox, ctr 
 	return nil
 }
 
-func (p *plugin) UpdateContainer(_ context.Context, pod *api.PodSandbox, ctr *api.Container) ([]*api.ContainerUpdate, error) {
+func (p *plugin) UpdateContainer(_ context.Context, pod *api.PodSandbox, ctr *api.Container, r *api.LinuxResources) ([]*api.ContainerUpdate, error) {
 	log.Infof("Updating container %s/%s/%s...", pod.GetNamespace(), pod.GetName(), ctr.GetName())
 
 	//

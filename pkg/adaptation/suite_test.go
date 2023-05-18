@@ -316,7 +316,7 @@ type mockPlugin struct {
 	postCreateContainer func(*mockPlugin, *api.PodSandbox, *api.Container) error
 	startContainer      func(*mockPlugin, *api.PodSandbox, *api.Container) error
 	postStartContainer  func(*mockPlugin, *api.PodSandbox, *api.Container) error
-	updateContainer     func(*mockPlugin, *api.PodSandbox, *api.Container) ([]*api.ContainerUpdate, error)
+	updateContainer     func(*mockPlugin, *api.PodSandbox, *api.Container, *api.LinuxResources) ([]*api.ContainerUpdate, error)
 	postUpdateContainer func(*mockPlugin, *api.PodSandbox, *api.Container) error
 	stopContainer       func(*mockPlugin, *api.PodSandbox, *api.Container) ([]*api.ContainerUpdate, error)
 	removeContainer     func(*mockPlugin, *api.PodSandbox, *api.Container) error
@@ -546,12 +546,12 @@ func (m *mockPlugin) PostStartContainer(_ context.Context, pod *api.PodSandbox, 
 	return m.postStartContainer(m, pod, ctr)
 }
 
-func (m *mockPlugin) UpdateContainer(_ context.Context, pod *api.PodSandbox, ctr *api.Container) ([]*api.ContainerUpdate, error) {
+func (m *mockPlugin) UpdateContainer(_ context.Context, pod *api.PodSandbox, ctr *api.Container, res *api.LinuxResources) ([]*api.ContainerUpdate, error) {
 	m.pods[pod.Id] = pod
 	m.ctrs[ctr.Id] = ctr
 	m.q.Add(ContainerEvent(ctr, UpdateContainer))
 
-	return m.updateContainer(m, pod, ctr)
+	return m.updateContainer(m, pod, ctr, res)
 }
 
 func (m *mockPlugin) PostUpdateContainer(_ context.Context, pod *api.PodSandbox, ctr *api.Container) error {
@@ -585,7 +585,7 @@ func nopCreateContainer(*mockPlugin, *api.PodSandbox, *api.Container) (*api.Cont
 	return nil, nil, nil
 }
 
-func nopUpdateContainer(*mockPlugin, *api.PodSandbox, *api.Container) ([]*api.ContainerUpdate, error) {
+func nopUpdateContainer(*mockPlugin, *api.PodSandbox, *api.Container, *api.LinuxResources) ([]*api.ContainerUpdate, error) {
 	return nil, nil
 }
 

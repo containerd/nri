@@ -227,7 +227,7 @@ func (p *plugin) PostStartContainer(_ context.Context, pod *api.PodSandbox, cont
 	return nil
 }
 
-func (p *plugin) UpdateContainer(_ context.Context, pod *api.PodSandbox, container *api.Container) ([]*api.ContainerUpdate, error) {
+func (p *plugin) UpdateContainer(_ context.Context, pod *api.PodSandbox, container *api.Container, r *api.LinuxResources) ([]*api.ContainerUpdate, error) {
 	p.differ("UpdateContainer", pod, container)
 
 	return nil, nil

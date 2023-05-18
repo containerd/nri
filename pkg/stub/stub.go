@@ -101,7 +101,7 @@ type UpdateContainerInterface interface {
 	// The plugin can request updates both to the container being updated
 	// (which then supersedes the original update) and to other unstopped
 	// containers in response.
-	UpdateContainer(context.Context, *api.PodSandbox, *api.Container) ([]*api.ContainerUpdate, error)
+	UpdateContainer(context.Context, *api.PodSandbox, *api.Container, *api.LinuxResources) ([]*api.ContainerUpdate, error)
 }
 
 // StopContainerInterface handles StopContainer API requests.
@@ -261,7 +261,7 @@ type handlers struct {
 	RemovePodSandbox    func(context.Context, *api.PodSandbox) error
 	CreateContainer     func(context.Context, *api.PodSandbox, *api.Container) (*api.ContainerAdjustment, []*api.ContainerUpdate, error)
 	StartContainer      func(context.Context, *api.PodSandbox, *api.Container) error
-	UpdateContainer     func(context.Context, *api.PodSandbox, *api.Container) ([]*api.ContainerUpdate, error)
+	UpdateContainer     func(context.Context, *api.PodSandbox, *api.Container, *api.LinuxResources) ([]*api.ContainerUpdate, error)
 	StopContainer       func(context.Context, *api.PodSandbox, *api.Container) ([]*api.ContainerUpdate, error)
 	RemoveContainer     func(context.Context, *api.PodSandbox, *api.Container) error
 	PostCreateContainer func(context.Context, *api.PodSandbox, *api.Container) error
@@ -619,7 +619,7 @@ func (stub *stub) UpdateContainer(ctx context.Context, req *api.UpdateContainerR
 	if handler == nil {
 		return nil, nil
 	}
-	update, err := handler(ctx, req.Pod, req.Container)
+	update, err := handler(ctx, req.Pod, req.Container, req.LinuxResources)
 	return &api.UpdateContainerResponse{
 		Update: update,
 	}, err

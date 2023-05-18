@@ -1,4 +1,4 @@
-module github.com/containerd/nri/plugins/device-injector
+module github.com/containerd/nri/plugins/logger
 
 go 1.18
 

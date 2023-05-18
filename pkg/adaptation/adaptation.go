@@ -346,10 +346,25 @@ func (r *Adaptation) startPlugins() (retErr error) {
 		}
 
 		if err := p.start(r.name, r.version); err != nil {
-			return err
+			return fmt.Errorf("failed to start NRI Plugin %q: %w", name, err)
 		}
 
 		plugins = append(plugins, p)
+	}
+
+	syncPlugins := func(ctx context.Context, pods []*PodSandbox, containers []*Container) ([]*ContainerUpdate, error) {
+		var updates []*ContainerUpdate
+		for _, plugin := range plugins {
+			us, err := plugin.synchronize(ctx, pods, containers)
+			if err != nil {
+				return nil, fmt.Errorf("failed to sync NRI Plugin %q: %w", plugin.name(), err)
+			}
+			updates = append(updates, us...)
+		}
+		return updates, nil
+	}
+	if err := r.syncFn(noCtx, syncPlugins); err != nil {
+		return fmt.Errorf("failed to synchronize NRI Plugins: %w", err)
 	}
 
 	r.plugins = plugins

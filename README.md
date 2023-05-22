@@ -354,6 +354,17 @@ access to these sockets and can act as NRI or Device Plugins. See the
 and [best practices](https://kubernetes.io/docs/setup/best-practices/enforcing-pod-security-standards/)
 about Kubernetes security.
 
+## API Stability
+
+NRI APIs should not be considered stable yet. We try to avoid unnecessarily
+breaking APIs, especially the Stub API which plugins use to interact with NRI.
+However, before NRI reaches a stable 1.0.0 release, this is only best effort
+and cannot be guaranteed. Meanwhile we do our best to document any API breaking
+changes for each release in the [release notes](RELEASES.md).
+
+The current target for a stable v1 API through a 1.0.0 release is the end of
+this year.
+
 ## Project details
 
 nri is a containerd sub-project, licensed under the [Apache 2.0 license](./LICENSE).

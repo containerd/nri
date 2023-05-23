@@ -290,7 +290,7 @@ func New(p interface{}, opts ...Option) (Stub, error) {
 		return nil, err
 	}
 
-	if err := stub.getIdentity(); err != nil {
+	if err := stub.ensureIdentity(); err != nil {
 		return nil, err
 	}
 
@@ -678,8 +678,8 @@ func (stub *stub) StateChange(ctx context.Context, evt *api.StateChangeEvent) (*
 	return &api.StateChangeResponse{}, err
 }
 
-// getIdentity gets plugin index and name from the binary if those are unset.
-func (stub *stub) getIdentity() error {
+// ensureIdentity sets plugin index and name from the binary if those are unset.
+func (stub *stub) ensureIdentity() error {
 	if stub.idx != "" && stub.name != "" {
 		return nil
 	}

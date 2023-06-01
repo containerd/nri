@@ -67,7 +67,7 @@ type plugin struct {
 }
 
 // CreateContainer handles container creation requests.
-func (p *plugin) CreateContainer(pod *api.PodSandbox, container *api.Container) (*api.ContainerAdjustment, []*api.ContainerUpdate, error) {
+func (p *plugin) CreateContainer(_ context.Context, pod *api.PodSandbox, container *api.Container) (*api.ContainerAdjustment, []*api.ContainerUpdate, error) {
 	var (
 		ctrName string
 		devices []device

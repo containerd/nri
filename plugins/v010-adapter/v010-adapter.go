@@ -38,16 +38,16 @@ var (
 	log *logrus.Logger
 )
 
-func (p *plugin) Configure(config, runtime, version string) (stub.EventMask, error) {
+func (p *plugin) Configure(_ context.Context, config, runtime, version string) (stub.EventMask, error) {
 	log.Infof("Connected to %s/%s...", runtime, version)
 	return 0, nil
 }
 
-func (p *plugin) Shutdown() {
+func (p *plugin) Shutdown(_ context.Context) {
 	log.Info("Runtime shutting down...")
 }
 
-func (p *plugin) RunPodSandbox(pod *api.PodSandbox) error {
+func (p *plugin) RunPodSandbox(_ context.Context, pod *api.PodSandbox) error {
 	log.Infof("Started pod %s/%s...", pod.GetNamespace(), pod.GetName())
 
 	nric, err := nri.New()
@@ -72,7 +72,7 @@ func (p *plugin) RunPodSandbox(pod *api.PodSandbox) error {
 	return nil
 }
 
-func (p *plugin) StopPodSandbox(pod *api.PodSandbox) error {
+func (p *plugin) StopPodSandbox(_ context.Context, pod *api.PodSandbox) error {
 	log.Infof("Stopped pod %s/%s...", pod.GetNamespace(), pod.GetName())
 
 	nric, err := nri.New()
@@ -97,7 +97,7 @@ func (p *plugin) StopPodSandbox(pod *api.PodSandbox) error {
 	return nil
 }
 
-func (p *plugin) StartContainer(pod *api.PodSandbox, ctr *api.Container) error {
+func (p *plugin) StartContainer(_ context.Context, pod *api.PodSandbox, ctr *api.Container) error {
 	log.Infof("Starting container %s/%s/%s...", pod.GetNamespace(), pod.GetName(), ctr.GetName())
 
 	nric, err := nri.New()
@@ -122,7 +122,7 @@ func (p *plugin) StartContainer(pod *api.PodSandbox, ctr *api.Container) error {
 	return nil
 }
 
-func (p *plugin) StopContainer(pod *api.PodSandbox, ctr *api.Container) ([]*api.ContainerUpdate, error) {
+func (p *plugin) StopContainer(_ context.Context, pod *api.PodSandbox, ctr *api.Container) ([]*api.ContainerUpdate, error) {
 	log.Infof("Stopped container %s/%s/%s...", pod.GetNamespace(), pod.GetName(), ctr.GetName())
 
 	nric, err := nri.New()

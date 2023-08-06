@@ -30,7 +30,7 @@ import (
 
 	"github.com/containerd/nri/pkg/api"
 	"github.com/containerd/nri/pkg/stub"
-	"github.com/containers/podman/v3/pkg/hooks"
+	hooks "github.com/containers/common/pkg/hooks"
 )
 
 var (

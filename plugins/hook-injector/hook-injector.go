@@ -23,14 +23,13 @@ import (
 	"os"
 	"strings"
 
+	"github.com/containers/common/pkg/hooks"
+	rspec "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/sirupsen/logrus"
 	"sigs.k8s.io/yaml"
 
-	rspec "github.com/opencontainers/runtime-spec/specs-go"
-
 	"github.com/containerd/nri/pkg/api"
 	"github.com/containerd/nri/pkg/stub"
-	"github.com/containers/podman/v3/pkg/hooks"
 )
 
 var (

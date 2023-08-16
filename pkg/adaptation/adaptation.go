@@ -58,6 +58,7 @@ type Adaptation struct {
 	pluginPath string
 	socketPath string
 	dontListen bool
+	withOtel   bool
 	syncFn     SyncFn
 	updateFn   UpdateFn
 	listener   net.Listener
@@ -100,6 +101,15 @@ func WithSocketPath(path string) Option {
 func WithDisabledExternalConnections() Option {
 	return func(r *Adaptation) error {
 		r.dontListen = true
+		return nil
+	}
+}
+
+// WithOpenTelemetry enables opentelemetry instrumentation. At the moment, this enables
+// tracing instrumentation for requests called and served over plugin ttrpc connections.
+func WithOpenTelemetry() Option {
+	return func(r *Adaptation) error {
+		r.withOtel = true
 		return nil
 	}
 }

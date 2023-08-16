@@ -32,6 +32,7 @@ import (
 	"github.com/containerd/nri/pkg/log"
 	"github.com/containerd/nri/pkg/net"
 	"github.com/containerd/nri/pkg/net/multiplex"
+	"github.com/containerd/otelttrpc"
 	"github.com/containerd/ttrpc"
 )
 
@@ -198,12 +199,23 @@ func (p *plugin) connect(conn stdnet.Conn) (retErr error) {
 	if err != nil {
 		return fmt.Errorf("failed to mux plugin connection for plugin %q: %w", p.name(), err)
 	}
-	rpcc := ttrpc.NewClient(pconn, ttrpc.WithOnClose(
-		func() {
-			log.Infof(noCtx, "connection to plugin %q closed", p.name())
-			close(p.closeC)
-			p.close()
-		}))
+
+	clientOpts := []ttrpc.ClientOpts{
+		ttrpc.WithOnClose(
+			func() {
+				log.Infof(noCtx, "connection to plugin %q closed", p.name())
+				close(p.closeC)
+				p.close()
+			}),
+	}
+	if p.r.withOtel {
+		clientOpts = append(clientOpts,
+			ttrpc.WithUnaryClientInterceptor(
+				otelttrpc.UnaryClientInterceptor(),
+			),
+		)
+	}
+	rpcc := ttrpc.NewClient(pconn, clientOpts...)
 	defer func() {
 		if retErr != nil {
 			rpcc.Close()
@@ -211,7 +223,15 @@ func (p *plugin) connect(conn stdnet.Conn) (retErr error) {
 	}()
 	stub := api.NewPluginClient(rpcc)
 
-	rpcs, err := ttrpc.NewServer()
+	serverOpts := []ttrpc.ServerOpt{}
+	if p.r.withOtel {
+		serverOpts = append(serverOpts,
+			ttrpc.WithUnaryServerInterceptor(
+				otelttrpc.UnaryServerInterceptor(),
+			),
+		)
+	}
+	rpcs, err := ttrpc.NewServer(serverOpts...)
 	if err != nil {
 		return fmt.Errorf("failed to create ttrpc server for plugin %q: %w", p.name(), err)
 	}

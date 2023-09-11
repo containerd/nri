@@ -21,6 +21,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/containerd/nri/pkg/api"
 )
 
 func TestParseAnnotations(t *testing.T) {
@@ -157,6 +159,83 @@ func TestParseAnnotations(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 				assert.EqualValues(t, tc.expected, ulimits)
+			}
+		})
+	}
+}
+
+func TestAdjustUlimits(t *testing.T) {
+	tests := map[string]struct {
+		ulimits  []ulimit
+		expected *api.ContainerAdjustment
+		errStr   string
+	}{
+		"empty": {
+			ulimits:  nil,
+			expected: &api.ContainerAdjustment{},
+		},
+		"invalid-hard": {
+			ulimits: []ulimit{{
+				Type: "RLIMIT_NOFILE",
+				Hard: 0,
+				Soft: 100,
+			}},
+			errStr: `ulimit "RLIMIT_NOFILE" must have hard limit >= soft limit`,
+		},
+		"one": {
+			ulimits: []ulimit{{
+				Type: "RLIMIT_MEMLOCK",
+				Hard: 100,
+				Soft: 99,
+			}},
+			expected: &api.ContainerAdjustment{Rlimits: []*api.POSIXRlimit{{
+				Type: "RLIMIT_MEMLOCK",
+				Hard: 100,
+				Soft: 99,
+			}}},
+		},
+		"one-invalid": {
+			ulimits: []ulimit{{
+				Type: "RLIMIT_MEMLOCK",
+				Hard: 100,
+				Soft: 99,
+			}, {
+				Type: "RLIMIT_NOFILE",
+				Hard: 0,
+				Soft: 100,
+			}},
+			errStr: `ulimit "RLIMIT_NOFILE" must have hard limit >= soft limit`,
+		},
+		"multiple-valid": {
+			ulimits: []ulimit{{
+				Type: "RLIMIT_MEMLOCK",
+				Hard: 100,
+				Soft: 99,
+			}, {
+				Type: "RLIMIT_AS",
+				Hard: 10,
+				Soft: 0,
+			}},
+			expected: &api.ContainerAdjustment{Rlimits: []*api.POSIXRlimit{{
+				Type: "RLIMIT_MEMLOCK",
+				Hard: 100,
+				Soft: 99,
+			}, {
+				Type: "RLIMIT_AS",
+				Hard: 10,
+				Soft: 0,
+			}}},
+		},
+	}
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			adjust, err := adjustUlimits(context.Background(), tc.ulimits)
+			if tc.errStr != "" {
+				assert.EqualError(t, err, tc.errStr)
+				assert.Nil(t, adjust)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tc.expected, adjust)
 			}
 		})
 	}

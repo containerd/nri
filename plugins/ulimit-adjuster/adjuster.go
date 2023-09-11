@@ -123,10 +123,10 @@ func (p *plugin) CreateContainer(
 		log.G(ctx).WithError(err).Debug("failed to parse annotations")
 		return nil, nil, err
 	}
-	adjust := &api.ContainerAdjustment{}
-	for _, u := range ulimits {
-		log.G(ctx).WithField("type", u.Type).WithField("hard", u.Hard).WithField("soft", u.Soft).Debug("adjust rlimit")
-		adjust.AddRlimit(u.Type, u.Hard, u.Soft)
+
+	adjust, err := adjustUlimits(ctx, ulimits)
+	if err != nil {
+		return nil, nil, err
 	}
 	return adjust, nil, nil
 }
@@ -158,4 +158,18 @@ func parseUlimits(ctx context.Context, container string, annotations map[string]
 		ulimits[i].Type = rlimitPrefix + typ
 	}
 	return ulimits, nil
+}
+
+func adjustUlimits(ctx context.Context, ulimits []ulimit) (*api.ContainerAdjustment, error) {
+	adjust := &api.ContainerAdjustment{}
+	for _, u := range ulimits {
+		l := log.G(ctx).WithField("type", u.Type).WithField("hard", u.Hard).WithField("soft", u.Soft)
+		if u.Hard < u.Soft {
+			l.Debug("failed to apply ulimit with hard < soft")
+			return nil, fmt.Errorf("ulimit %q must have hard limit >= soft limit", u.Type)
+		}
+		log.G(ctx).WithField("type", u.Type).WithField("hard", u.Hard).WithField("soft", u.Soft).Debug("adjust rlimit")
+		adjust.AddRlimit(u.Type, u.Hard, u.Soft)
+	}
+	return adjust, nil
 }

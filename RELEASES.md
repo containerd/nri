@@ -1,6 +1,6 @@
 # Release Notes
 
-## 0.4.0 (pending untagged release)
+## 0.4.0
 
 - Pass the ttRPC receiving context from the Stub to each NRI request handler
 of the plugin.
@@ -8,6 +8,7 @@ of the plugin.
 the UpdateContainer NRI request handler of the plugin as the last argument.
 - All plugins need to be updated to reflect the above changes in any NRI
 request handler they implement.
+- NRI plugins can now add rlimits
 
 ## 0.3.0
 

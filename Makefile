@@ -117,7 +117,9 @@ $(BIN_PATH)/template: $(wildcard plugins/template/*.go)
 # test targets
 #
 
-test-gopkgs: ginkgo-tests
+test-gopkgs: ginkgo-tests test-ulimits
+
+SKIPPED_PKGS="ulimit-adjuster"
 
 ginkgo-tests:
 	$(Q)$(GINKGO) run \
@@ -129,8 +131,12 @@ ginkgo-tests:
 	    --junit-report junit.xml \
 	    --coverprofile coverprofile \
 	    --succinct \
+	    --skip-package $(SKIPPED_PKGS) \
 	    -r .; \
 	$(GO_CMD) tool cover -html=$(COVERAGE_PATH)/coverprofile -o $(COVERAGE_PATH)/coverage.html
+
+test-ulimits:
+	$(Q)$(GO_TEST) -v ./plugins/ulimit-adjuster
 
 codecov: SHELL := $(shell which bash)
 codecov:

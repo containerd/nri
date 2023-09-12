@@ -175,6 +175,7 @@ The following pieces of container metadata are available to plugins in NRI:
   - environment variables
   - mounts
   - OCI hooks
+  - rlimits
   - linux
     - namespace IDs
     - devices
@@ -212,6 +213,7 @@ container parameters:
   - mounts
   - environment variables
   - OCI hooks
+  - rlimits
   - linux
     - devices
     - resources
@@ -307,6 +309,7 @@ The following sample plugins exist for NRI:
   - [differ](plugins/differ)
   - [device injector](plugins/device-injector)
   - [OCI hook injector](plugins/hook-injector)
+  - [ulimit adjuster](plugins/ulimit-adjuster)
   - [NRI v0.1.0 plugin adapter](plugins/v010-adapter)
 
 Please see the documentation of these plugins for further details

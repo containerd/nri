@@ -69,6 +69,28 @@ var _ = Describe("Adjustment", func() {
 		})
 	})
 
+	When("has rlimits", func() {
+		It("adjusts Spec correctly", func() {
+			var (
+				spec   = makeSpec()
+				adjust = &api.ContainerAdjustment{
+					Rlimits: []*api.POSIXRlimit{{
+						Type: "nofile",
+						Hard: 456,
+						Soft: 123,
+					}},
+				}
+			)
+
+			rg := &rgen.Generator{Config: spec}
+			xg := xgen.SpecGenerator(rg)
+
+			Expect(xg).ToNot(BeNil())
+			Expect(xg.Adjust(adjust)).To(Succeed())
+			Expect(spec).To(Equal(makeSpec(withRlimit("nofile", 456, 123))))
+		})
+	})
+
 	When("has memory limit", func() {
 		It("adjusts Spec correctly", func() {
 			var (
@@ -378,6 +400,19 @@ func withCPUSetMems(v string) specOption {
 func withMounts(mounts []rspec.Mount) specOption {
 	return func(spec *rspec.Spec) {
 		spec.Mounts = append(spec.Mounts, mounts...)
+	}
+}
+
+func withRlimit(typ string, hard, soft uint64) specOption {
+	return func(spec *rspec.Spec) {
+		if spec.Process == nil {
+			return
+		}
+		spec.Process.Rlimits = append(spec.Process.Rlimits, rspec.POSIXRlimit{
+			Type: typ,
+			Hard: hard,
+			Soft: soft,
+		})
 	}
 }
 

@@ -26,10 +26,11 @@ import (
 
 	"sigs.k8s.io/yaml"
 
-	nri "github.com/containerd/nri/pkg/adaptation"
-	"github.com/containerd/nri/pkg/api"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
+	nri "github.com/containerd/nri/pkg/adaptation"
+	"github.com/containerd/nri/pkg/api"
 )
 
 var _ = Describe("Configuration", func() {
@@ -484,6 +485,9 @@ var _ = Describe("Plugin container creation adjustments", func() {
 			}
 			a.AddDevice(dev)
 
+		case "rlimit":
+			a.AddRlimit("nofile", 456, 123)
+
 		case "resources/cpu":
 			a.SetLinuxCPUShares(123)
 			a.SetLinuxCPUQuota(456)
@@ -621,6 +625,11 @@ var _ = Describe("Plugin container creation adjustments", func() {
 							},
 						},
 					},
+				},
+			),
+			Entry("adjust rlimits", "rlimit",
+				&api.ContainerAdjustment{
+					Rlimits: []*api.POSIXRlimit{{Type: "nofile", Soft: 123, Hard: 456}},
 				},
 			),
 			Entry("adjust CPU resources", "resources/cpu",
@@ -1847,6 +1856,7 @@ func stripAdjustment(a *api.ContainerAdjustment) *api.ContainerAdjustment {
 	stripMounts(a)
 	stripEnv(a)
 	stripHooks(a)
+	stripRlimits(a)
 	stripLinuxAdjustment(a)
 	return a
 }
@@ -1882,6 +1892,12 @@ func stripHooks(a *api.ContainerAdjustment) {
 	case len(a.Hooks.Poststop) > 0:
 	default:
 		a.Hooks = nil
+	}
+}
+
+func stripRlimits(a *api.ContainerAdjustment) {
+	if len(a.Rlimits) == 0 {
+		a.Rlimits = nil
 	}
 }
 

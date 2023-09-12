@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: sleep
+  annotations:
+    ulimits.nri.containerd.io/container.sleep: |
+      - type: memlock
+        hard: 987654
+        soft: 645321
+      - type: RLIMIT_NOFILE
+        hard: 4096
+        soft: 1024
+      - type: nproc
+        hard: 9000
+spec:
+  containers:
+  - name: sleep
+    image: ubuntu:latest
+    command:
+    - /bin/bash
+    - -c
+    - "ulimit -a; ulimit -Ha; sleep inf"
+  terminationGracePeriodSeconds: 3

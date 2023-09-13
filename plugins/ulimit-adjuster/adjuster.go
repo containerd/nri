@@ -23,7 +23,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/containerd/containerd/log"
+	"github.com/containerd/log"
 	"github.com/sirupsen/logrus"
 	"sigs.k8s.io/yaml"
 

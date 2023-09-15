@@ -14,17 +14,18 @@ jobs:
     timeout-minutes: 5
 
     steps:
-      - uses: actions/setup-go@v3
+      - uses: actions/setup-go@v4
         with:
           go-version: 1.20.x
 
       - name: Set env
         shell: bash
+        # TODO(thaJeztah): remove working-directory, path, and GOPATH once project-checks stops needing them; see https://github.com/containerd/nri/pull/53/commits/872fb0ce3dce136f3ae67c068ce78607565194ef#r1324366346
         run: |
           echo "GOPATH=${{ github.workspace }}" >> $GITHUB_ENV
           echo "${{ github.workspace }}/bin" >> $GITHUB_PATH
 
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           path: src/github.com/containerd/nri
           fetch-depth: 25
@@ -39,23 +40,18 @@ jobs:
     timeout-minutes: 5
 
     steps:
-      - uses: actions/checkout@v3
-        with:
-          path: src/github.com/containerd/nri
-
-      - uses: actions/setup-go@v3
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v4
         with:
           go-version: 1.20.x
 
       - name: Set env
         shell: bash
         run: |
-          echo "GOPATH=${{ github.workspace }}" >> $GITHUB_ENV
           echo "${{ github.workspace }}/bin" >> $GITHUB_PATH
 
       - run: |
           make all
-        working-directory: src/github.com/containerd/nri
 
   linters:
     name: Linters
@@ -68,24 +64,19 @@ jobs:
         os: [ubuntu-22.04]
 
     steps:
-      - uses: actions/checkout@v3
-        with:
-          path: src/github.com/containerd/nri
-
-      - uses: actions/setup-go@v3
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v4
         with:
           go-version: ${{ matrix.go }}
 
       - name: Set env
         shell: bash
         run: |
-          echo "GOPATH=${{ github.workspace }}" >> $GITHUB_ENV
           echo "${{ github.workspace }}/bin" >> $GITHUB_PATH
 
       - uses: golangci/golangci-lint-action@v3
         with:
           version: v1.51.2
-          working-directory: src/github.com/containerd/nri
 
   tests:
     name: Tests
@@ -97,20 +88,15 @@ jobs:
         go: [1.19.x, 1.20.x]
 
     steps:
-      - uses: actions/checkout@v3
-        with:
-          path: src/github.com/containerd/nri
-
-      - uses: actions/setup-go@v3
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v4
         with:
           go-version: ${{ matrix.go }}
 
       - name: Set env
         shell: bash
         run: |
-          echo "GOPATH=${{ github.workspace }}" >> $GITHUB_ENV
           echo "${{ github.workspace }}/bin" >> $GITHUB_PATH
 
       - run: |
           make install-ginkgo test codecov
-        working-directory: src/github.com/containerd/nri

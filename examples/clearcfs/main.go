@@ -24,7 +24,7 @@ import (
 	"github.com/containerd/cgroups"
 	"github.com/containerd/nri/skel"
 	types "github.com/containerd/nri/types/v1"
-	"github.com/opencontainers/runtime-spec/specs-go"
+	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/sirupsen/logrus"
 )
 
@@ -43,9 +43,19 @@ func (c *clearCFS) Invoke(ctx context.Context, r *types.Request) (*types.Result,
 		return result, nil
 	}
 
-	switch r.Spec.Annotations["qos.class"] {
+	logrus.Infof("[clearcfs] Invoked NRI plugin, state: %s", r.State)
+	logrus.Infof("[clearcfs] Container ID: %s, PID: %d, Sandbox ID: %s", r.ID, r.Pid, r.SandboxID)
+
+	logrus.Infof("[clearcfs] Labels: %#s", r.Labels)
+	logrus.Infof("[clearcfs] Annotations: %#s", r.Annotations)
+
+	logrus.Infof("[clearcfs] Spec.Annotations: %#s", r.Spec.Annotations)
+	logrus.Infof("[clearcfs] Spec.CgroupsPath: %#s", r.Spec.CgroupsPath)
+	logrus.Infof("[clearcfs] Spec.Namespaces: %#s", r.Spec.Namespaces)
+
+	switch r.Annotations["qos.class"] {
 	case "ls":
-		logrus.Debugf("clearing cfs for %s", r.ID)
+		logrus.Infof("[clearcfs] clearing cfs for %s", r.ID)
 		control, err := cgroups.Load(cgroups.V1, cgroups.StaticPath(r.Spec.CgroupsPath))
 		if err != nil {
 			return nil, err

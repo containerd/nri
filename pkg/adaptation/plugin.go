@@ -489,6 +489,28 @@ func (p *plugin) stopContainer(ctx context.Context, req *StopContainerRequest) (
 	return rpl, nil
 }
 
+func (p *plugin) networkConfigurationChanged(ctx context.Context, req *NetworkConfigurationChangedRequest) (*NetworkConfigurationChangedResponse, error) {
+	if !p.events.IsSet(Event_NETWORK_CONFIGURATION_CHANGED) {
+		return nil, nil
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, getPluginRequestTimeout())
+	defer cancel()
+
+	rpl, err := p.stub.NetworkConfigurationChanged(ctx, req)
+	if err != nil {
+		if isFatalError(err) {
+			log.Errorf(ctx, "closing plugin %s, failed to handle PreSetupNetwork request: %v",
+				p.name(), err)
+			p.close()
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	return rpl, nil
+}
+
 func (p *plugin) preSetupNetwork(ctx context.Context, req *PreSetupNetworkRequest) (*PreSetupNetworkResponse, error) {
 	if !p.events.IsSet(Event_PRE_SETUP_NETWORK) {
 		return nil, nil

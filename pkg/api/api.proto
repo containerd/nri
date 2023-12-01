@@ -106,9 +106,12 @@ service Plugin {
   // these events.
   rpc StateChange(StateChangeEvent) returns (Empty);
 
+  rpc NetworkConfigurationChanged(NetworkConfigurationChangedRequest) returns (NetworkConfigurationChangedResponse);
+
   //
   rpc PreSetupNetwork(PreSetupNetworkRequest) returns (PreSetupNetworkResponse);
   rpc PostSetupNetwork(PostSetupNetworkRequest) returns (PostSetupNetworkResponse);
+
 }
 
 message ConfigureRequest {
@@ -195,6 +198,16 @@ message StateChangeEvent {
 
 // Empty response for those *Requests that are semantically events.
 message Empty {}
+
+message NetworkConfigurationChangedRequest {
+  // CNI configuration that changed, in rare cases more than one
+  repeated CNIConfig CNIConfig = 1;
+}
+
+message NetworkConfigurationChangedResponse {
+  // updated CNI configuration(s), if any
+  repeated CNIConfig CNIConfig = 1;
+}
 
 message PreSetupNetworkRequest {
   // Pod whose network is set up
@@ -306,9 +319,10 @@ enum Event {
   POST_UPDATE_CONTAINER = 9;
   STOP_CONTAINER = 10;
   REMOVE_CONTAINER = 11;
-  PRE_SETUP_NETWORK = 12;
-  POST_SETUP_NETWORK = 13;
-  LAST = 14;
+  NETWORK_CONFIGURATION_CHANGED = 12;
+  PRE_SETUP_NETWORK = 13;
+  POST_SETUP_NETWORK = 14;
+  LAST = 15;
 }
 
 // Pod metadata that is considered relevant for a plugin.

@@ -321,8 +321,9 @@ type mockPlugin struct {
 	stopContainer       func(*mockPlugin, *api.PodSandbox, *api.Container) ([]*api.ContainerUpdate, error)
 	removeContainer     func(*mockPlugin, *api.PodSandbox, *api.Container) error
 
-        preSetupNetwork     func(*mockPlugin, *api.PodSandbox, []*api.CNIConfig) ([]*api.CNICapabilities, error)
-        postSetupNetwork    func(*mockPlugin, *api.PodSandbox, []*api.Result) ([]*api.Result, error)
+	networkConfigurationChanged func(*mockPlugin, []*api.CNIConfig) ([]*api.CNIConfig, error)
+	preSetupNetwork             func(*mockPlugin, *api.PodSandbox, []*api.CNIConfig) ([]*api.CNICapabilities, error)
+	postSetupNetwork            func(*mockPlugin, *api.PodSandbox, []*api.Result) ([]*api.Result, error)
 }
 
 var (
@@ -339,6 +340,7 @@ var (
 	_ = stub.PostCreateContainerInterface(&mockPlugin{})
 	_ = stub.PostStartContainerInterface(&mockPlugin{})
 	_ = stub.PostUpdateContainerInterface(&mockPlugin{})
+	_ = stub.NetworkConfigurationChangedInterface(&mockPlugin{})
 	_ = stub.PreSetupNetworkInterface(&mockPlugin{})
 	_ = stub.PostSetupNetworkInterface(&mockPlugin{})
 )
@@ -436,6 +438,9 @@ func (m *mockPlugin) Init(dir string) error {
 	}
 	if m.removeContainer == nil {
 		m.removeContainer = nopEvent
+	}
+	if m.networkConfigurationChanged == nil {
+		m.networkConfigurationChanged = nopNetworkConfigurationChanged
 	}
 	if m.preSetupNetwork == nil {
 		m.preSetupNetwork = nopPreSetupNetwork
@@ -587,6 +592,11 @@ func (m *mockPlugin) RemoveContainer(_ context.Context, pod *api.PodSandbox, ctr
 	return m.removeContainer(m, pod, ctr)
 }
 
+func (m *mockPlugin) NetworkConfigurationChanged(_ context.Context, cniconfig []*api.CNIConfig) ([]*api.CNIConfig, error) {
+
+	return m.networkConfigurationChanged(m, cniconfig)
+}
+
 func (m *mockPlugin) PreSetupNetwork(_ context.Context, pod *api.PodSandbox, cniconfig []*api.CNIConfig) ([]*api.CNICapabilities, error) {
 	m.pods[pod.Id] = pod
 	m.q.Add(PodSandboxEvent(pod, PreSetupNetwork))
@@ -614,6 +624,10 @@ func nopUpdateContainer(*mockPlugin, *api.PodSandbox, *api.Container, *api.Linux
 }
 
 func nopStopContainer(*mockPlugin, *api.PodSandbox, *api.Container) ([]*api.ContainerUpdate, error) {
+	return nil, nil
+}
+
+func nopNetworkConfigurationChanged(*mockPlugin, []*api.CNIConfig) ([]*api.CNIConfig, error) {
 	return nil, nil
 }
 
@@ -649,8 +663,9 @@ const (
 	PostStartContainer  = "PostStartContainer"
 	PostUpdateContainer = "PostUpdateContainer"
 
-	PreSetupNetwork     = "PreSetupNetwork"
-	PostSetupNetwork    = "PostSetupNetwork"
+	NetworkConfigurationChanged = "NetworkConfigurationChanged"
+	PreSetupNetwork             = "PreSetupNetwork"
+	PostSetupNetwork            = "PostSetupNetwork"
 
 	Error   = "Error"
 	Timeout = ""

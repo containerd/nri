@@ -29,10 +29,11 @@ type result struct {
 }
 
 type resultRequest struct {
-	create           *CreateContainerRequest
-	update           *UpdateContainerRequest
-	presetupnetwork  *PreSetupNetworkRequest
-	postsetupnetwork *PostSetupNetworkRequest
+	create               *CreateContainerRequest
+	update               *UpdateContainerRequest
+	networkconfiguration *NetworkConfigurationChangedRequest
+	presetupnetwork      *PreSetupNetworkRequest
+	postsetupnetwork     *PostSetupNetworkRequest
 }
 
 type resultReply struct {
@@ -139,6 +140,17 @@ func collectStopContainerResult() *result {
 	return collectUpdateContainerResult(nil)
 }
 
+func collectNetworkConfigurationChangedResult(request *NetworkConfigurationChangedRequest) *result {
+	return &result{
+		request: resultRequest{
+			networkconfiguration: request,
+		},
+		reply:   resultReply{},
+		updates: nil,
+		owners:  resultOwners{},
+	}
+}
+
 func collectPreSetupNetworkResult(request *PreSetupNetworkRequest) *result {
 	return &result{
 		request: resultRequest{
@@ -178,6 +190,18 @@ func (r *result) updateContainerResponse() *UpdateContainerResponse {
 func (r *result) stopContainerResponse() *StopContainerResponse {
 	return &StopContainerResponse{
 		Update: r.reply.update,
+	}
+}
+
+func (r *result) updateNetworkConfigurationChangedRequest(req *NetworkConfigurationChangedRequest) {
+	if r.reply.cniconfig != nil {
+		req.CNIConfig = r.reply.cniconfig
+	}
+}
+
+func (r *result) networkConfigurationChangedResponse() *NetworkConfigurationChangedResponse {
+	return &NetworkConfigurationChangedResponse{
+		CNIConfig: r.reply.cniconfig,
 	}
 }
 
@@ -237,6 +261,13 @@ func (r *result) apply(response interface{}, plugin string) error {
 			return nil
 		}
 		if err := r.adjustPostSetupNetwork(rpl.Result, plugin); err != nil {
+			return err
+		}
+	case *NetworkConfigurationChangedResponse:
+		if rpl == nil {
+			return nil
+		}
+		if err := r.adjustNetworkConfigurationChanged(rpl.CNIConfig, plugin); err != nil {
 			return err
 		}
 	default:
@@ -739,6 +770,27 @@ func (r *result) adjustRlimits(rlimits []*POSIXRlimit, plugin string) error {
 	return nil
 }
 
+func (r *result) adjustNetworkConfigurationChanged(updatedconfigs []*CNIConfig, plugin string) error {
+	var existingconfigs = r.request.networkconfiguration.CNIConfig[:]
+
+	for _, updated := range updatedconfigs {
+		var found bool = false
+		for i, config := range existingconfigs {
+			if updated.Name == config.Name {
+				existingconfigs[i] = updated
+				found = true
+				break
+			}
+		}
+		if found == false {
+			return fmt.Errorf("plugin '%s' tried to modify nonexistent CNI config '%s'", plugin, updated.Name)
+		}
+	}
+	r.reply.cniconfig = existingconfigs
+
+	return nil
+}
+
 func (r *result) adjustPreSetupNetwork(capabilities []*CNICapabilities, plugin string) error {
 	if len(capabilities) > 0 {
 		r.reply.cnicapabilities = append(r.reply.cnicapabilities, capabilities...)
@@ -971,8 +1023,9 @@ type owners struct {
 	cgroupsPath         string
 	rlimits             map[string]string
 
-	PreSetupNetwork     string
-	PostSetupNetwork    string
+	NetworkConfigurationChanged string
+	PreSetupNetwork             string
+	PostSetupNetwork            string
 }
 
 func (ro resultOwners) ownersFor(id string) *owners {

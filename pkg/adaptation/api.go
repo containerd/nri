@@ -60,10 +60,12 @@ type (
 	PostUpdateContainerRequest  = api.PostUpdateContainerRequest
 	PostUpdateContainerResponse = api.PostUpdateContainerResponse
 
-	PreSetupNetworkRequest   = api.PreSetupNetworkRequest
-	PreSetupNetworkResponse  = api.PreSetupNetworkResponse
-	PostSetupNetworkRequest  = api.PostSetupNetworkRequest
-	PostSetupNetworkResponse = api.PostSetupNetworkResponse
+	NetworkConfigurationChangedRequest  = api.NetworkConfigurationChangedRequest
+	NetworkConfigurationChangedResponse = api.NetworkConfigurationChangedResponse
+	PreSetupNetworkRequest              = api.PreSetupNetworkRequest
+	PreSetupNetworkResponse             = api.PreSetupNetworkResponse
+	PostSetupNetworkRequest             = api.PostSetupNetworkRequest
+	PostSetupNetworkResponse            = api.PostSetupNetworkResponse
 
 	PodSandbox               = api.PodSandbox
 	LinuxPodSandbox          = api.LinuxPodSandbox
@@ -115,8 +117,9 @@ const (
 	Event_STOP_CONTAINER        = api.Event_STOP_CONTAINER
 	Event_REMOVE_CONTAINER      = api.Event_REMOVE_CONTAINER
 
-	Event_PRE_SETUP_NETWORK  = api.Event_PRE_SETUP_NETWORK
-	Event_POST_SETUP_NETWORK = api.Event_POST_SETUP_NETWORK
+	Event_NETWORK_CONFIGURATION_CHANGED = api.Event_NETWORK_CONFIGURATION_CHANGED
+	Event_PRE_SETUP_NETWORK             = api.Event_PRE_SETUP_NETWORK
+	Event_POST_SETUP_NETWORK            = api.Event_POST_SETUP_NETWORK
 
 	ValidEvents = api.ValidEvents
 

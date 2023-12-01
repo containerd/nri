@@ -72,8 +72,9 @@ func ParseEventMask(events ...string) (EventMask, error) {
 		"stopcontainer":       Event_STOP_CONTAINER,
 		"removecontainer":     Event_REMOVE_CONTAINER,
 
-		"presetupnetwork":     Event_PRE_SETUP_NETWORK,
-		"postsetupnetwork":    Event_POST_SETUP_NETWORK,
+		"networkconfigurationchanged": Event_NETWORK_CONFIGURATION_CHANGED,
+		"presetupnetwork":             Event_PRE_SETUP_NETWORK,
+		"postsetupnetwork":            Event_POST_SETUP_NETWORK,
 	}
 
 	for _, event := range events {
@@ -134,8 +135,9 @@ func (m *EventMask) PrettyString() string {
 		Event_STOP_CONTAINER:        "StopContainer",
 		Event_REMOVE_CONTAINER:      "RemoveContainer",
 
-		Event_PRE_SETUP_NETWORK:     "PreSetupNetwork",
-		Event_POST_SETUP_NETWORK:    "PostSetupNetwork",
+		Event_NETWORK_CONFIGURATION_CHANGED: "NetworkConfigurationChanged",
+		Event_PRE_SETUP_NETWORK:             "PreSetupNetwork",
+		Event_POST_SETUP_NETWORK:            "PostSetupNetwork",
 	}
 
 	mask := *m

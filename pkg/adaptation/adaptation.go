@@ -276,6 +276,30 @@ func (r *Adaptation) RemoveContainer(ctx context.Context, evt *StateChangeEvent)
 	return r.StateChange(ctx, evt)
 }
 
+func (r *Adaptation) NetworkConfigurationChanged(ctx context.Context, req *NetworkConfigurationChangedRequest) (*NetworkConfigurationChangedResponse, error) {
+	r.Lock()
+	defer r.Unlock()
+	defer r.removeClosedPlugins()
+
+	result := collectNetworkConfigurationChangedResult(req)
+
+	for _, plugin := range r.plugins {
+		reply, err := plugin.networkConfigurationChanged(ctx, req)
+		if err != nil {
+			log.Errorf(ctx, "NetworkConfigurationChanged response from '%s' failed: %v", plugin.name(), err)
+			continue
+		}
+		err = result.apply(reply, plugin.name())
+		if err != nil {
+			log.Errorf(ctx, "NetworkConfigurationChanged result from '%s' failed: %v", plugin.name(), err)
+			continue
+		}
+		// update request for next plugin
+		result.updateNetworkConfigurationChangedRequest(req)
+	}
+	return result.networkConfigurationChangedResponse(), nil
+}
+
 func (r *Adaptation) PreSetupNetwork(ctx context.Context, req *PreSetupNetworkRequest) (*PreSetupNetworkResponse, error) {
 	r.Lock()
 	defer r.Unlock()

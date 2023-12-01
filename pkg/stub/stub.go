@@ -135,6 +135,10 @@ type PostUpdateContainerInterface interface {
 	PostUpdateContainer(context.Context, *api.PodSandbox, *api.Container) error
 }
 
+type NetworkConfigurationChangedInterface interface {
+	NetworkConfigurationChanged(context.Context, []*api.CNIConfig) ([]*api.CNIConfig, error)
+}
+
 type PreSetupNetworkInterface interface {
 	PreSetupNetwork(context.Context, *api.PodSandbox, []*api.CNIConfig) ([]*api.CNICapabilities, error)
 }
@@ -276,8 +280,9 @@ type handlers struct {
 	PostStartContainer  func(context.Context, *api.PodSandbox, *api.Container) error
 	PostUpdateContainer func(context.Context, *api.PodSandbox, *api.Container) error
 
-	PreSetupNetwork     func(context.Context, *api.PodSandbox, []*api.CNIConfig) ([]*api.CNICapabilities, error)
-	PostSetupNetwork    func(context.Context, *api.PodSandbox, []*api.Result) ([]*api.Result, error)
+	NetworkConfigurationChanged func(context.Context, []*api.CNIConfig) ([]*api.CNIConfig, error)
+	PreSetupNetwork             func(context.Context, *api.PodSandbox, []*api.CNIConfig) ([]*api.CNICapabilities, error)
+	PostSetupNetwork            func(context.Context, *api.PodSandbox, []*api.Result) ([]*api.Result, error)
 }
 
 // New creates a stub with the given plugin and options.
@@ -648,6 +653,16 @@ func (stub *stub) StopContainer(ctx context.Context, req *api.StopContainerReque
 	}, err
 }
 
+func (stub *stub) NetworkConfigurationChanged(ctx context.Context, req *api.NetworkConfigurationChangedRequest) (*api.NetworkConfigurationChangedResponse, error) {
+	handler := stub.handlers.NetworkConfigurationChanged
+	if handler == nil {
+		return &api.NetworkConfigurationChangedResponse{}, nil
+	}
+	configs, err := handler(ctx, req.CNIConfig)
+	return &api.NetworkConfigurationChangedResponse{
+		CNIConfig: configs,
+	}, err
+}
 func (stub *stub) PreSetupNetwork(ctx context.Context, req *api.PreSetupNetworkRequest) (*api.PreSetupNetworkResponse, error) {
 	handler := stub.handlers.PreSetupNetwork
 	if handler == nil {
@@ -790,6 +805,10 @@ func (stub *stub) setupHandlers() error {
 		stub.events.Set(api.Event_POST_UPDATE_CONTAINER)
 	}
 
+	if plugin, ok := stub.plugin.(NetworkConfigurationChangedInterface); ok {
+		stub.handlers.NetworkConfigurationChanged = plugin.NetworkConfigurationChanged
+		stub.events.Set(api.Event_NETWORK_CONFIGURATION_CHANGED)
+	}
 	if plugin, ok := stub.plugin.(PreSetupNetworkInterface); ok {
 		stub.handlers.PreSetupNetwork = plugin.PreSetupNetwork
 		stub.events.Set(api.Event_PRE_SETUP_NETWORK)

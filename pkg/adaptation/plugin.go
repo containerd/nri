@@ -489,6 +489,50 @@ func (p *plugin) stopContainer(ctx context.Context, req *StopContainerRequest) (
 	return rpl, nil
 }
 
+func (p *plugin) preSetupNetwork(ctx context.Context, req *PreSetupNetworkRequest) (*PreSetupNetworkResponse, error) {
+	if !p.events.IsSet(Event_PRE_SETUP_NETWORK) {
+		return nil, nil
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, getPluginRequestTimeout())
+	defer cancel()
+
+	rpl, err := p.stub.PreSetupNetwork(ctx, req)
+	if err != nil {
+		if isFatalError(err) {
+			log.Errorf(ctx, "closing plugin %s, failed to handle PreSetupNetwork request: %v",
+				p.name(), err)
+			p.close()
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	return rpl, nil
+}
+
+func (p *plugin) postSetupNetwork(ctx context.Context, req *PostSetupNetworkRequest) (*PostSetupNetworkResponse, error) {
+	if !p.events.IsSet(Event_POST_SETUP_NETWORK) {
+		return nil, nil
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, getPluginRequestTimeout())
+	defer cancel()
+
+	rpl, err := p.stub.PostSetupNetwork(ctx, req)
+	if err != nil {
+		if isFatalError(err) {
+			log.Errorf(ctx, "closing plugin %s, failed to handle PostSetupNetwork request: %v",
+				p.name(), err)
+			p.close()
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	return rpl, nil
+}
+
 // Relay other pod or container state change events to the plugin.
 func (p *plugin) StateChange(ctx context.Context, evt *StateChangeEvent) error {
 	if !p.events.IsSet(evt.Event) {

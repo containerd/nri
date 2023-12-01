@@ -135,6 +135,14 @@ type PostUpdateContainerInterface interface {
 	PostUpdateContainer(context.Context, *api.PodSandbox, *api.Container) error
 }
 
+type PreSetupNetworkInterface interface {
+	PreSetupNetwork(context.Context, *api.PodSandbox, []*api.CNIConfig) ([]*api.CNICapabilities, error)
+}
+
+type PostSetupNetworkInterface interface {
+	PostSetupNetwork(context.Context, *api.PodSandbox, []*api.Result) ([]*api.Result, error)
+}
+
 // Stub is the interface the stub provides for the plugin implementation.
 type Stub interface {
 	// Run the plugin. Starts the plugin then waits for an error or the plugin to stop
@@ -267,6 +275,9 @@ type handlers struct {
 	PostCreateContainer func(context.Context, *api.PodSandbox, *api.Container) error
 	PostStartContainer  func(context.Context, *api.PodSandbox, *api.Container) error
 	PostUpdateContainer func(context.Context, *api.PodSandbox, *api.Container) error
+
+	PreSetupNetwork     func(context.Context, *api.PodSandbox, []*api.CNIConfig) ([]*api.CNICapabilities, error)
+	PostSetupNetwork    func(context.Context, *api.PodSandbox, []*api.Result) ([]*api.Result, error)
 }
 
 // New creates a stub with the given plugin and options.
@@ -637,6 +648,28 @@ func (stub *stub) StopContainer(ctx context.Context, req *api.StopContainerReque
 	}, err
 }
 
+func (stub *stub) PreSetupNetwork(ctx context.Context, req *api.PreSetupNetworkRequest) (*api.PreSetupNetworkResponse, error) {
+	handler := stub.handlers.PreSetupNetwork
+	if handler == nil {
+		return &api.PreSetupNetworkResponse{}, nil
+	}
+	capabilities, err := handler(ctx, req.Pod, req.CNIConfig)
+	return &api.PreSetupNetworkResponse{
+		CNICapabilities: capabilities,
+	}, err
+}
+
+func (stub *stub) PostSetupNetwork(ctx context.Context, req *api.PostSetupNetworkRequest) (*api.PostSetupNetworkResponse, error) {
+	handler := stub.handlers.PostSetupNetwork
+	if handler == nil {
+		return &api.PostSetupNetworkResponse{}, nil
+	}
+	result, err := handler(ctx, req.Pod, req.Result)
+	return &api.PostSetupNetworkResponse{
+		Result: result,
+	}, err
+}
+
 // StateChange event handler.
 func (stub *stub) StateChange(ctx context.Context, evt *api.StateChangeEvent) (*api.Empty, error) {
 	var err error
@@ -755,6 +788,15 @@ func (stub *stub) setupHandlers() error {
 	if plugin, ok := stub.plugin.(PostUpdateContainerInterface); ok {
 		stub.handlers.PostUpdateContainer = plugin.PostUpdateContainer
 		stub.events.Set(api.Event_POST_UPDATE_CONTAINER)
+	}
+
+	if plugin, ok := stub.plugin.(PreSetupNetworkInterface); ok {
+		stub.handlers.PreSetupNetwork = plugin.PreSetupNetwork
+		stub.events.Set(api.Event_PRE_SETUP_NETWORK)
+	}
+	if plugin, ok := stub.plugin.(PostSetupNetworkInterface); ok {
+		stub.handlers.PostSetupNetwork = plugin.PostSetupNetwork
+		stub.events.Set(api.Event_POST_SETUP_NETWORK)
 	}
 
 	if stub.events == 0 {

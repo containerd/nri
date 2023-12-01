@@ -29,13 +29,18 @@ type result struct {
 }
 
 type resultRequest struct {
-	create *CreateContainerRequest
-	update *UpdateContainerRequest
+	create           *CreateContainerRequest
+	update           *UpdateContainerRequest
+	presetupnetwork  *PreSetupNetworkRequest
+	postsetupnetwork *PostSetupNetworkRequest
 }
 
 type resultReply struct {
-	adjust *ContainerAdjustment
-	update []*ContainerUpdate
+	adjust          *ContainerAdjustment
+	update          []*ContainerUpdate
+	cniconfig       []*CNIConfig
+	cnicapabilities []*CNICapabilities
+	result          []*Result
 }
 
 type resultOwners map[string]*owners
@@ -134,6 +139,28 @@ func collectStopContainerResult() *result {
 	return collectUpdateContainerResult(nil)
 }
 
+func collectPreSetupNetworkResult(request *PreSetupNetworkRequest) *result {
+	return &result{
+		request: resultRequest{
+			presetupnetwork: request,
+		},
+		reply:   resultReply{},
+		updates: nil,
+		owners:  resultOwners{},
+	}
+}
+
+func collectPostSetupNetworkResult(request *PostSetupNetworkRequest) *result {
+	return &result{
+		request: resultRequest{
+			postsetupnetwork: request,
+		},
+		reply:   resultReply{},
+		updates: nil,
+		owners:  resultOwners{},
+	}
+}
+
 func (r *result) createContainerResponse() *CreateContainerResponse {
 	return &CreateContainerResponse{
 		Adjust: r.reply.adjust,
@@ -151,6 +178,24 @@ func (r *result) updateContainerResponse() *UpdateContainerResponse {
 func (r *result) stopContainerResponse() *StopContainerResponse {
 	return &StopContainerResponse{
 		Update: r.reply.update,
+	}
+}
+
+func (r *result) preSetupNetworkResponse() *PreSetupNetworkResponse {
+	return &PreSetupNetworkResponse{
+		CNICapabilities: r.reply.cnicapabilities,
+	}
+}
+
+func (r *result) updatePostSetupNetworkRequest(req *PostSetupNetworkRequest) {
+	if r.reply.result != nil {
+		req.Result = r.reply.result
+	}
+}
+
+func (r *result) postSetupNetworkResponse() *PostSetupNetworkResponse {
+	return &PostSetupNetworkResponse{
+		Result: r.reply.result,
 	}
 }
 
@@ -178,6 +223,20 @@ func (r *result) apply(response interface{}, plugin string) error {
 			return nil
 		}
 		if err := r.update(rpl.Update, plugin); err != nil {
+			return err
+		}
+	case *PreSetupNetworkResponse:
+		if rpl == nil {
+			return nil
+		}
+		if err := r.adjustPreSetupNetwork(rpl.CNICapabilities, plugin); err != nil {
+			return err
+		}
+	case *PostSetupNetworkResponse:
+		if rpl == nil {
+			return nil
+		}
+		if err := r.adjustPostSetupNetwork(rpl.Result, plugin); err != nil {
 			return err
 		}
 	default:
@@ -676,6 +735,23 @@ func (r *result) adjustRlimits(rlimits []*POSIXRlimit, plugin string) error {
 		create.Container.Rlimits = append(create.Container.Rlimits, l)
 		adjust.Rlimits = append(adjust.Rlimits, l)
 	}
+
+	return nil
+}
+
+func (r *result) adjustPreSetupNetwork(capabilities []*CNICapabilities, plugin string) error {
+	if len(capabilities) > 0 {
+		r.reply.cnicapabilities = append(r.reply.cnicapabilities, capabilities...)
+	}
+
+	return nil
+}
+
+func (r *result) adjustPostSetupNetwork(result []*Result, plugin string) error {
+	if len(result) > 0 {
+		r.reply.result = result
+	}
+
 	return nil
 }
 
@@ -894,6 +970,9 @@ type owners struct {
 	unified             map[string]string
 	cgroupsPath         string
 	rlimits             map[string]string
+
+	PreSetupNetwork     string
+	PostSetupNetwork    string
 }
 
 func (ro resultOwners) ownersFor(id string) *owners {

@@ -60,6 +60,11 @@ type (
 	PostUpdateContainerRequest  = api.PostUpdateContainerRequest
 	PostUpdateContainerResponse = api.PostUpdateContainerResponse
 
+	PreSetupNetworkRequest   = api.PreSetupNetworkRequest
+	PreSetupNetworkResponse  = api.PreSetupNetworkResponse
+	PostSetupNetworkRequest  = api.PostSetupNetworkRequest
+	PostSetupNetworkResponse = api.PostSetupNetworkResponse
+
 	PodSandbox               = api.PodSandbox
 	LinuxPodSandbox          = api.LinuxPodSandbox
 	Container                = api.Container
@@ -83,6 +88,14 @@ type (
 	Hook                     = api.Hook
 	POSIXRlimit              = api.POSIXRlimit
 
+	CNIConfig       = api.CNIConfig
+	CNICapabilities = api.CNICapabilities
+	Result          = api.Result
+	Interfaces      = api.Interfaces
+	IPs             = api.IPs
+	Routes          = api.Routes
+	DNS             = api.DNS
+
 	EventMask = api.EventMask
 )
 
@@ -101,7 +114,11 @@ const (
 	Event_POST_UPDATE_CONTAINER = api.Event_POST_UPDATE_CONTAINER
 	Event_STOP_CONTAINER        = api.Event_STOP_CONTAINER
 	Event_REMOVE_CONTAINER      = api.Event_REMOVE_CONTAINER
-	ValidEvents                 = api.ValidEvents
+
+	Event_PRE_SETUP_NETWORK  = api.Event_PRE_SETUP_NETWORK
+	Event_POST_SETUP_NETWORK = api.Event_POST_SETUP_NETWORK
+
+	ValidEvents = api.ValidEvents
 
 	ContainerState_CONTAINER_UNKNOWN = api.ContainerState_CONTAINER_UNKNOWN
 	ContainerState_CONTAINER_CREATED = api.ContainerState_CONTAINER_CREATED

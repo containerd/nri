@@ -161,6 +161,31 @@ func (p *plugin) RemoveContainer(_ context.Context, pod *api.PodSandbox, contain
 	return nil
 }
 
+func (p *plugin) NetworkConfigurationChanged(_ context.Context, cniconfigs []*api.CNIConfig) ([]*api.CNIConfig, error) {
+	dump("NetworkConfigurationchanged", "cniconfigs", cniconfigs)
+	return nil, nil
+}
+
+func (p *plugin) PreSetupNetwork(_ context.Context, pod *api.PodSandbox, cniconfigs []*api.CNIConfig) ([]*api.CNICapabilities, error) {
+	dump("PreSetupNetwork", "pod", pod, "cniconfigs", cniconfigs)
+	return nil, nil
+}
+
+func (p *plugin) PostSetupNetwork(_ context.Context, pod *api.PodSandbox, result []*api.Result) ([]*api.Result, error) {
+	dump("PostSetupNetwork", "pod", pod, "result", result)
+	return nil, nil
+}
+
+func (p *plugin) PreNetworkDeleted(_ context.Context, pod *api.PodSandbox) error {
+	dump("PreNetworkDeleted", "pod", pod)
+	return nil
+}
+
+func (p *plugin) PostNetworkDeleted(_ context.Context, pod *api.PodSandbox) error {
+	dump("PostNetworkDeleted", "pod", pod)
+	return nil
+}
+
 func (p *plugin) onClose() {
 	os.Exit(0)
 }

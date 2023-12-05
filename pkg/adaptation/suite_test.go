@@ -324,6 +324,7 @@ type mockPlugin struct {
 	networkConfigurationChanged func(*mockPlugin, []*api.CNIConfig) ([]*api.CNIConfig, error)
 	preSetupNetwork             func(*mockPlugin, *api.PodSandbox, []*api.CNIConfig) ([]*api.CNICapabilities, error)
 	postSetupNetwork            func(*mockPlugin, *api.PodSandbox, []*api.Result) ([]*api.Result, error)
+	networkDeleted              func(*mockPlugin, *api.PodSandbox) error
 }
 
 var (
@@ -343,6 +344,7 @@ var (
 	_ = stub.NetworkConfigurationChangedInterface(&mockPlugin{})
 	_ = stub.PreSetupNetworkInterface(&mockPlugin{})
 	_ = stub.PostSetupNetworkInterface(&mockPlugin{})
+	_ = stub.NetworkDeletedInterface(&mockPlugin{})
 )
 
 func (m *mockPlugin) Log(format string, args ...interface{}) {
@@ -447,6 +449,9 @@ func (m *mockPlugin) Init(dir string) error {
 	}
 	if m.postSetupNetwork == nil {
 		m.postSetupNetwork = nopPostSetupNetwork
+	}
+	if m.networkDeleted == nil {
+		m.networkDeleted = nopNetworkDeleted
 	}
 	return nil
 }
@@ -611,6 +616,13 @@ func (m *mockPlugin) PostSetupNetwork(_ context.Context, pod *api.PodSandbox, re
 	return m.postSetupNetwork(m, pod, result)
 }
 
+func (m *mockPlugin) NetworkDeleted(_ context.Context, pod *api.PodSandbox) error {
+	m.pods[pod.Id] = pod
+	m.q.Add(PodSandboxEvent(pod, NetworkDeleted))
+
+	return m.networkDeleted(m, pod)
+}
+
 func nopEvent(*mockPlugin, *api.PodSandbox, *api.Container) error {
 	return nil
 }
@@ -637,6 +649,10 @@ func nopPreSetupNetwork(*mockPlugin, *api.PodSandbox, []*api.CNIConfig) ([]*api.
 
 func nopPostSetupNetwork(*mockPlugin, *api.PodSandbox, []*api.Result) ([]*api.Result, error) {
 	return nil, nil
+}
+
+func nopNetworkDeleted(*mockPlugin, *api.PodSandbox) error {
+	return nil
 }
 
 type EventType string
@@ -666,6 +682,7 @@ const (
 	NetworkConfigurationChanged = "NetworkConfigurationChanged"
 	PreSetupNetwork             = "PreSetupNetwork"
 	PostSetupNetwork            = "PostSetupNetwork"
+	NetworkDeleted              = "NetworkDeleted"
 
 	Error   = "Error"
 	Timeout = ""

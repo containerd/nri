@@ -66,6 +66,9 @@ type (
 	PreSetupNetworkResponse             = api.PreSetupNetworkResponse
 	PostSetupNetworkRequest             = api.PostSetupNetworkRequest
 	PostSetupNetworkResponse            = api.PostSetupNetworkResponse
+	PreNetworkDeletedRequest            = api.PreNetworkDeletedRequest
+	PreNetworkDeletedResponse           = api.PreNetworkDeletedResponse
+	PostNetworkDeletedRequest           = api.PostNetworkDeletedRequest
 
 	PodSandbox               = api.PodSandbox
 	LinuxPodSandbox          = api.LinuxPodSandbox
@@ -120,6 +123,8 @@ const (
 	Event_NETWORK_CONFIGURATION_CHANGED = api.Event_NETWORK_CONFIGURATION_CHANGED
 	Event_PRE_SETUP_NETWORK             = api.Event_PRE_SETUP_NETWORK
 	Event_POST_SETUP_NETWORK            = api.Event_POST_SETUP_NETWORK
+	Event_PRE_NETWORK_DELETED           = api.Event_PRE_NETWORK_DELETED
+	Event_POST_NETWORK_DELETED          = api.Event_POST_NETWORK_DELETED
 
 	ValidEvents = api.ValidEvents
 

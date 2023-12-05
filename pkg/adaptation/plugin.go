@@ -555,6 +555,28 @@ func (p *plugin) postSetupNetwork(ctx context.Context, req *PostSetupNetworkRequ
 	return rpl, nil
 }
 
+func (p *plugin) networkDeleted(ctx context.Context, req *PreNetworkDeletedRequest) (*PreNetworkDeletedResponse, error) {
+	if !p.events.IsSet(Event_PRE_NETWORK_DELETED) {
+		return nil, nil
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, getPluginRequestTimeout())
+	defer cancel()
+
+	rpl, err := p.stub.PreNetworkDeleted(ctx, req)
+	if err != nil {
+		if isFatalError(err) {
+			log.Errorf(ctx, "closing plugin %s, failed to handle PreNetworkDeleted request: %v",
+				p.name(), err)
+			p.close()
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	return rpl, nil
+}
+
 // Relay other pod or container state change events to the plugin.
 func (p *plugin) StateChange(ctx context.Context, evt *StateChangeEvent) error {
 	if !p.events.IsSet(evt.Event) {

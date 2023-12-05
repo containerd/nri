@@ -70,6 +70,7 @@ type PluginService interface {
 	NetworkConfigurationChanged(context.Context, *NetworkConfigurationChangedRequest) (*NetworkConfigurationChangedResponse, error)
 	PreSetupNetwork(context.Context, *PreSetupNetworkRequest) (*PreSetupNetworkResponse, error)
 	PostSetupNetwork(context.Context, *PostSetupNetworkRequest) (*PostSetupNetworkResponse, error)
+	PreNetworkDeleted(context.Context, *PreNetworkDeletedRequest) (*PreNetworkDeletedResponse, error)
 }
 
 func RegisterPluginService(srv *ttrpc.Server, svc PluginService) {
@@ -144,6 +145,13 @@ func RegisterPluginService(srv *ttrpc.Server, svc PluginService) {
 					return nil, err
 				}
 				return svc.PostSetupNetwork(ctx, &req)
+			},
+			"PreNetworkDeleted": func(ctx context.Context, unmarshal func(interface{}) error) (interface{}, error) {
+				var req PreNetworkDeletedRequest
+				if err := unmarshal(&req); err != nil {
+					return nil, err
+				}
+				return svc.PreNetworkDeleted(ctx, &req)
 			},
 		},
 	})
@@ -234,6 +242,14 @@ func (c *pluginClient) PreSetupNetwork(ctx context.Context, req *PreSetupNetwork
 func (c *pluginClient) PostSetupNetwork(ctx context.Context, req *PostSetupNetworkRequest) (*PostSetupNetworkResponse, error) {
 	var resp PostSetupNetworkResponse
 	if err := c.client.Call(ctx, "nri.pkg.api.v1alpha1.Plugin", "PostSetupNetwork", req, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+func (c *pluginClient) PreNetworkDeleted(ctx context.Context, req *PreNetworkDeletedRequest) (*PreNetworkDeletedResponse, error) {
+	var resp PreNetworkDeletedResponse
+	if err := c.client.Call(ctx, "nri.pkg.api.v1alpha1.Plugin", "PreNetworkDeleted", req, &resp); err != nil {
 		return nil, err
 	}
 	return &resp, nil

@@ -112,6 +112,7 @@ service Plugin {
   rpc PreSetupNetwork(PreSetupNetworkRequest) returns (PreSetupNetworkResponse);
   rpc PostSetupNetwork(PostSetupNetworkRequest) returns (PostSetupNetworkResponse);
 
+  rpc PreNetworkDeleted(PreNetworkDeletedRequest) returns (PreNetworkDeletedResponse);
 }
 
 message ConfigureRequest {
@@ -305,6 +306,13 @@ message DNS {
   repeated string options = 4;
 }
 
+message PreNetworkDeletedRequest {
+  // Pod whose network is to be deleted
+  PodSandbox pod = 1;
+}
+
+message PreNetworkDeletedResponse { }
+
 // Events that plugins can subscribe to in ConfigureResponse.
 enum Event {
   UNKNOWN = 0;
@@ -322,7 +330,9 @@ enum Event {
   NETWORK_CONFIGURATION_CHANGED = 12;
   PRE_SETUP_NETWORK = 13;
   POST_SETUP_NETWORK = 14;
-  LAST = 15;
+  PRE_NETWORK_DELETED = 15;
+  POST_NETWORK_DELETED = 16;
+  LAST = 17;
 }
 
 // Pod metadata that is considered relevant for a plugin.
@@ -390,6 +400,7 @@ message Hooks {
   repeated Hook start_container = 4;
   repeated Hook poststart = 5;
   repeated Hook poststop = 6;
+  repeated Hook postnetworkdeleted = 7;
 }
 
 // One OCI hook.

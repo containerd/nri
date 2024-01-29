@@ -22,76 +22,74 @@ import (
 	"fmt"
 	"net"
 	"os"
-
-	syscall "golang.org/x/sys/unix"
 )
 
-const (
-	local = 0
-	peer  = 1
-)
-
-// SocketPair contains the file descriptors of a connected pair of sockets.
-type SocketPair [2]int
+// SocketPair contains the os.File of a connected pair of sockets.
+type SocketPair struct {
+	local, peer *os.File
+}
 
 // NewSocketPair returns a connected pair of sockets.
 func NewSocketPair() (SocketPair, error) {
-	fds, err := syscall.Socketpair(syscall.AF_UNIX, syscall.SOCK_STREAM, 0)
+	fds, err := newSocketPairCLOEXEC()
 	if err != nil {
-		return [2]int{-1, -1}, fmt.Errorf("failed to create socketpair: %w", err)
+		return SocketPair{nil, nil}, fmt.Errorf("failed to create socketpair: %w", err)
 	}
 
-	return fds, nil
+	filename := fmt.Sprintf("socketpair-#%d:%d", fds[0], fds[1])
+
+	return SocketPair{
+		os.NewFile(uintptr(fds[0]), filename+"[0]"),
+		os.NewFile(uintptr(fds[1]), filename+"[1]"),
+	}, nil
 }
 
-// LocalFile returns the socketpair fd for local usage as an *os.File.
-func (fds SocketPair) LocalFile() *os.File {
-	return os.NewFile(uintptr(fds[local]), fds.fileName()+"[0]")
+// LocalFile returns the local end of the socketpair as an *os.File.
+func (sp SocketPair) LocalFile() *os.File {
+	return sp.local
 }
 
-// PeerFile returns the socketpair fd for peer usage as an *os.File.
-func (fds SocketPair) PeerFile() *os.File {
-	return os.NewFile(uintptr(fds[peer]), fds.fileName()+"[1]")
+// PeerFile returns the peer end of the socketpair as an *os.File.
+func (sp SocketPair) PeerFile() *os.File {
+	return sp.peer
 }
 
 // LocalConn returns a net.Conn for the local end of the socketpair.
-func (fds SocketPair) LocalConn() (net.Conn, error) {
-	file := fds.LocalFile()
+// This closes LocalFile().
+func (sp SocketPair) LocalConn() (net.Conn, error) {
+	file := sp.LocalFile()
 	defer file.Close()
 	conn, err := net.FileConn(file)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create net.Conn for %s[0]: %w", fds.fileName(), err)
+		return nil, fmt.Errorf("failed to create net.Conn for %s: %w", file.Name(), err)
 	}
 	return conn, nil
 }
 
 // PeerConn returns a net.Conn for the peer end of the socketpair.
-func (fds SocketPair) PeerConn() (net.Conn, error) {
-	file := fds.PeerFile()
+// This closes PeerFile().
+func (sp SocketPair) PeerConn() (net.Conn, error) {
+	file := sp.PeerFile()
 	defer file.Close()
 	conn, err := net.FileConn(file)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create net.Conn for %s[1]: %w", fds.fileName(), err)
+		return nil, fmt.Errorf("failed to create net.Conn for %s: %w", file.Name(), err)
 	}
 	return conn, nil
 }
 
 // Close closes both ends of the socketpair.
-func (fds SocketPair) Close() {
-	fds.LocalClose()
-	fds.PeerClose()
+func (sp SocketPair) Close() {
+	sp.LocalClose()
+	sp.PeerClose()
 }
 
 // LocalClose closes the local end of the socketpair.
-func (fds SocketPair) LocalClose() {
-	syscall.Close(fds[local])
+func (sp SocketPair) LocalClose() {
+	sp.local.Close()
 }
 
 // PeerClose closes the peer end of the socketpair.
-func (fds SocketPair) PeerClose() {
-	syscall.Close(fds[peer])
-}
-
-func (fds SocketPair) fileName() string {
-	return fmt.Sprintf("socketpair-#%d:%d[0]", fds[local], fds[peer])
+func (sp SocketPair) PeerClose() {
+	sp.peer.Close()
 }

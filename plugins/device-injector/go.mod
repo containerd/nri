@@ -9,7 +9,7 @@ require (
 )
 
 require (
-	github.com/containerd/ttrpc v1.2.3-0.20231030150553-baadfd8e7956 // indirect
+	github.com/containerd/ttrpc v1.2.3 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/opencontainers/runtime-spec v1.0.3-0.20220825212826-86290f6a00fb // indirect

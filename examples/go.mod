@@ -14,7 +14,7 @@ require (
 	github.com/docker/go-units v0.4.0 // indirect
 	github.com/godbus/dbus/v5 v5.0.4 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
-	golang.org/x/sys v0.1.0 // indirect
+	golang.org/x/sys v0.13.0 // indirect
 )
 
 replace github.com/containerd/nri => ../

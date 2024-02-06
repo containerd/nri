@@ -3,7 +3,7 @@ module github.com/containerd/nri
 go 1.19
 
 require (
-	github.com/containerd/ttrpc v1.2.3-0.20231030150553-baadfd8e7956
+	github.com/containerd/ttrpc v1.2.3
 	github.com/moby/sys/mountinfo v0.6.2
 	github.com/onsi/ginkgo/v2 v2.5.0
 	github.com/onsi/gomega v1.24.0

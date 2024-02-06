@@ -11,7 +11,7 @@ require (
 )
 
 require (
-	github.com/containerd/ttrpc v1.2.3-0.20231030150553-baadfd8e7956 // indirect
+	github.com/containerd/ttrpc v1.2.3 // indirect
 	github.com/fatih/color v1.12.0 // indirect
 	github.com/goccy/go-yaml v1.8.10 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect

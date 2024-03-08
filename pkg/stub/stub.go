@@ -430,6 +430,7 @@ func (stub *stub) close() {
 		if stub.srvErrC != nil {
 			<-stub.doneC
 		}
+		stub.started = false
 	})
 }
 

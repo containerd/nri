@@ -252,7 +252,9 @@ func (g *Generator) AdjustResources(r *nri.LinuxResources) error {
 	for k, v := range r.Unified {
 		g.AddLinuxResourcesUnified(k, v)
 	}
-
+	if v := r.GetPids(); v != nil {
+		g.SetLinuxResourcesPidsLimit(v.GetLimit())
+	}
 	if g.checkResources != nil {
 		if err := g.checkResources(g.Config.Linux.Resources); err != nil {
 			return fmt.Errorf("failed to adjust resources in OCI Spec: %w", err)

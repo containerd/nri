@@ -219,6 +219,12 @@ func (a *ContainerAdjustment) SetLinuxCPUSetMems(value string) {
 	a.Linux.Resources.Cpu.Mems = value
 }
 
+// SetLinuxPidLimits records setting the pid max number for a container.
+func (a *ContainerAdjustment) SetLinuxPidLimits(value int64) {
+	a.initLinuxResourcesPids()
+	a.Linux.Resources.Pids.Limit = value
+}
+
 // AddLinuxHugepageLimit records adding a hugepage limit for a container.
 func (a *ContainerAdjustment) AddLinuxHugepageLimit(pageSize string, value uint64) {
 	a.initLinuxResources()
@@ -299,6 +305,13 @@ func (a *ContainerAdjustment) initLinuxResourcesCPU() {
 	a.initLinuxResources()
 	if a.Linux.Resources.Cpu == nil {
 		a.Linux.Resources.Cpu = &LinuxCPU{}
+	}
+}
+
+func (a *ContainerAdjustment) initLinuxResourcesPids() {
+	a.initLinuxResources()
+	if a.Linux.Resources.Pids == nil {
+		a.Linux.Resources.Pids = &LinuxPids{}
 	}
 }
 

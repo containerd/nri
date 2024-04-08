@@ -19,6 +19,8 @@ package adaptation
 import (
 	"fmt"
 	"strings"
+
+	"github.com/containerd/nri/pkg/api"
 )
 
 type result struct {
@@ -645,7 +647,16 @@ func (r *result) adjustResources(resources *LinuxResources, plugin string) error
 		container.RdtClass = String(v.GetValue())
 		reply.RdtClass = String(v.GetValue())
 	}
-
+	if v := resources.GetPids(); v != nil {
+		if err := r.owners.claimPidsLimit(id, plugin); err != nil {
+			return err
+		}
+		pidv := &api.LinuxPids{
+			Limit: v.GetLimit(),
+		}
+		container.Pids = pidv
+		reply.Pids = pidv
+	}
 	return nil
 }
 
@@ -820,6 +831,14 @@ func (r *result) updateResources(reply, u *ContainerUpdate, plugin string) error
 		}
 		resources.RdtClass = String(v.GetValue())
 	}
+	if v := resources.GetPids(); v != nil {
+		if err := r.owners.claimPidsLimit(id, plugin); err != nil {
+			return err
+		}
+		resources.Pids = &api.LinuxPids{
+			Limit: v.GetLimit(),
+		}
+	}
 
 	// update request/reply from copy on success
 	reply.Linux.Resources = resources.Copy()
@@ -888,6 +907,7 @@ type owners struct {
 	cpuRealtimePeriod   string
 	cpusetCpus          string
 	cpusetMems          string
+	pidsLimit           string
 	hugepageLimits      map[string]string
 	blockioClass        string
 	rdtClass            string
@@ -979,6 +999,10 @@ func (ro resultOwners) claimCpusetCpus(id, plugin string) error {
 
 func (ro resultOwners) claimCpusetMems(id, plugin string) error {
 	return ro.ownersFor(id).claimCpusetMems(plugin)
+}
+
+func (ro resultOwners) claimPidsLimit(id, plugin string) error {
+	return ro.ownersFor(id).claimPidsLimit(plugin)
 }
 
 func (ro resultOwners) claimHugepageLimit(id, size, plugin string) error {
@@ -1166,6 +1190,14 @@ func (o *owners) claimCpusetMems(plugin string) error {
 		return conflict(plugin, other, "memory pinning")
 	}
 	o.cpusetMems = plugin
+	return nil
+}
+
+func (o *owners) claimPidsLimit(plugin string) error {
+	if other := o.pidsLimit; other != "" {
+		return conflict(plugin, other, "pids pinning")
+	}
+	o.pidsLimit = plugin
 	return nil
 }
 

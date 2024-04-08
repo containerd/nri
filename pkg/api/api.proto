@@ -328,6 +328,7 @@ message LinuxResources {
   OptionalString rdt_class = 5;
   map<string, string> unified = 6;
   repeated LinuxDeviceCgroup devices = 7; // for NRI v1 emulation
+  LinuxPids pids = 8;
 }
 
 // Memory-related parts of (linux) resources.
@@ -364,6 +365,11 @@ message POSIXRlimit {
   string type = 1;
   uint64 hard = 2;
   uint64 soft = 3;
+}
+
+// Pids-related parts of (linux) resources.
+message LinuxPids {
+  int64 limit = 1;
 }
 
 // Requested adjustments to a container being created.

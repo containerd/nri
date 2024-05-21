@@ -135,11 +135,12 @@ func dump(args ...interface{}) {
 
 func main() {
 	var (
-		pluginName string
-		pluginIdx  string
-		opts       []stub.Option
-		mgr        *hooks.Manager
-		err        error
+		pluginName   string
+		pluginIdx    string
+		disableWatch bool
+		opts         []stub.Option
+		mgr          *hooks.Manager
+		err          error
 	)
 
 	log = logrus.StandardLogger()
@@ -150,6 +151,7 @@ func main() {
 	flag.StringVar(&pluginName, "name", "", "plugin name to register to NRI")
 	flag.StringVar(&pluginIdx, "idx", "", "plugin index to register to NRI")
 	flag.BoolVar(&verbose, "verbose", false, "enable (more) verbose logging")
+	flag.BoolVar(&disableWatch, "disableWatch", false, "disable watching hook directories for new hooks")
 	flag.Parse()
 
 	if pluginName != "" {
@@ -173,6 +175,25 @@ func main() {
 		os.Exit(1)
 	}
 	p.mgr = mgr
+
+	if !disableWatch {
+		for _, dir := range dirs {
+			if err = os.MkdirAll(dir, 0755); err != nil {
+				log.Errorf("failed to create directory %q: %v", dir, err)
+				os.Exit(1)
+			}
+		}
+
+		sync := make(chan error, 2)
+		go mgr.Monitor(ctx, sync)
+
+		err = <-sync
+		if err != nil {
+			log.Errorf("failed to monitor hook directories: %v", err)
+			os.Exit(1)
+		}
+		log.Infof("watching directories %q for new changes", strings.Join(dirs, " "))
+	}
 
 	err = p.stub.Run(ctx)
 	if err != nil {

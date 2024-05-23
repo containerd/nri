@@ -1,0 +1,50 @@
+# Create a dummy interface on the node where the pod will run
+#   ip link add dummy0 type dummy
+# Once this pod is running, you can verify the results by running
+#   kubectl exec -c c0 bbdev0 -- ip addr show dev eth33
+#   kubectl exec -c c1 bbdev0 -- ip addr show dev eth33
+#
+apiVersion: v1
+kind: Pod
+metadata:
+  name: bbdev0
+  labels:
+    app: bbdev0
+  annotations:
+    netdevices.nri.io: |+
+      - name: dummy0
+        new_name: eth33
+        address: 192.168.2.2
+        prefix: 24
+        mtu: 1500
+spec:
+  containers:
+  - name: c0
+    image: busybox
+    imagePullPolicy: IfNotPresent
+    command:
+      - sh
+      - -c
+      - echo bbdev0c0 $(sleep inf)
+    resources:
+      requests:
+        cpu: 500m
+        memory: '100M'
+      limits:
+        cpu: 500m
+        memory: '100M'
+  - name: c1
+    image: busybox
+    imagePullPolicy: IfNotPresent
+    command:
+      - sh
+      - -c
+      - echo bbdev0c1 $(sleep inf)
+    resources:
+      requests:
+        cpu: 1
+        memory: '100M'
+      limits:
+        cpu: 1
+        memory: '100M'
+  terminationGracePeriodSeconds: 1

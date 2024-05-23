@@ -308,6 +308,7 @@ The following sample plugins exist for NRI:
   - [logger](plugins/logger)
   - [differ](plugins/differ)
   - [device injector](plugins/device-injector)
+  - [network device injector](plugins/network-device-injector)
   - [OCI hook injector](plugins/hook-injector)
   - [ulimit adjuster](plugins/ulimit-adjuster)
   - [NRI v0.1.0 plugin adapter](plugins/v010-adapter)

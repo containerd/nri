@@ -322,6 +322,11 @@ func (r *result) adjustMounts(mounts []*Mount, plugin string) error {
 		r.reply.adjust.Mounts = append(r.reply.adjust.Mounts, m)
 	}
 
+	// need add del mount, containerd needs to process this del mounts
+	for _, m := range del {
+		r.reply.adjust.Mounts = append(r.reply.adjust.Mounts, m)
+	}
+
 	// finally, apply additions/modifications to plugin container creation request
 	create.Container.Mounts = append(create.Container.Mounts, add...)
 

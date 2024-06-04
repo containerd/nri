@@ -336,40 +336,48 @@ func (r *Adaptation) startPlugins() (retErr error) {
 	}()
 
 	for i, name := range names {
-		log.Infof(noCtx, "starting plugin %q...", name)
+		log.Infof(noCtx, "starting pre-installed NRI plugin %q...", name)
 
 		id := ids[i]
-
 		p, err := r.newLaunchedPlugin(r.pluginPath, id, name, configs[i])
 		if err != nil {
-			return fmt.Errorf("failed to start NRI plugin %q: %w", name, err)
+			log.Warnf(noCtx, "failed to initialize pre-installed NRI plugin %q: %v", name, err)
+			continue
 		}
 
 		if err := p.start(r.name, r.version); err != nil {
-			return fmt.Errorf("failed to start NRI Plugin %q: %w", name, err)
+			log.Warnf(noCtx, "failed to start pre-installed NRI plugin %q: %v", name, err)
+			continue
 		}
 
 		plugins = append(plugins, p)
 	}
 
-	syncPlugins := func(ctx context.Context, pods []*PodSandbox, containers []*Container) ([]*ContainerUpdate, error) {
-		var updates []*ContainerUpdate
-		for _, plugin := range plugins {
+	// Although the error returned by syncPlugins may not be nil, r.syncFn could still ignores this error and returns a nil error.
+	// We need to make sure that the plugins are successfully synchronized in the `plugins`
+	syncPlugins := func(ctx context.Context, pods []*PodSandbox, containers []*Container) (updates []*ContainerUpdate, err error) {
+		startedPlugins := plugins
+		plugins = make([]*plugin, 0, len(plugins))
+		for _, plugin := range startedPlugins {
 			us, err := plugin.synchronize(ctx, pods, containers)
 			if err != nil {
-				return nil, fmt.Errorf("failed to sync NRI Plugin %q: %w", plugin.name(), err)
+				plugin.stop()
+				log.Warnf(noCtx, "failed to synchronize pre-installed NRI plugin %q: %v", plugin.name(), err)
+				continue
 			}
+
+			plugins = append(plugins, plugin)
 			updates = append(updates, us...)
+			log.Infof(noCtx, "pre-installed NRI plugin %q synchronization success", plugin.name())
 		}
 		return updates, nil
 	}
 	if err := r.syncFn(noCtx, syncPlugins); err != nil {
-		return fmt.Errorf("failed to synchronize NRI Plugins: %w", err)
+		return fmt.Errorf("failed to synchronize pre-installed NRI Plugins: %w", err)
 	}
 
 	r.plugins = plugins
 	r.sortPlugins()
-
 	return nil
 }
 

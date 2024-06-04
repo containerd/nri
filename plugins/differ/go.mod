@@ -1,6 +1,6 @@
 module github.com/containerd/nri/plugins/differ
 
-go 1.18
+go 1.20
 
 require (
 	github.com/containerd/nri v0.2.0

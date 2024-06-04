@@ -352,16 +352,27 @@ func (r *Adaptation) startPlugins() (retErr error) {
 		plugins = append(plugins, p)
 	}
 
+	// Although the error returned by syncPlugins may not be nil, r.syncFn could still ignores this error and returns a nil error.
+	// We need to make sure that the plugins are successfully synchronized in the `plugins`
 	syncPlugins := func(ctx context.Context, pods []*PodSandbox, containers []*Container) ([]*ContainerUpdate, error) {
-		var updates []*ContainerUpdate
-		for _, plugin := range plugins {
+		var (
+			errs    []error
+			updates []*ContainerUpdate
+		)
+
+		startedPlugins := plugins
+		plugins = make([]*plugin, 0, len(plugins))
+		for _, plugin := range startedPlugins {
 			us, err := plugin.synchronize(ctx, pods, containers)
 			if err != nil {
-				return nil, fmt.Errorf("failed to sync NRI Plugin %q: %w", plugin.name(), err)
+				plugin.stop()
+				errs = append(errs, fmt.Errorf("[%s] %w", plugin.name(), err))
+			} else {
+				plugins = append(plugins, plugin)
+				updates = append(updates, us...)
 			}
-			updates = append(updates, us...)
 		}
-		return updates, nil
+		return updates, errors.Join(errs...)
 	}
 	if err := r.syncFn(noCtx, syncPlugins); err != nil {
 		return fmt.Errorf("failed to synchronize NRI Plugins: %w", err)
@@ -369,7 +380,6 @@ func (r *Adaptation) startPlugins() (retErr error) {
 
 	r.plugins = plugins
 	r.sortPlugins()
-
 	return nil
 }
 

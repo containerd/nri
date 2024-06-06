@@ -76,7 +76,7 @@ jobs:
 
       - uses: golangci/golangci-lint-action@v3
         with:
-          version: v1.51.2
+          version: v1.58.0
 
   tests:
     name: Tests

@@ -92,7 +92,7 @@ var _ = Describe("Adaptation", func() {
 	When("SyncFn is nil", func() {
 		var (
 			syncFn   func(ctx context.Context, cb nri.SyncCB) error
-			updateFn = func(ctx context.Context, updates []*nri.ContainerUpdate) ([]*nri.ContainerUpdate, error) {
+			updateFn = func(_ context.Context, _ []*nri.ContainerUpdate) ([]*nri.ContainerUpdate, error) {
 				return nil, nil
 			}
 		)
@@ -119,7 +119,7 @@ var _ = Describe("Adaptation", func() {
 	When("UpdateFn is nil", func() {
 		var (
 			updateFn func(ctx context.Context, updates []*nri.ContainerUpdate) ([]*nri.ContainerUpdate, error)
-			syncFn   = func(ctx context.Context, cb nri.SyncCB) error {
+			syncFn   = func(_ context.Context, _ nri.SyncCB) error {
 				return nil
 			}
 		)
@@ -385,7 +385,7 @@ var _ = Describe("Pod and container requests and events", func() {
 					}
 
 					order       []*mockPlugin
-					recordOrder = func(p *mockPlugin, pod *api.PodSandbox, ctr *api.Container) error {
+					recordOrder = func(p *mockPlugin, _ *api.PodSandbox, _ *api.Container) error {
 						order = append(order, p)
 						return nil
 					}
@@ -435,7 +435,7 @@ var _ = Describe("Plugin container creation adjustments", func() {
 		s = &Suite{}
 	)
 
-	adjust := func(subject string, p *mockPlugin, pod *api.PodSandbox, ctr *api.Container, overwrite bool) (*api.ContainerAdjustment, []*api.ContainerUpdate, error) {
+	adjust := func(subject string, p *mockPlugin, _ *api.PodSandbox, _ *api.Container, overwrite bool) (*api.ContainerAdjustment, []*api.ContainerUpdate, error) {
 		plugin := p.idx + "-" + p.name
 		a := &api.ContainerAdjustment{}
 		switch subject {
@@ -845,7 +845,7 @@ var _ = Describe("Plugin container updates during creation", func() {
 		s = &Suite{}
 	)
 
-	update := func(subject, which string, p *mockPlugin, pod *api.PodSandbox, ctr *api.Container) (*api.ContainerAdjustment, []*api.ContainerUpdate, error) {
+	update := func(subject, which string, p *mockPlugin, _ *api.PodSandbox, ctr *api.Container) (*api.ContainerAdjustment, []*api.ContainerUpdate, error) {
 		plugin := p.idx + "-" + p.name
 
 		if which != plugin && which != "*" && which != "both" {
@@ -1216,7 +1216,7 @@ var _ = Describe("Solicited container updates by plugins", func() {
 		s = &Suite{}
 	)
 
-	update := func(subject, which string, p *mockPlugin, pod *api.PodSandbox, ctr *api.Container, r, exp *api.LinuxResources) ([]*api.ContainerUpdate, error) {
+	update := func(subject, which string, p *mockPlugin, _ *api.PodSandbox, ctr *api.Container, _, _ *api.LinuxResources) ([]*api.ContainerUpdate, error) {
 		plugin := p.idx + "-" + p.name
 
 		if which != plugin && which != "*" && which != "both" {
@@ -1807,7 +1807,7 @@ var _ = Describe("Unsolicited container update requests", func() {
 				recordedUpdates []*nri.ContainerUpdate
 			)
 
-			runtime.updateFn = func(ctx context.Context, updates []*nri.ContainerUpdate) ([]*nri.ContainerUpdate, error) {
+			runtime.updateFn = func(_ context.Context, updates []*nri.ContainerUpdate) ([]*nri.ContainerUpdate, error) {
 				recordedUpdates = updates
 				return nil, nil
 			}

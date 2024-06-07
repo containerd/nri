@@ -200,7 +200,7 @@ func (r *result) adjust(rpl *ContainerAdjustment, plugin string) error {
 	if err := r.adjustEnv(rpl.Env, plugin); err != nil {
 		return err
 	}
-	if err := r.adjustHooks(rpl.Hooks, plugin); err != nil {
+	if err := r.adjustHooks(rpl.Hooks); err != nil {
 		return err
 	}
 	if rpl.Linux != nil {
@@ -458,7 +458,7 @@ func splitEnvVar(s string) (string, string) {
 	return split[0], split[1]
 }
 
-func (r *result) adjustHooks(hooks *Hooks, plugin string) error {
+func (r *result) adjustHooks(hooks *Hooks) error {
 	if hooks == nil {
 		return nil
 	}

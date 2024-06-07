@@ -605,7 +605,7 @@ func (stub *stub) Synchronize(ctx context.Context, req *api.SynchronizeRequest) 
 }
 
 // Shutdown the plugin.
-func (stub *stub) Shutdown(ctx context.Context, req *api.ShutdownRequest) (*api.ShutdownResponse, error) {
+func (stub *stub) Shutdown(ctx context.Context, _ *api.ShutdownRequest) (*api.ShutdownResponse, error) {
 	handler := stub.handlers.Shutdown
 	if handler != nil {
 		handler(ctx)

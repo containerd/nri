@@ -470,7 +470,7 @@ func (m *mockPlugin) onClose() {
 	}
 }
 
-func (m *mockPlugin) Configure(_ context.Context, cfg, runtime, version string) (stub.EventMask, error) {
+func (m *mockPlugin) Configure(_ context.Context, _, _, _ string) (stub.EventMask, error) {
 	m.q.Add(PluginConfigured)
 
 	return m.mask, nil
@@ -690,7 +690,7 @@ func (q *EventQ) Add(e *Event) {
 	}
 }
 
-func (q *EventQ) Reset(e *Event) {
+func (q *EventQ) Reset() {
 	q.Lock()
 	defer q.Unlock()
 	q.q = []*Event{}

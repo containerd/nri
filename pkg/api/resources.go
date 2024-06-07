@@ -22,7 +22,7 @@ import (
 )
 
 // FromOCILinuxResources returns resources from an OCI runtime Spec.
-func FromOCILinuxResources(o *rspec.LinuxResources, ann map[string]string) *LinuxResources {
+func FromOCILinuxResources(o *rspec.LinuxResources, _ map[string]string) *LinuxResources {
 	if o == nil {
 		return nil
 	}

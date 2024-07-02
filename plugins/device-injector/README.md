@@ -8,7 +8,7 @@ pod annotations.
 Devices are annotated using the `devices.nri.io` annotation key prefix.
 The key `devices.nri.io/container.$CONTAINER_NAME` annotates devices to
 be injected into `$CONTAINER_NAME`. The keys `devices.nri.io` and
-`devices.nri.io/pod` annotate devices to inject into all containers.
+`devices.nri.io/pod` annotate devices to be injected into all containers.
 
 The annotation syntax for device injection is
 

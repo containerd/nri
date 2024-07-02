@@ -129,6 +129,11 @@ func (a *ContainerAdjustment) RemoveDevice(path string) {
 	})
 }
 
+// AddCDIDevice records the addition of the given CDI device to a container.
+func (a *ContainerAdjustment) AddCDIDevice(d *CDIDevice) {
+	a.CDIDevices = append(a.CDIDevices, d) // TODO: should we dup d here ?
+}
+
 // SetLinuxMemoryLimit records setting the memory limit for a container.
 func (a *ContainerAdjustment) SetLinuxMemoryLimit(value int64) {
 	a.initLinuxResourcesMemory()

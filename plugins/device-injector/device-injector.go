@@ -35,6 +35,8 @@ const (
 	deviceKey = "devices.nri.io"
 	// Prefix of the key used for mount annotations.
 	mountKey = "mounts.nri.io"
+	// Prefix of the key used for CDI device annotations.
+	cdiDeviceKey = "cdi-devices.nri.io"
 )
 
 var (
@@ -69,10 +71,11 @@ type plugin struct {
 // CreateContainer handles container creation requests.
 func (p *plugin) CreateContainer(_ context.Context, pod *api.PodSandbox, container *api.Container) (*api.ContainerAdjustment, []*api.ContainerUpdate, error) {
 	var (
-		ctrName string
-		devices []device
-		mounts  []mount
-		err     error
+		ctrName    string
+		devices    []device
+		cdiDevices []string
+		mounts     []mount
+		err        error
 	)
 
 	ctrName = containerName(pod, container)
@@ -100,6 +103,31 @@ func (p *plugin) CreateContainer(_ context.Context, pod *api.PodSandbox, contain
 			adjust.AddDevice(d.toNRI())
 			if !verbose {
 				log.Infof("%s: injected device %q...", ctrName, d.Path)
+			}
+		}
+	}
+
+	// inject CDI devices to container
+	cdiDevices, err = parseCDIDevices(container.Name, pod.Annotations)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if len(cdiDevices) == 0 {
+		log.Infof("%s: no CDI devices annotated...", ctrName)
+	} else {
+		if verbose {
+			dump(ctrName, "annotated CDI devices", devices)
+		}
+
+		for _, name := range cdiDevices {
+			adjust.AddCDIDevice(
+				&api.CDIDevice{
+					Name: name,
+				},
+			)
+			if !verbose {
+				log.Infof("%s: injected CDI device %q...", ctrName, name)
 			}
 		}
 	}
@@ -160,6 +188,36 @@ func parseDevices(ctr string, annotations map[string]string) ([]device, error) {
 	}
 
 	return devices, nil
+}
+
+func parseCDIDevices(ctr string, annotations map[string]string) ([]string, error) {
+	var (
+		key        string
+		annotation []byte
+		cdiDevices []string
+	)
+
+	// look up effective device annotation and unmarshal devices
+	for _, key = range []string{
+		cdiDeviceKey + "/container." + ctr,
+		cdiDeviceKey + "/pod",
+		cdiDeviceKey,
+	} {
+		if value, ok := annotations[key]; ok {
+			annotation = []byte(value)
+			break
+		}
+	}
+
+	if annotation == nil {
+		return nil, nil
+	}
+
+	if err := yaml.Unmarshal(annotation, &cdiDevices); err != nil {
+		return nil, fmt.Errorf("invalid CDI device annotation %q: %w", key, err)
+	}
+
+	return cdiDevices, nil
 }
 
 func parseMounts(ctr string, annotations map[string]string) ([]mount, error) {

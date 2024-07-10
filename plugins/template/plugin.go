@@ -91,7 +91,7 @@ func (p *plugin) CreateContainer(_ context.Context, pod *api.PodSandbox, ctr *ap
 	// This is the container creation request handler. Because the container
 	// has not been created yet, this is the lifecycle event which allows you
 	// the largest set of changes to the container's configuration, including
-	// some of the later immautable parameters. Take a look at the adjustment
+	// some of the later immutable parameters. Take a look at the adjustment
 	// functions in pkg/api/adjustment.go to see the available controls.
 	//
 	// In addition to reconfiguring the container being created, you are also

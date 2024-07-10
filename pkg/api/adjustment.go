@@ -253,6 +253,12 @@ func (a *ContainerAdjustment) SetLinuxCgroupsPath(value string) {
 	a.Linux.CgroupsPath = value
 }
 
+// SetLinuxOomScoreAdj records setting the cgroups path for a container.
+func (a *ContainerAdjustment) SetLinuxOomScoreAdj(value int) {
+	a.initLinux()
+	a.Linux.OomScoreAdj = Int(value)
+}
+
 //
 // Initializing a container adjustment and container update.
 //

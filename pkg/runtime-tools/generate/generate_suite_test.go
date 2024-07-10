@@ -115,6 +115,28 @@ var _ = Describe("Adjustment", func() {
 		})
 	})
 
+	When("has oom score adj", func() {
+		It("adjusts Spec correctly", func() {
+			var (
+				spec   = makeSpec()
+				adjust = &api.ContainerAdjustment{
+					Linux: &api.LinuxContainerAdjustment{
+						OomScoreAdj: &api.OptionalInt{
+							Value: 123,
+						},
+					},
+				}
+			)
+
+			rg := &rgen.Generator{Config: spec}
+			xg := xgen.SpecGenerator(rg)
+
+			Expect(xg).ToNot(BeNil())
+			Expect(xg.Adjust(adjust)).To(Succeed())
+			Expect(spec).To(Equal(makeSpec(withOomScoreAdj(123))))
+		})
+	})
+
 	When("has CPU shares", func() {
 		It("adjusts Spec correctly", func() {
 			var (
@@ -319,6 +341,15 @@ func withMemorySwap(v int64) specOption {
 			spec.Linux.Resources.Memory = &rspec.LinuxMemory{}
 		}
 		spec.Linux.Resources.Memory.Swap = &v
+	}
+}
+
+func withOomScoreAdj(v int) specOption {
+	return func(spec *rspec.Spec) {
+		if spec.Process == nil {
+			spec.Process = &rspec.Process{}
+		}
+		spec.Process.OOMScoreAdj = &v
 	}
 }
 

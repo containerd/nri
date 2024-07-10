@@ -104,6 +104,7 @@ func (g *Generator) Adjust(adjust *nri.ContainerAdjustment) error {
 	g.AdjustHooks(adjust.GetHooks())
 	g.AdjustDevices(adjust.GetLinux().GetDevices())
 	g.AdjustCgroupsPath(adjust.GetLinux().GetCgroupsPath())
+	g.AdjustOomScoreAdj(adjust.GetLinux().GetOomScoreAdj())
 
 	resources := adjust.GetLinux().GetResources()
 	if err := g.AdjustResources(resources); err != nil {
@@ -306,6 +307,13 @@ func (g *Generator) AdjustRdtClass(rdtClass *string) error {
 func (g *Generator) AdjustCgroupsPath(path string) {
 	if path != "" {
 		g.SetLinuxCgroupsPath(path)
+	}
+}
+
+// AdjustOomScoreAdj adjusts the cgroup pseudofs path in the OCI Spec.
+func (g *Generator) AdjustOomScoreAdj(score *nri.OptionalInt) {
+	if score != nil {
+		g.SetProcessOOMScoreAdj(int(score.Value))
 	}
 }
 

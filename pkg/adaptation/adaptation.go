@@ -369,11 +369,21 @@ func (r *Adaptation) stopPlugins() {
 }
 
 func (r *Adaptation) removeClosedPlugins() {
-	active := []*plugin{}
+	var active, closed []*plugin
 	for _, p := range r.plugins {
-		if !p.isClosed() {
+		if p.isClosed() {
+			closed = append(closed, p)
+		} else {
 			active = append(active, p)
 		}
+	}
+
+	if len(closed) != 0 {
+		go func() {
+			for _, plugin := range closed {
+				plugin.stop()
+			}
+		}()
 	}
 	r.plugins = active
 }

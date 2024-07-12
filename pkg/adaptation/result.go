@@ -19,6 +19,8 @@ package adaptation
 import (
 	"fmt"
 	"strings"
+
+	"github.com/containerd/nri/pkg/api"
 )
 
 type result struct {
@@ -617,8 +619,12 @@ func (r *result) adjustResources(resources *LinuxResources, plugin string) error
 		if err := r.owners.claimHugepageLimit(id, l.PageSize, plugin); err != nil {
 			return err
 		}
-		container.HugepageLimits = append(container.HugepageLimits, l)
-		reply.HugepageLimits = append(reply.HugepageLimits, l)
+		hugepagelimit := &api.HugepageLimit{
+			PageSize: l.GetPageSize(),
+			Limit:    l.GetLimit(),
+		}
+		container.HugepageLimits = append(container.HugepageLimits, hugepagelimit)
+		reply.HugepageLimits = append(reply.HugepageLimits, hugepagelimit)
 	}
 
 	if len(resources.Unified) != 0 {
@@ -793,7 +799,11 @@ func (r *result) updateResources(reply, u *ContainerUpdate, plugin string) error
 		if err := r.owners.claimHugepageLimit(id, l.PageSize, plugin); err != nil {
 			return err
 		}
-		resources.HugepageLimits = append(resources.HugepageLimits, l)
+		hugepagelimit := &api.HugepageLimit{
+			PageSize: l.GetPageSize(),
+			Limit:    l.GetLimit(),
+		}
+		resources.HugepageLimits = append(resources.HugepageLimits, hugepagelimit)
 	}
 
 	if len(u.Linux.Resources.Unified) != 0 {

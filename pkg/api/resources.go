@@ -65,6 +65,11 @@ func FromOCILinuxResources(o *rspec.LinuxResources, _ map[string]string) *LinuxR
 			Access: d.Access,
 		})
 	}
+	if p := o.Pids; p != nil {
+		l.Pids = &LinuxPids{
+			Limit: p.Limit,
+		}
+	}
 	return l
 }
 
@@ -148,7 +153,11 @@ func (r *LinuxResources) ToOCI() *rspec.LinuxResources {
 			Access: d.Access,
 		})
 	}
-
+	if r.Pids != nil {
+		o.Pids = &rspec.LinuxPids{
+			Limit: r.Pids.Limit,
+		}
+	}
 	return o
 }
 
@@ -224,6 +233,11 @@ func (r *LinuxResources) Copy() *LinuxResources {
 		o.Unified = make(map[string]string)
 		for k, v := range r.Unified {
 			o.Unified[k] = v
+		}
+	}
+	if r.Pids != nil {
+		o.Pids = &LinuxPids{
+			Limit: r.Pids.Limit,
 		}
 	}
 	o.BlockioClass = String(r.BlockioClass)

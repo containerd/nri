@@ -235,6 +235,30 @@ var _ = Describe("Adjustment", func() {
 		})
 	})
 
+	When("has pids limit", func() {
+		It("adjusts Spec correctly", func() {
+			var (
+				spec   = makeSpec()
+				adjust = &api.ContainerAdjustment{
+					Linux: &api.LinuxContainerAdjustment{
+						Resources: &api.LinuxResources{
+							Pids: &api.LinuxPids{
+								Limit: 123,
+							},
+						},
+					},
+				}
+			)
+
+			rg := &rgen.Generator{Config: spec}
+			xg := xgen.SpecGenerator(rg)
+
+			Expect(xg).ToNot(BeNil())
+			Expect(xg.Adjust(adjust)).To(Succeed())
+			Expect(spec).To(Equal(makeSpec(withPidsLimit(123))))
+		})
+	})
+
 	When("has mounts", func() {
 		It("it sorts the Spec mount slice", func() {
 			var (
@@ -397,6 +421,20 @@ func withCPUSetMems(v string) specOption {
 	}
 }
 
+func withPidsLimit(v int64) specOption {
+	return func(spec *rspec.Spec) {
+		if spec.Linux == nil {
+			spec.Linux = &rspec.Linux{}
+		}
+		if spec.Linux.Resources == nil {
+			spec.Linux.Resources = &rspec.LinuxResources{}
+		}
+		spec.Linux.Resources.Pids = &rspec.LinuxPids{
+			Limit: v,
+		}
+	}
+}
+
 func withMounts(mounts []rspec.Mount) specOption {
 	return func(spec *rspec.Spec) {
 		spec.Mounts = append(spec.Mounts, mounts...)
@@ -430,6 +468,9 @@ func makeSpec(options ...specOption) *rspec.Spec {
 					Period: Uint64(54321),
 					Cpus:   "0-111",
 					Mems:   "0-4",
+				},
+				Pids: &rspec.LinuxPids{
+					Limit: 1,
 				},
 			},
 		},

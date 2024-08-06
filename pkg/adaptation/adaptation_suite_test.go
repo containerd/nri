@@ -488,6 +488,13 @@ var _ = Describe("Plugin container creation adjustments", func() {
 		case "rlimit":
 			a.AddRlimit("nofile", 456, 123)
 
+		case "CDI device":
+			a.AddCDIDevice(
+				&api.CDIDevice{
+					Name: "vendor0.com/dev=dev0",
+				},
+			)
+
 		case "resources/cpu":
 			a.SetLinuxCPUShares(123)
 			a.SetLinuxCPUQuota(456)
@@ -630,6 +637,15 @@ var _ = Describe("Plugin container creation adjustments", func() {
 			Entry("adjust rlimits", "rlimit",
 				&api.ContainerAdjustment{
 					Rlimits: []*api.POSIXRlimit{{Type: "nofile", Soft: 123, Hard: 456}},
+				},
+			),
+			Entry("adjust CDI Devices", "CDI device",
+				&api.ContainerAdjustment{
+					CDIDevices: []*api.CDIDevice{
+						{
+							Name: "vendor0.com/dev=dev0",
+						},
+					},
 				},
 			),
 			Entry("adjust CPU resources", "resources/cpu",
@@ -1858,6 +1874,7 @@ func stripAdjustment(a *api.ContainerAdjustment) *api.ContainerAdjustment {
 	stripHooks(a)
 	stripRlimits(a)
 	stripLinuxAdjustment(a)
+	stripCDIDevices(a)
 	return a
 }
 
@@ -2006,6 +2023,12 @@ func stripLinuxResourcesUnified(u map[string]string) map[string]string {
 		return nil
 	}
 	return u
+}
+
+func stripCDIDevices(a *api.ContainerAdjustment) {
+	if len(a.CDIDevices) == 0 {
+		a.CDIDevices = nil
+	}
 }
 
 func stripUpdate(u *api.ContainerUpdate) *api.ContainerUpdate {

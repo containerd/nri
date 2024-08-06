@@ -1,7 +1,7 @@
 ## Device Injector Plugin
 
-This sample plugin can inject devices and mounts into containers using
-pod annotations.
+This sample plugin can inject Linux device nodes, CDI devices, and mounts into
+containers using pod annotations.
 
 ### Device Annotations
 
@@ -25,6 +25,33 @@ The annotation syntax for device injection is
 ```
 
 `file_mode`, `uid` and `gid` can be omitted, the rest are mandatory.
+
+### CDI Device Annotations
+
+Devices are annotated using the `cdi-devices.nri.io` annotation key prefix.
+The key `cdi-devices.nri.io/container.$CONTAINER_NAME` annotates CDI devices
+to be injected into `$CONTAINER_NAME`. The keys `cdi-devices.nri.io` and
+`cdi-devices.nri.io/pod` annotate CDI devices to be injected into all
+containers of the pod.
+
+The annotation value syntax is an array of CDI device names to inject. For
+instance, the following annotation
+
+```
+metadata:
+  name: bash
+  annotations:
+    cdi-devices.nri.io/container.c0: |
+      - vendor0.com/device=null
+    cdi-devices.nri.io/container.c1: |
+      - vendor0.com/device=zero
+    cdi-devices.nri.io/container.mgmt: |
+      - vendor0.com/device=all
+```
+
+requests the injection of the vendor0.com/device=null, vendor0.com/device=zero,
+and vendor0.com/device=all CDI devices, to the c0, c1, and mgmt containers of
+the pod.
 
 ### Mount Annotations
 

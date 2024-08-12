@@ -401,10 +401,10 @@ func (r *result) adjustCDIDevices(devices []*CDIDevice, plugin string) error {
 	//   CDI devices are opaque references, typically to vendor specific
 	//   devices. They get resolved to actual devices and potential related
 	//   mounts, environment variables, etc. in the runtime. Unlike with
-	//   devices, we only allow CDI devices references to be added to a
+	//   devices, we only allow CDI device references to be added to a
 	//   container, not removed. We pass them unresolved to the runtime and
 	//   have them resolved there. Also unlike with devices, we don't include
-	//   CDI device references in a creation requests. However, since there
+	//   CDI device references in creation requests. However, since there
 	//   is typically a strong ownership and a single related management entity
 	//   per vendor/class for these devices we do treat multiple injection of
 	//   the same CDI device reference as an error here.

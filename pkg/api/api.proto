@@ -319,6 +319,11 @@ message LinuxDeviceCgroup {
   string access = 5;
 }
 
+// A CDI device reference.
+message CDIDevice {
+  string name = 1;
+}
+
 // Container (linux) resources.
 message LinuxResources {
   LinuxMemory memory = 1;
@@ -380,6 +385,7 @@ message ContainerAdjustment {
   Hooks hooks = 5;
   LinuxContainerAdjustment linux = 6;
   repeated POSIXRlimit rlimits = 7;
+  repeated CDIDevice CDI_devices = 8;
 }
 
 // Adjustments to (linux) resources.

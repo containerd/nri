@@ -12,7 +12,7 @@ be injected into `$CONTAINER_NAME`. The keys `devices.nri.io` and
 without any other, container-specific device annotations. Only one of
 these latter two annotations will be ever taken into account. If both are
 present, `devices.nri.io/pod` is used and `devices.nri.io` is silently
-ignored.
+ignored, otherwise `devices.nri.io`, in the absence of additional suffix text,  is processed as shorthand for the `devices.nri.io/pod` annotation. The order of precedence is `devices.nri.io/container.$CONTAINER_NAME` is used, unless not present, then `devices.nri.io/pod` followed by the `devices.nri.io` shorthand annotation.
 
 The annotation value syntax for device injection is
 

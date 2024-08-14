@@ -418,6 +418,7 @@ func (p *plugin) synchronize(ctx context.Context, pods []*PodSandbox, containers
 	}
 	rpl, err := p.stub.Synchronize(ctx, req)
 	if err != nil {
+		p.close()
 		return nil, err
 	}
 

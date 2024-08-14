@@ -33,6 +33,8 @@ import (
 	"github.com/containerd/nri/pkg/net"
 	"github.com/containerd/nri/pkg/net/multiplex"
 	"github.com/containerd/ttrpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 const (
@@ -414,17 +416,99 @@ func (p *plugin) synchronize(ctx context.Context, pods []*PodSandbox, containers
 	ctx, cancel := context.WithTimeout(ctx, getPluginRequestTimeout())
 	defer cancel()
 
-	req := &SynchronizeRequest{
-		Pods:       pods,
-		Containers: containers,
-	}
-	rpl, err := p.stub.Synchronize(ctx, req)
-	if err != nil {
-		p.close()
-		return nil, err
+	var (
+		podsToSend = pods
+		ctrsToSend = containers
+		podsPerMsg = len(pods)
+		ctrsPerMsg = len(containers)
+
+		rpl *SynchronizeResponse
+		err error
+	)
+
+	for {
+		req := &SynchronizeRequest{
+			Pods:       podsToSend[:podsPerMsg],
+			Containers: ctrsToSend[:ctrsPerMsg],
+			More:       len(podsToSend) > podsPerMsg || len(ctrsToSend) > ctrsPerMsg,
+		}
+
+		log.Debugf(ctx, "sending sync message, %d/%d, %d/%d (more: %v)",
+			len(req.Pods), len(podsToSend), len(req.Containers), len(ctrsToSend), req.More)
+
+		rpl, err = p.stub.Synchronize(ctx, req)
+		if err == nil {
+			if !req.More {
+				break
+			}
+
+			if len(rpl.Update) > 0 || rpl.More != req.More {
+				p.close()
+				return nil, fmt.Errorf("plugin does not handle split sync requests")
+			}
+
+			podsToSend = podsToSend[podsPerMsg:]
+			ctrsToSend = ctrsToSend[ctrsPerMsg:]
+
+			if podsPerMsg > len(podsToSend) {
+				podsPerMsg = len(podsToSend)
+			}
+			if ctrsPerMsg > len(ctrsToSend) {
+				ctrsPerMsg = len(ctrsToSend)
+			}
+		} else {
+			podsPerMsg, ctrsPerMsg, err = recalcObjsPerSyncMsg(podsPerMsg, ctrsPerMsg, err)
+			if err != nil {
+				p.close()
+				return nil, err
+			}
+
+			log.Debugf(ctx, "oversized message, retrying in smaller chunks")
+		}
 	}
 
 	return rpl.Update, nil
+}
+
+func recalcObjsPerSyncMsg(pods, ctrs int, err error) (int, int, error) {
+	const (
+		minObjsPerMsg = 8
+	)
+
+	if status.Code(err) != codes.ResourceExhausted {
+		return pods, ctrs, err
+	}
+
+	if pods+ctrs <= minObjsPerMsg {
+		return pods, ctrs, fmt.Errorf("failed to synchronize plugin with split messages")
+	}
+
+	var e *ttrpc.OversizedMessageErr
+	if !errors.As(err, &e) {
+		return pods, ctrs, fmt.Errorf("failed to synchronize plugin with split messages")
+	}
+
+	maxLen := e.MaximumLength()
+	msgLen := e.RejectedLength()
+
+	if msgLen == 0 || maxLen == 0 || msgLen <= maxLen {
+		return pods, ctrs, fmt.Errorf("failed to synchronize plugin with split messages")
+	}
+
+	factor := float64(maxLen) / float64(msgLen)
+	if factor > 0.9 {
+		factor = 0.9
+	}
+
+	pods = int(float64(pods) * factor)
+	ctrs = int(float64(ctrs) * factor)
+
+	if pods+ctrs < minObjsPerMsg {
+		pods = minObjsPerMsg / 2
+		ctrs = minObjsPerMsg / 2
+	}
+
+	return pods, ctrs, nil
 }
 
 // Relay CreateContainer request to plugin.

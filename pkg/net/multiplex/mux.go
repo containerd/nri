@@ -139,7 +139,7 @@ const (
 	// length of frame header: 4-byte ConnID, 4-byte payload length
 	headerLen = 8
 	// max. allowed payload size
-	maxPayloadSize = 1 << 24
+	maxPayloadSize = ttrpcMessageHeaderLength + ttrpcMessageLengthMax
 )
 
 // conn represents a single multiplexed connection.
@@ -237,7 +237,8 @@ func (m *mux) write(id ConnID, buf []byte) (int, error) {
 	var hdr [headerLen]byte
 
 	if len(buf) > maxPayloadSize {
-		return 0, syscall.EMSGSIZE
+		return 0, fmt.Errorf("%w: oversized message (%d > %d)", syscall.EMSGSIZE,
+			len(buf), maxPayloadSize)
 	}
 
 	binary.BigEndian.PutUint32(hdr[0:4], uint32(id))

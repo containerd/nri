@@ -131,11 +131,15 @@ message SynchronizeRequest {
   repeated PodSandbox pods = 1;
   // Containers known to the runtime.
   repeated Container containers = 2;
+  // Whether there are more pods and containers to follow.
+  bool more = 3;
 }
 
 message SynchronizeResponse {
   // Updates to containers requested by the plugin.
   repeated ContainerUpdate update = 1;
+  // Whether the client is able to handle more advertised pods and containers.
+  bool more = 2;
 }
 
 message CreateContainerRequest {

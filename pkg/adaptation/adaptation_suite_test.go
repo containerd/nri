@@ -455,6 +455,9 @@ var _ = Describe("Plugin container creation adjustments", func() {
 			}
 			a.AddMount(mnt)
 
+		case "remove mount":
+			a.RemoveMount("/remove/test/destination")
+
 		case "environment":
 			if overwrite {
 				a.RemoveEnv("key")
@@ -560,6 +563,13 @@ var _ = Describe("Plugin container creation adjustments", func() {
 						PodSandboxId: "pod0",
 						Name:         "ctr0",
 						State:        api.ContainerState_CONTAINER_CREATED, // XXX FIXME-kludge
+						Mounts: []*api.Mount{
+							{
+								Type:        "bind",
+								Source:      "/remove/test",
+								Destination: "/remove/test/destination",
+							},
+						},
 					}
 				)
 
@@ -595,6 +605,15 @@ var _ = Describe("Plugin container creation adjustments", func() {
 						{
 							Source:      "/dev/00-test",
 							Destination: "/mnt/test",
+						},
+					},
+				},
+			),
+			Entry("remove a mount", "remove mount",
+				&api.ContainerAdjustment{
+					Mounts: []*api.Mount{
+						{
+							Destination: api.MarkForRemoval("/remove/test/destination"),
 						},
 					},
 				},

@@ -264,6 +264,12 @@ func (a *ContainerAdjustment) SetLinuxCgroupsPath(value string) {
 	a.Linux.CgroupsPath = value
 }
 
+// SetLinuxOomScoreAdj records setting the kernel's Out-Of-Memory (OOM) killer score for a container.
+func (a *ContainerAdjustment) SetLinuxOomScoreAdj(value *int) {
+	a.initLinux()
+	a.Linux.OomScoreAdj = Int(value) // using Int(value) from ./options.go to optionally allocate a pointer to normalized copy of value
+}
+
 //
 // Initializing a container adjustment and container update.
 //

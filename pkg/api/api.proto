@@ -393,6 +393,7 @@ message LinuxContainerAdjustment {
   repeated LinuxDevice devices = 1;
   LinuxResources resources = 2;
   string cgroups_path = 3;
+  OptionalInt oom_score_adj = 4;
 }
 
 // Requested update to an already created container.

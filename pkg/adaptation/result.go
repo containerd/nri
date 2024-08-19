@@ -216,6 +216,9 @@ func (r *result) adjust(rpl *ContainerAdjustment, plugin string) error {
 		if err := r.adjustCgroupsPath(rpl.Linux.CgroupsPath, plugin); err != nil {
 			return err
 		}
+		if err := r.adjustOomScoreAdj(rpl.Linux.OomScoreAdj, plugin); err != nil {
+			return err
+		}
 	}
 	if err := r.adjustRlimits(rpl.Rlimits, plugin); err != nil {
 		return err
@@ -711,6 +714,23 @@ func (r *result) adjustCgroupsPath(path, plugin string) error {
 	return nil
 }
 
+func (r *result) adjustOomScoreAdj(OomScoreAdj *OptionalInt, plugin string) error {
+	if OomScoreAdj == nil {
+		return nil
+	}
+
+	create, id := r.request.create, r.request.create.Container.Id
+
+	if err := r.owners.claimOomScoreAdj(id, plugin); err != nil {
+		return err
+	}
+
+	create.Container.Linux.OomScoreAdj = OomScoreAdj
+	r.reply.adjust.Linux.OomScoreAdj = OomScoreAdj
+
+	return nil
+}
+
 func (r *result) adjustRlimits(rlimits []*POSIXRlimit, plugin string) error {
 	create, id, adjust := r.request.create, r.request.create.Container.Id, r.reply.adjust
 	for _, l := range rlimits {
@@ -948,6 +968,7 @@ type owners struct {
 	rdtClass            string
 	unified             map[string]string
 	cgroupsPath         string
+	oomScoreAdj         string
 	rlimits             map[string]string
 }
 
@@ -1062,6 +1083,10 @@ func (ro resultOwners) claimUnified(id, key, plugin string) error {
 
 func (ro resultOwners) claimCgroupsPath(id, plugin string) error {
 	return ro.ownersFor(id).claimCgroupsPath(plugin)
+}
+
+func (ro resultOwners) claimOomScoreAdj(id, plugin string) error {
+	return ro.ownersFor(id).claimOomScoreAdj(plugin)
 }
 
 func (ro resultOwners) claimRlimits(id, typ, plugin string) error {
@@ -1306,6 +1331,14 @@ func (o *owners) claimCgroupsPath(plugin string) error {
 		return conflict(plugin, other, "cgroups path")
 	}
 	o.cgroupsPath = plugin
+	return nil
+}
+
+func (o *owners) claimOomScoreAdj(plugin string) error {
+	if other := o.oomScoreAdj; other != "" {
+		return conflict(plugin, other, "oom score adj")
+	}
+	o.oomScoreAdj = plugin
 	return nil
 }
 

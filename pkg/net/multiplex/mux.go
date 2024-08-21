@@ -234,39 +234,54 @@ func (m *mux) Listen(id ConnID) (net.Listener, error) {
 }
 
 func (m *mux) write(id ConnID, buf []byte) (int, error) {
-	var hdr [headerLen]byte
-
-	if len(buf) > maxPayloadSize {
-		return 0, fmt.Errorf("%w: oversized message (%d > %d)", syscall.EMSGSIZE,
-			len(buf), maxPayloadSize)
-	}
-
-	binary.BigEndian.PutUint32(hdr[0:4], uint32(id))
-	binary.BigEndian.PutUint32(hdr[4:8], uint32(len(buf)))
+	var (
+		hdr  [headerLen]byte
+		data = buf[:]
+		size = len(data)
+	)
 
 	m.writeLock.Lock()
 	defer m.writeLock.Unlock()
 
-	n, err := m.trunk.Write(hdr[:])
-	if err != nil {
-		err = fmt.Errorf("failed to write header to trunk: %w", err)
-		if n != 0 {
-			m.setError(err)
-			m.Close()
+	for {
+		if size > maxPayloadSize {
+			size = maxPayloadSize
 		}
-		return 0, err
+
+		binary.BigEndian.PutUint32(hdr[0:4], uint32(id))
+		binary.BigEndian.PutUint32(hdr[4:8], uint32(size))
+
+		n, err := m.trunk.Write(hdr[:])
+		if err != nil {
+			err = fmt.Errorf("failed to write header to trunk: %w", err)
+			if n != 0 {
+				m.setError(err)
+				m.Close()
+			}
+			return 0, err
+		}
+
+		n, err = m.trunk.Write(data[:size])
+		if err != nil {
+			err = fmt.Errorf("failed to write payload to trunk: %w", err)
+			if n != 0 {
+				m.setError(err)
+				m.Close()
+			}
+			return 0, err
+		}
+
+		data = data[size:]
+		if size > len(data) {
+			size = len(data)
+		}
+
+		if size == 0 {
+			break
+		}
 	}
 
-	n, err = m.trunk.Write(buf)
-	if err != nil {
-		err = fmt.Errorf("failed to write payload to trunk: %w", err)
-		if n != 0 {
-			m.setError(err)
-			m.Close()
-		}
-	}
-
-	return n, err
+	return len(buf), nil
 }
 
 func (m *mux) reader() {

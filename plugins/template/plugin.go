@@ -61,7 +61,8 @@ func (p *plugin) Configure(_ context.Context, config, runtime, version string) (
 }
 
 func (p *plugin) Synchronize(_ context.Context, pods []*api.PodSandbox, containers []*api.Container) ([]*api.ContainerUpdate, error) {
-	log.Info("Synchronizing state with the runtime...")
+	log.Infof("Synchronized state with the runtime (%d pods, %d containers)...",
+		len(pods), len(containers))
 	return nil, nil
 }
 

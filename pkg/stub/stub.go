@@ -35,7 +35,7 @@ import (
 )
 
 // Plugin can implement a number of interfaces related to Pod and Container
-// lifecycle events. No any single such inteface is mandatory, therefore the
+// lifecycle events. No any single such interface is mandatory, therefore the
 // Plugin interface itself is empty. Plugins are required to implement at
 // least one of these interfaces and this is verified during stub creation.
 // Trying to create a stub for a plugin violating this requirement will fail

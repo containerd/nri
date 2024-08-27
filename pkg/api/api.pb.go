@@ -290,7 +290,7 @@ type UpdateContainersResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Containers that the runtime failed to udpate.
+	// Containers that the runtime failed to update.
 	Failed []*ContainerUpdate `protobuf:"bytes,1,rep,name=failed,proto3" json:"failed,omitempty"`
 }
 

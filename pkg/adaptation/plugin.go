@@ -516,7 +516,7 @@ func (p *plugin) StateChange(ctx context.Context, evt *StateChangeEvent) error {
 	return nil
 }
 
-// isFatalError returns true if the error is fatal and the plugin connection shoudld be closed.
+// isFatalError returns true if the error is fatal and the plugin connection should be closed.
 func isFatalError(err error) bool {
 	switch {
 	case errors.Is(err, ttrpc.ErrClosed):

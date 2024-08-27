@@ -50,7 +50,7 @@ const (
 type Suite struct {
 	dir     string        // directory to create for test
 	runtime *mockRuntime  // runtime instance for test
-	plugins []*mockPlugin // plugin intances for test
+	plugins []*mockPlugin // plugin instances for test
 }
 
 // SuiteOption can be applied to a suite.

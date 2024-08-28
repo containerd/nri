@@ -449,9 +449,9 @@ func (r *Adaptation) acceptPluginConnections(l net.Listener) error {
 				r.plugins = append(r.plugins, p)
 				r.sortPlugins()
 				r.Unlock()
-			}
 
-			log.Infof(ctx, "plugin %q connected", p.name())
+				log.Infof(ctx, "plugin %q connected and synchronized", p.name())
+			}
 		}
 	}()
 

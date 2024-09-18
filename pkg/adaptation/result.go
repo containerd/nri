@@ -331,6 +331,13 @@ func (r *result) adjustMounts(mounts []*Mount, plugin string) error {
 		r.reply.adjust.Mounts = append(r.reply.adjust.Mounts, m)
 	}
 
+	// next, apply deletions with no corresponding additions
+	for _, m := range del {
+		if _, ok := mod[api.ClearRemovalMarker(m.Destination)]; !ok {
+			r.reply.adjust.Mounts = append(r.reply.adjust.Mounts, m)
+		}
+	}
+
 	// finally, apply additions/modifications to plugin container creation request
 	create.Container.Mounts = append(create.Container.Mounts, add...)
 

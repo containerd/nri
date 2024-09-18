@@ -96,7 +96,7 @@ func moveLinkIn(hostDev netlink.Link, containerNs ns.NetNS, ifName string) (netl
 		defer func() {
 			if err != nil {
 				_ = netlink.LinkSetNsFd(contDev, int(defaultNs.Fd()))
-				// we need to get updated link object as link was moved back to host namepsace
+				// we need to get updated link object as link was moved back to host namespace
 				_ = defaultNs.Do(func(_ ns.NetNS) error {
 					hostDev, _ = netlink.LinkByName(tempDevName)
 					return nil

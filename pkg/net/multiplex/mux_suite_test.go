@@ -519,7 +519,7 @@ func sendAndReceive(lConn, pConn []net.Conn, msgCount int) {
 		return messages
 	}
 
-	// mesage receiver and collector
+	// message receiver and collector
 	read := func(conn net.Conn) []string {
 		var (
 			msg  = make([]byte, maxMsg)
@@ -565,7 +565,7 @@ func sendAndReceive(lConn, pConn []net.Conn, msgCount int) {
 		wg.Add(2)
 	}
 
-	// trigger senders/recevers and wait for them to finish
+	// trigger senders/receivers and wait for them to finish
 	close(start)
 	wg.Wait()
 }

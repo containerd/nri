@@ -46,7 +46,7 @@ message UpdateContainersRequest {
 }
 
 message UpdateContainersResponse {
-  // Containers that the runtime failed to udpate.
+  // Containers that the runtime failed to update.
   repeated ContainerUpdate failed = 1;
 }
 

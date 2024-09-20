@@ -43,7 +43,9 @@ func TestRuntime(t *testing.T) {
 }
 
 const (
-	startupTimeout = 2 * time.Second
+	startupTimeout        = 2 * time.Second
+	defaultRuntimeName    = "default-runtime-name"
+	defaultRuntimeVersion = "0.1.2"
 )
 
 // A test suite consist of a runtime and a set of plugins.
@@ -69,6 +71,13 @@ func (s *Suite) Prepare(runtime *mockRuntime, plugins ...*mockPlugin) string {
 	etc = filepath.Join(dir, "etc", "nri")
 
 	Expect(os.MkdirAll(etc, 0o755)).To(Succeed())
+
+	if runtime.name == "" {
+		runtime.name = defaultRuntimeName
+	}
+	if runtime.version == "" {
+		runtime.version = defaultRuntimeVersion
+	}
 
 	s.dir = dir
 	s.runtime = runtime
@@ -126,6 +135,8 @@ func Log(format string, args ...interface{}) {
 }
 
 type mockRuntime struct {
+	name    string
+	version string
 	options []nri.Option
 	runtime *nri.Adaptation
 	pods    map[string]*api.PodSandbox
@@ -149,7 +160,7 @@ func (m *mockRuntime) Start(dir string) error {
 	}
 
 	options = append(options, m.options...)
-	m.runtime, err = nri.New("mockRuntime", "0.0.1", m.synchronize, m.update, options...)
+	m.runtime, err = nri.New(m.name, m.version, m.synchronize, m.update, options...)
 	if err != nil {
 		return err
 	}
@@ -323,6 +334,9 @@ type mockPlugin struct {
 	stub stub.Stub
 	mask stub.EventMask
 
+	runtime string
+	version string
+
 	q    *EventQ
 	pods map[string]*api.PodSandbox
 	ctrs map[string]*api.Container
@@ -477,6 +491,14 @@ func (m *mockPlugin) Stop() {
 	m.q.Add(PluginStopped)
 }
 
+func (m *mockPlugin) RuntimeName() string {
+	return m.runtime
+}
+
+func (m *mockPlugin) RuntimeVersion() string {
+	return m.version
+}
+
 func (m *mockPlugin) onClose() {
 	if m.stub != nil {
 		m.stub.Stop()
@@ -488,8 +510,11 @@ func (m *mockPlugin) onClose() {
 	}
 }
 
-func (m *mockPlugin) Configure(_ context.Context, _, _, _ string) (stub.EventMask, error) {
+func (m *mockPlugin) Configure(_ context.Context, _, runtime, version string) (stub.EventMask, error) {
 	m.q.Add(PluginConfigured)
+
+	m.runtime = runtime
+	m.version = version
 
 	return m.mask, nil
 }

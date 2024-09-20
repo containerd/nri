@@ -137,7 +137,7 @@ ginkgo-tests:
 	    --coverprofile coverprofile \
 	    --succinct \
 	    --skip-package $(SKIPPED_PKGS) \
-	    -r .; \
+	    -r && \
 	$(GO_CMD) tool cover -html=$(COVERAGE_PATH)/coverprofile -o $(COVERAGE_PATH)/coverage.html
 
 test-ulimits:

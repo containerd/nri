@@ -36,6 +36,8 @@ message RegisterPluginRequest {
     string plugin_name = 1;
     // Plugin invocation index. Plugins are called in ascending index order.
     string plugin_idx = 2;
+    // NRI (module) version used by plugin, if known.
+    string NRI_version = 3;
 }
 
 message UpdateContainersRequest {
@@ -145,6 +147,8 @@ message ConfigureRequest {
   int64 registration_timeout = 4;
   // Configured request processing timeout in milliseconds.
   int64 request_timeout = 5;
+  // Version of NRI used by the runtime.
+  string NRI_version = 6;
 }
 
 message ConfigureResponse {

@@ -97,7 +97,7 @@ build-proto-dockerized:
 		-f hack/Dockerfile.buildproto .
 	$(Q)tar xf artifacts.tgz && rm -f artifacts.tgz
 
-build-plugins: $(PLUGINS)
+build-plugins: go-generate $(PLUGINS)
 
 build-check:
 	$(Q)$(GO_BUILD) -v $(GO_MODULES)
@@ -105,6 +105,9 @@ build-check:
 mod-tidy:
 	$(Q)$(GO_CMD) mod tidy
 	$(Q)./scripts/go-mod-tidy
+
+go-generate:
+	$(Q)$(GO_CMD) generate ./...
 
 #
 # clean targets
@@ -138,7 +141,7 @@ $(BIN_PATH)/wasm build/bin/wasm: FORCE
 # test targets
 #
 
-test-gopkgs: ginkgo-tests test-ulimits test-rdt test-hook-injector
+test-gopkgs: go-generate ginkgo-tests test-ulimits test-rdt test-hook-injector
 
 SKIPPED_PKGS="ulimit-adjuster,device-injector,rdt,hook-injector"
 

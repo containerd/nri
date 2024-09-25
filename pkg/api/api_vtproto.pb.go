@@ -65,6 +65,13 @@ func (m *RegisterPluginRequest) MarshalToSizedBufferVT(dAtA []byte) (int, error)
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
 	}
+	if len(m.NRIVersion) > 0 {
+		i -= len(m.NRIVersion)
+		copy(dAtA[i:], m.NRIVersion)
+		i = encodeVarint(dAtA, i, uint64(len(m.NRIVersion)))
+		i--
+		dAtA[i] = 0x1a
+	}
 	if len(m.PluginIdx) > 0 {
 		i -= len(m.PluginIdx)
 		copy(dAtA[i:], m.PluginIdx)
@@ -258,6 +265,13 @@ func (m *ConfigureRequest) MarshalToSizedBufferVT(dAtA []byte) (int, error) {
 	if m.unknownFields != nil {
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
+	}
+	if len(m.NRIVersion) > 0 {
+		i -= len(m.NRIVersion)
+		copy(dAtA[i:], m.NRIVersion)
+		i = encodeVarint(dAtA, i, uint64(len(m.NRIVersion)))
+		i--
+		dAtA[i] = 0x32
 	}
 	if m.RequestTimeout != 0 {
 		i = encodeVarint(dAtA, i, uint64(m.RequestTimeout))
@@ -4368,6 +4382,10 @@ func (m *RegisterPluginRequest) SizeVT() (n int) {
 	if l > 0 {
 		n += 1 + l + sov(uint64(l))
 	}
+	l = len(m.NRIVersion)
+	if l > 0 {
+		n += 1 + l + sov(uint64(l))
+	}
 	n += len(m.unknownFields)
 	return n
 }
@@ -4450,6 +4468,10 @@ func (m *ConfigureRequest) SizeVT() (n int) {
 	}
 	if m.RequestTimeout != 0 {
 		n += 1 + sov(uint64(m.RequestTimeout))
+	}
+	l = len(m.NRIVersion)
+	if l > 0 {
+		n += 1 + l + sov(uint64(l))
 	}
 	n += len(m.unknownFields)
 	return n
@@ -6144,6 +6166,38 @@ func (m *RegisterPluginRequest) UnmarshalVT(dAtA []byte) error {
 			}
 			m.PluginIdx = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field NRIVersion", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflow
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLength
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLength
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.NRIVersion = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
 			skippy, err := skip(dAtA[iNdEx:])
@@ -6635,6 +6689,38 @@ func (m *ConfigureRequest) UnmarshalVT(dAtA []byte) error {
 					break
 				}
 			}
+		case 6:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field NRIVersion", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflow
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLength
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLength
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.NRIVersion = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
 			skippy, err := skip(dAtA[iNdEx:])

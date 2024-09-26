@@ -3,15 +3,16 @@ module github.com/containerd/nri/plugins/differ
 go 1.21
 
 require (
-	github.com/containerd/nri v0.2.0
+	github.com/containerd/nri v0.6.1
 	github.com/r3labs/diff/v3 v3.0.0
-	github.com/sirupsen/logrus v1.9.0
+	github.com/sirupsen/logrus v1.9.3
 	github.com/sters/yaml-diff v0.4.0
 	sigs.k8s.io/yaml v1.3.0
 )
 
 require (
-	github.com/containerd/ttrpc v1.2.3 // indirect
+	github.com/containerd/log v0.1.0 // indirect
+	github.com/containerd/ttrpc v1.2.6-0.20240827082320-b5cd6e4b3287 // indirect
 	github.com/fatih/color v1.12.0 // indirect
 	github.com/goccy/go-yaml v1.8.10 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect

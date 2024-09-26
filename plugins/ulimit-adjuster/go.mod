@@ -6,14 +6,14 @@ replace github.com/containerd/nri => ../..
 
 require (
 	github.com/containerd/log v0.1.0
-	github.com/containerd/nri v0.0.0-00010101000000-000000000000
+	github.com/containerd/nri v0.6.1
 	github.com/sirupsen/logrus v1.9.3
 	github.com/stretchr/testify v1.8.4
 	sigs.k8s.io/yaml v1.3.0
 )
 
 require (
-	github.com/containerd/ttrpc v1.2.3 // indirect
+	github.com/containerd/ttrpc v1.2.6-0.20240827082320-b5cd6e4b3287 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect

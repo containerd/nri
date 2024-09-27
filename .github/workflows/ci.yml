@@ -50,8 +50,21 @@ jobs:
         run: |
           echo "${{ github.workspace }}/bin" >> $GITHUB_PATH
 
+      - name: Install protoc and plugins
+        run: |
+          sudo make install-protoc
+          make install-protoc-dependencies install-ttrpc-plugin
+
+      - name: Force regeneration of protobuf files on build
+        run: |
+          touch pkg/api/api.proto
+
       - run: |
           make all
+
+      - name: Validate files in git have not been changed
+        run: |
+          make validate-repo-no-changes
 
   linters:
     name: Linters

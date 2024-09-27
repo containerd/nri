@@ -171,8 +171,14 @@ golangci-lint:
 #
 
 %.pb.go: %.proto
-	$(Q)echo "Generating $@..."; \
-	$(PROTO_COMPILE) $<
+	$(Q)chksum=$$(md5sum $< | awk '{print $$1}'); \
+	if grep -sq "source: $< $$chksum" $@; then \
+		echo "Up-to-date: $@"; \
+	else \
+		echo "Generating $@..."; \
+		$(PROTO_COMPILE) $< && \
+		sed -e "s|source: $<|source: $< $$chksum|" -i $@; \
+	fi
 
 #
 # targets for installing dependencies

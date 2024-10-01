@@ -166,6 +166,13 @@ vet:
 golangci-lint:
 	$(Q)$(GOLANG_CILINT) run
 
+validate-repo-no-changes:
+	$(Q)test -z "$$(git status --short | tee /dev/stderr)" || { \
+		echo "Repository has changes."; \
+		echo "Please make sure to commit all changes, including generated files."; \
+		exit 1; \
+	}
+
 #
 # proto generation targets
 #

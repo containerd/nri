@@ -43,7 +43,9 @@ func TestRuntime(t *testing.T) {
 }
 
 const (
-	startupTimeout = 2 * time.Second
+	startupTimeout        = 2 * time.Second
+	defaultRuntimeName    = "default-runtime-name"
+	defaultRuntimeVersion = "0.1.2"
 )
 
 // A test suite consist of a runtime and a set of plugins.
@@ -69,6 +71,13 @@ func (s *Suite) Prepare(runtime *mockRuntime, plugins ...*mockPlugin) string {
 	etc = filepath.Join(dir, "etc", "nri")
 
 	Expect(os.MkdirAll(etc, 0o755)).To(Succeed())
+
+	if runtime.name == "" {
+		runtime.name = defaultRuntimeName
+	}
+	if runtime.version == "" {
+		runtime.version = defaultRuntimeVersion
+	}
 
 	s.dir = dir
 	s.runtime = runtime
@@ -126,6 +135,8 @@ func Log(format string, args ...interface{}) {
 }
 
 type mockRuntime struct {
+	name    string
+	version string
 	options []nri.Option
 	runtime *nri.Adaptation
 	pods    map[string]*api.PodSandbox
@@ -149,7 +160,7 @@ func (m *mockRuntime) Start(dir string) error {
 	}
 
 	options = append(options, m.options...)
-	m.runtime, err = nri.New("mockRuntime", "0.0.1", m.synchronize, m.update, options...)
+	m.runtime, err = nri.New(m.name, m.version, m.synchronize, m.update, options...)
 	if err != nil {
 		return err
 	}
@@ -205,15 +216,33 @@ func (m *mockRuntime) synchronize(ctx context.Context, cb nri.SyncCB) error {
 	return err
 }
 
+func (m *mockRuntime) RunPodSandbox(ctx context.Context, evt *api.StateChangeEvent) error {
+	b := m.runtime.BlockPluginSync()
+	defer b.Unblock()
+	return m.runtime.RunPodSandbox(ctx, evt)
+}
+
+func (m *mockRuntime) CreateContainer(ctx context.Context, req *api.CreateContainerRequest) (*api.CreateContainerResponse, error) {
+	b := m.runtime.BlockPluginSync()
+	defer b.Unblock()
+	return m.runtime.CreateContainer(ctx, req)
+}
+
+func (m *mockRuntime) UpdateContainer(ctx context.Context, req *api.UpdateContainerRequest) (*api.UpdateContainerResponse, error) {
+	b := m.runtime.BlockPluginSync()
+	defer b.Unblock()
+	return m.runtime.UpdateContainer(ctx, req)
+}
+
 func (m *mockRuntime) startStopPodAndContainer(ctx context.Context, pod *api.PodSandbox, ctr *api.Container) error {
-	err := m.runtime.RunPodSandbox(ctx, &api.StateChangeEvent{
+	err := m.RunPodSandbox(ctx, &api.StateChangeEvent{
 		Pod: pod,
 	})
 	if err != nil {
 		return err
 	}
 
-	_, err = m.runtime.CreateContainer(ctx, &api.CreateContainerRequest{
+	_, err = m.CreateContainer(ctx, &api.CreateContainerRequest{
 		Pod:       pod,
 		Container: ctr,
 	})
@@ -245,7 +274,7 @@ func (m *mockRuntime) startStopPodAndContainer(ctx context.Context, pod *api.Pod
 		return err
 	}
 
-	_, err = m.runtime.UpdateContainer(ctx, &api.UpdateContainerRequest{
+	_, err = m.UpdateContainer(ctx, &api.UpdateContainerRequest{
 		Pod:            pod,
 		Container:      ctr,
 		LinuxResources: &api.LinuxResources{},
@@ -304,6 +333,9 @@ type mockPlugin struct {
 	idx  string
 	stub stub.Stub
 	mask stub.EventMask
+
+	runtime string
+	version string
 
 	q    *EventQ
 	pods map[string]*api.PodSandbox
@@ -459,6 +491,14 @@ func (m *mockPlugin) Stop() {
 	m.q.Add(PluginStopped)
 }
 
+func (m *mockPlugin) RuntimeName() string {
+	return m.runtime
+}
+
+func (m *mockPlugin) RuntimeVersion() string {
+	return m.version
+}
+
 func (m *mockPlugin) onClose() {
 	if m.stub != nil {
 		m.stub.Stop()
@@ -470,8 +510,11 @@ func (m *mockPlugin) onClose() {
 	}
 }
 
-func (m *mockPlugin) Configure(_ context.Context, _, _, _ string) (stub.EventMask, error) {
+func (m *mockPlugin) Configure(_ context.Context, _, runtime, version string) (stub.EventMask, error) {
 	m.q.Add(PluginConfigured)
+
+	m.runtime = runtime
+	m.version = version
 
 	return m.mask, nil
 }

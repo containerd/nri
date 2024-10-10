@@ -65,6 +65,7 @@ type Adaptation struct {
 	serverOpts []ttrpc.ServerOpt
 	listener   net.Listener
 	plugins    []*plugin
+	syncLock   sync.RWMutex
 }
 
 var (
@@ -135,6 +136,7 @@ func New(name, version string, syncFn SyncFn, updateFn UpdateFn, opts ...Option)
 		pluginPath: DefaultPluginPath,
 		dropinPath: DefaultPluginConfigPath,
 		socketPath: DefaultSocketPath,
+		syncLock:   sync.RWMutex{},
 	}
 
 	for _, o := range opts {
@@ -464,6 +466,8 @@ func (r *Adaptation) acceptPluginConnections(l net.Listener) error {
 				continue
 			}
 
+			r.requestPluginSync()
+
 			err = r.syncFn(ctx, p.synchronize)
 			if err != nil {
 				log.Infof(ctx, "failed to synchronize plugin: %v", err)
@@ -472,9 +476,10 @@ func (r *Adaptation) acceptPluginConnections(l net.Listener) error {
 				r.plugins = append(r.plugins, p)
 				r.sortPlugins()
 				r.Unlock()
-
 				log.Infof(ctx, "plugin %q connected and synchronized", p.name())
 			}
+
+			r.finishedPluginSync()
 		}
 	}()
 
@@ -543,5 +548,32 @@ func (r *Adaptation) sortPlugins() {
 		for i, p := range r.plugins {
 			log.Infof(noCtx, "  #%d: %q (%s)", i+1, p.name(), p.qualifiedName())
 		}
+	}
+}
+
+func (r *Adaptation) requestPluginSync() {
+	r.syncLock.Lock()
+}
+
+func (r *Adaptation) finishedPluginSync() {
+	r.syncLock.Unlock()
+}
+
+type PluginSyncBlock struct {
+	r *Adaptation
+}
+
+// BlockPluginSync blocks plugins from being synchronized/fully registered.
+func (r *Adaptation) BlockPluginSync() *PluginSyncBlock {
+	r.syncLock.RLock()
+	return &PluginSyncBlock{r: r}
+}
+
+// Unblock a plugin sync. block put in place by BlockPluginSync. Safe to call
+// multiple times but only from a single goroutine.
+func (b *PluginSyncBlock) Unblock() {
+	if b != nil && b.r != nil {
+		b.r.syncLock.RUnlock()
+		b.r = nil
 	}
 }

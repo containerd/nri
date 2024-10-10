@@ -114,6 +114,10 @@ message ConfigureRequest {
   string runtime_name = 2;
   // Version of the runtime NRI is running in.
   string runtime_version = 3;
+  // Configured registration timeout in milliseconds.
+  int64 registration_timeout = 4;
+  // Configured request processing timeout in milliseconds.
+  int64 request_timeout = 5;
 }
 
 message ConfigureResponse {

@@ -37,9 +37,9 @@ import (
 
 const (
 	// DefaultPluginRegistrationTimeout is the default timeout for plugin registration.
-	DefaultPluginRegistrationTimeout = 5 * time.Second
+	DefaultPluginRegistrationTimeout = api.DefaultPluginRegistrationTimeout
 	// DefaultPluginRequestTimeout is the default timeout for plugins to handle a request.
-	DefaultPluginRequestTimeout = 2 * time.Second
+	DefaultPluginRequestTimeout = api.DefaultPluginRequestTimeout
 )
 
 var (
@@ -384,9 +384,11 @@ func (p *plugin) configure(ctx context.Context, name, version, config string) er
 	defer cancel()
 
 	rpl, err := p.stub.Configure(ctx, &ConfigureRequest{
-		Config:         config,
-		RuntimeName:    name,
-		RuntimeVersion: version,
+		Config:              config,
+		RuntimeName:         name,
+		RuntimeVersion:      version,
+		RegistrationTimeout: getPluginRegistrationTimeout().Milliseconds(),
+		RequestTimeout:      getPluginRequestTimeout().Milliseconds(),
 	})
 	if err != nil {
 		return fmt.Errorf("failed to configure plugin: %w", err)

@@ -3,7 +3,7 @@ module github.com/containerd/nri/plugins/hook-injector
 go 1.21
 
 require (
-	github.com/containerd/nri v0.2.0
+	github.com/containerd/nri v0.6.1
 	github.com/containers/common v0.56.0
 	github.com/opencontainers/runtime-spec v1.1.0
 	github.com/sirupsen/logrus v1.9.3
@@ -11,7 +11,8 @@ require (
 )
 
 require (
-	github.com/containerd/ttrpc v1.2.3 // indirect
+	github.com/containerd/log v0.1.0 // indirect
+	github.com/containerd/ttrpc v1.2.6-0.20240827082320-b5cd6e4b3287 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect

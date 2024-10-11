@@ -273,6 +273,7 @@ type stub struct {
 	doneC      chan struct{}
 	srvErrC    chan error
 	cfgErrC    chan error
+	syncReq    *api.SynchronizeRequest
 
 	registrationTimeout time.Duration
 	requestTimeout      time.Duration
@@ -469,6 +470,7 @@ func (stub *stub) close() {
 
 	stub.started = false
 	stub.conn = nil
+	stub.syncReq = nil
 }
 
 // Run the plugin. Start event processing then wait for an error or getting stopped.
@@ -644,11 +646,50 @@ func (stub *stub) Configure(ctx context.Context, req *api.ConfigureRequest) (rpl
 func (stub *stub) Synchronize(ctx context.Context, req *api.SynchronizeRequest) (*api.SynchronizeResponse, error) {
 	handler := stub.handlers.Synchronize
 	if handler == nil {
-		return &api.SynchronizeResponse{}, nil
+		return &api.SynchronizeResponse{More: req.More}, nil
 	}
-	update, err := handler(ctx, req.Pods, req.Containers)
+
+	if req.More {
+		return stub.collectSync(req)
+	}
+
+	return stub.deliverSync(ctx, req)
+}
+
+func (stub *stub) collectSync(req *api.SynchronizeRequest) (*api.SynchronizeResponse, error) {
+	stub.Lock()
+	defer stub.Unlock()
+
+	log.Debugf(noCtx, "collecting sync req with %d pods, %d containers...",
+		len(req.Pods), len(req.Containers))
+
+	if stub.syncReq == nil {
+		stub.syncReq = req
+	} else {
+		stub.syncReq.Pods = append(stub.syncReq.Pods, req.Pods...)
+		stub.syncReq.Containers = append(stub.syncReq.Containers, req.Containers...)
+	}
+
+	return &api.SynchronizeResponse{More: req.More}, nil
+}
+
+func (stub *stub) deliverSync(ctx context.Context, req *api.SynchronizeRequest) (*api.SynchronizeResponse, error) {
+	stub.Lock()
+	syncReq := stub.syncReq
+	stub.syncReq = nil
+	stub.Unlock()
+
+	if syncReq == nil {
+		syncReq = req
+	} else {
+		syncReq.Pods = append(syncReq.Pods, req.Pods...)
+		syncReq.Containers = append(syncReq.Containers, req.Containers...)
+	}
+
+	update, err := stub.handlers.Synchronize(ctx, syncReq.Pods, syncReq.Containers)
 	return &api.SynchronizeResponse{
 		Update: update,
+		More:   false,
 	}, err
 }
 

@@ -88,8 +88,6 @@ func (p *plugin) CreateContainer(_ context.Context, pod *api.PodSandbox, ctr *ap
 		return nil, nil, err
 	}
 
-	return adjust, nil, nil
-
 	if verbose {
 		dump(containerName(pod, ctr), "ContainerAdjustment", adjust)
 	}
@@ -128,10 +126,6 @@ func parseDevices(ctr string, annotations map[string]string) ([]device, error) {
 	)
 
 	annotation := getAnnotation(annotations, deviceKey, ctr)
-	if annotation == nil {
-		return nil, nil
-	}
-
 	if annotation == nil {
 		return nil, nil
 	}

@@ -158,6 +158,26 @@ var _ = Describe("Adjustment", func() {
 		})
 	})
 
+	When("existing oom score adj", func() {
+		It("does not adjust Spec", func() {
+			var (
+				spec         = makeSpec()
+				expectedSpec = makeSpec()
+				adjust       = &api.ContainerAdjustment{}
+			)
+			oomScoreAdj := 123
+			spec.Process.OOMScoreAdj = &oomScoreAdj
+			expectedSpec.Process.OOMScoreAdj = &oomScoreAdj
+
+			rg := &rgen.Generator{Config: spec}
+			xg := xgen.SpecGenerator(rg)
+
+			Expect(xg).ToNot(BeNil())
+			Expect(xg.Adjust(adjust)).To(Succeed())
+			Expect(spec).To(Equal(expectedSpec))
+		})
+	})
+
 	When("has CPU shares", func() {
 		It("adjusts Spec correctly", func() {
 			var (

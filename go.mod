@@ -4,6 +4,7 @@ go 1.21
 
 require (
 	github.com/containerd/ttrpc v1.2.6-0.20240827082320-b5cd6e4b3287
+	github.com/knqyf263/go-plugin v0.8.1-0.20240827022226-114c6257e441
 	github.com/moby/sys/mountinfo v0.6.2
 	github.com/onsi/ginkgo/v2 v2.19.1
 	github.com/onsi/gomega v1.34.0
@@ -11,6 +12,7 @@ require (
 	github.com/opencontainers/runtime-tools v0.9.0
 	github.com/sirupsen/logrus v1.9.3
 	github.com/stretchr/testify v1.8.4
+	github.com/tetratelabs/wazero v1.8.2-0.20241030035603-dc08732e57d5
 	golang.org/x/sys v0.21.0
 	google.golang.org/grpc v1.57.1
 	google.golang.org/protobuf v1.34.1

@@ -375,6 +375,7 @@ message LinuxContainer {
   string cgroups_path = 5;
   LinuxIOPriority io_priority = 6;
   SecurityProfile seccomp_profile = 7;
+  LinuxSeccomp seccomp_policy = 8;
 }
 
 // A linux namespace.
@@ -505,6 +506,31 @@ message LinuxContainerAdjustment {
   string cgroups_path = 3;
   OptionalInt oom_score_adj = 4;
   LinuxIOPriority io_priority = 5;
+  LinuxSeccomp seccomp_policy = 6;
+}
+
+message LinuxSeccomp {
+  string default_action = 1;
+  OptionalUInt32 default_errno = 2;
+  repeated string architectures = 3;
+  repeated string flags = 4;
+  string listener_path = 5;
+  string listener_metadata = 6;
+  repeated LinuxSyscall syscalls = 7;
+}
+
+message LinuxSyscall {
+  repeated string names = 1;
+  string action = 2;
+  OptionalUInt32 errno_ret = 3;
+  repeated LinuxSeccompArg args = 4;
+}
+
+message LinuxSeccompArg {
+  uint32 index = 1;
+  uint64 value = 2;
+  uint64 value_two = 3;
+  string op = 4;
 }
 
 // Requested update to an already created container.
@@ -636,4 +662,5 @@ enum Field {
     OomScoreAdj = 29;
     Rlimits = 30;
     IoPriority = 31;
+    SeccompPolicy = 32;
 }

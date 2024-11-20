@@ -90,6 +90,7 @@ type (
 	LinuxDevice              = api.LinuxDevice
 	LinuxDeviceCgroup        = api.LinuxDeviceCgroup
 	LinuxIOPriority          = api.LinuxIOPriority
+	LinuxSeccomp             = api.LinuxSeccomp
 	CDIDevice                = api.CDIDevice
 	HugepageLimit            = api.HugepageLimit
 	Hooks                    = api.Hooks

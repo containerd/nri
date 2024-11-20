@@ -161,6 +161,10 @@ func (o *OwningPlugins) ClaimIOPriority(id, plugin string) error {
 	return o.mustOwnersFor(id).ClaimIOPriority(plugin)
 }
 
+func (o *OwningPlugins) ClaimSeccompPolicy(id, plugin string) error {
+	return o.mustOwnersFor(id).ClaimSeccompPolicy(plugin)
+}
+
 func (o *OwningPlugins) ClearAnnotation(id, key, plugin string) {
 	o.mustOwnersFor(id).ClearAnnotation(key, plugin)
 }
@@ -299,6 +303,10 @@ func (o *OwningPlugins) RlimitOwner(id, typ string) (string, bool) {
 
 func (o *OwningPlugins) IOPriorityOwner(id string) (string, bool) {
 	return o.ownersFor(id).simpleOwner(Field_IoPriority.Key())
+}
+
+func (o *OwningPlugins) SeccompPolicyOwner(id string) (string, bool) {
+	return o.ownersFor(id).simpleOwner(Field_SeccompPolicy.Key())
 }
 
 func (o *OwningPlugins) mustOwnersFor(id string) *FieldOwners {
@@ -513,6 +521,10 @@ func (f *FieldOwners) ClaimRlimit(typ, plugin string) error {
 
 func (f *FieldOwners) ClaimIOPriority(plugin string) error {
 	return f.claimSimple(Field_IoPriority.Key(), plugin)
+}
+
+func (f *FieldOwners) ClaimSeccompPolicy(plugin string) error {
+	return f.claimSimple(Field_SeccompPolicy.Key(), plugin)
 }
 
 func (f *FieldOwners) clearCompound(field int32, key, plugin string) {

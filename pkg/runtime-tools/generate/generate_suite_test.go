@@ -397,6 +397,38 @@ var _ = Describe("Adjustment", func() {
 			)))
 		})
 	})
+
+	When("has a seccomp policy adjustment", func() {
+		It("adjusts Spec correctly", func() {
+			var (
+				spec    = makeSpec()
+				seccomp = rspec.LinuxSeccomp{
+					DefaultAction: rspec.ActAllow,
+					ListenerPath:  "/run/meshuggah-rocks.sock",
+					Architectures: []rspec.Arch{},
+					Flags:         []rspec.LinuxSeccompFlag{},
+					Syscalls: []rspec.LinuxSyscall{{
+						Names:  []string{"sched_getaffinity"},
+						Action: rspec.ActNotify,
+						Args:   []rspec.LinuxSeccompArg{},
+					}},
+				}
+				adjust = &api.ContainerAdjustment{
+					Linux: &api.LinuxContainerAdjustment{
+						SeccompPolicy: api.FromOCILinuxSeccomp(&seccomp),
+					},
+				}
+			)
+
+			rg := &rgen.Generator{Config: spec}
+			xg := xgen.SpecGenerator(rg)
+
+			Expect(xg).ToNot(BeNil())
+			Expect(xg.Adjust(adjust)).To(Succeed())
+			Expect(*spec.Linux.Seccomp).To(Equal(seccomp))
+		})
+	})
+
 })
 
 type specOption func(*rspec.Spec)

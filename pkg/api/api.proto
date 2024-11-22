@@ -403,6 +403,7 @@ message LinuxContainerAdjustment {
   LinuxResources resources = 2;
   string cgroups_path = 3;
   OptionalInt oom_score_adj = 4;
+  repeated LinuxNamespace namespaces = 5;
 }
 
 // Requested update to an already created container.

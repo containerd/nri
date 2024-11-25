@@ -375,6 +375,35 @@ var _ = Describe("Adjustment", func() {
 			)))
 		})
 	})
+	When("has namespaces", func() {
+		It("it adjusts the namespaces in the spec", func() {
+			var (
+				spec   = makeSpec()
+				adjust = &api.ContainerAdjustment{
+					Linux: &api.LinuxContainerAdjustment{
+						Namespaces: []*api.LinuxNamespace{{
+							Type: string(rspec.PIDNamespace),
+							Path: "/meshuggah.rocks",
+						}},
+					},
+				}
+			)
+
+			rg := &rgen.Generator{Config: spec}
+			xg := xgen.SpecGenerator(rg)
+
+			Expect(xg).ToNot(BeNil())
+			Expect(xg.Adjust(adjust)).To(Succeed())
+			Expect(spec).To(Equal(makeSpec(
+				withNamespaces([]rspec.LinuxNamespace{
+					{
+						Type: rspec.PIDNamespace,
+						Path: "/meshuggah.rocks",
+					},
+				}),
+			)))
+		})
+	})
 })
 
 type specOption func(*rspec.Spec)
@@ -510,6 +539,12 @@ func withPidsLimit(v int64) specOption {
 func withMounts(mounts []rspec.Mount) specOption {
 	return func(spec *rspec.Spec) {
 		spec.Mounts = append(spec.Mounts, mounts...)
+	}
+}
+
+func withNamespaces(namespaces []rspec.LinuxNamespace) specOption {
+	return func(spec *rspec.Spec) {
+		spec.Linux.Namespaces = append(spec.Linux.Namespaces, namespaces...)
 	}
 }
 

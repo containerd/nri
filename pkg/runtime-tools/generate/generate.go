@@ -117,6 +117,9 @@ func (g *Generator) Adjust(adjust *nri.ContainerAdjustment) error {
 	g.AdjustDevices(adjust.GetLinux().GetDevices())
 	g.AdjustCgroupsPath(adjust.GetLinux().GetCgroupsPath())
 	g.AdjustOomScoreAdj(adjust.GetLinux().GetOomScoreAdj())
+	if err := g.AdjustNamespaces(adjust.GetLinux().GetNamespaces()); err != nil {
+		return err
+	}
 
 	resources := adjust.GetLinux().GetResources()
 	if err := g.AdjustResources(resources); err != nil {
@@ -330,6 +333,16 @@ func (g *Generator) AdjustOomScoreAdj(score *nri.OptionalInt) {
 	if score != nil {
 		g.SetProcessOOMScoreAdj(int(score.Value))
 	}
+}
+
+func (g *Generator) AdjustNamespaces(namespaces []*nri.LinuxNamespace) error {
+	for _, ns := range namespaces {
+		if err := g.AddOrReplaceLinuxNamespace(ns.Type, ns.Path); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // AdjustDevices adjusts the (Linux) devices in the OCI Spec.

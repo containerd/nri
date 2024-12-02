@@ -219,6 +219,9 @@ func (r *result) adjust(rpl *ContainerAdjustment, plugin string) error {
 		if err := r.adjustOomScoreAdj(rpl.Linux.OomScoreAdj, plugin); err != nil {
 			return err
 		}
+		if err := r.adjustSeccompPolicy(rpl.Linux.SeccompPolicy, plugin); err != nil {
+			return err
+		}
 	}
 	if err := r.adjustRlimits(rpl.Rlimits, plugin); err != nil {
 		return err
@@ -738,6 +741,22 @@ func (r *result) adjustOomScoreAdj(OomScoreAdj *OptionalInt, plugin string) erro
 	return nil
 }
 
+func (r *result) adjustSeccompPolicy(adjustment *LinuxSeccomp, plugin string) error {
+	if adjustment == nil {
+		return nil
+	}
+	create, id := r.request.create, r.request.create.Container.Id
+
+	if err := r.owners.claimSeccompPolicy(id, plugin); err != nil {
+		return err
+	}
+
+	create.Container.Linux.SeccompPolicy = adjustment
+	r.reply.adjust.Linux.SeccompPolicy = adjustment
+
+	return nil
+}
+
 func (r *result) adjustRlimits(rlimits []*POSIXRlimit, plugin string) error {
 	create, id, adjust := r.request.create, r.request.create.Container.Id, r.reply.adjust
 	for _, l := range rlimits {
@@ -976,6 +995,7 @@ type owners struct {
 	unified             map[string]string
 	cgroupsPath         string
 	oomScoreAdj         string
+	seccompPolicy       string
 	rlimits             map[string]string
 }
 
@@ -1094,6 +1114,10 @@ func (ro resultOwners) claimCgroupsPath(id, plugin string) error {
 
 func (ro resultOwners) claimOomScoreAdj(id, plugin string) error {
 	return ro.ownersFor(id).claimOomScoreAdj(plugin)
+}
+
+func (ro resultOwners) claimSeccompPolicy(id, plugin string) error {
+	return ro.ownersFor(id).claimSeccompPolicy(plugin)
 }
 
 func (ro resultOwners) claimRlimits(id, typ, plugin string) error {
@@ -1346,6 +1370,14 @@ func (o *owners) claimOomScoreAdj(plugin string) error {
 		return conflict(plugin, other, "oom score adj")
 	}
 	o.oomScoreAdj = plugin
+	return nil
+}
+
+func (o *owners) claimSeccompPolicy(plugin string) error {
+	if other := o.seccompPolicy; other != "" {
+		return conflict(plugin, other, "seccomp policy")
+	}
+	o.seccompPolicy = plugin
 	return nil
 }
 

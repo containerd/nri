@@ -300,6 +300,7 @@ message LinuxContainer {
   LinuxResources resources = 3;
   OptionalInt oom_score_adj = 4;
   string cgroups_path = 5;
+  LinuxSeccomp seccomp_policy = 6;
 }
 
 // A linux namespace.
@@ -403,6 +404,31 @@ message LinuxContainerAdjustment {
   LinuxResources resources = 2;
   string cgroups_path = 3;
   OptionalInt oom_score_adj = 4;
+  LinuxSeccomp seccomp_policy = 5;
+}
+
+message LinuxSeccomp {
+  string default_action = 1;
+  OptionalUInt32 default_errno = 2;
+  repeated string architectures = 3;
+  repeated string flags = 4;
+  string listener_path = 5;
+  string listener_metadata = 6;
+  repeated LinuxSyscall syscalls = 7;
+}
+
+message LinuxSyscall {
+	repeated string names = 1;
+	string action = 2;
+	OptionalUInt32 errno_ret = 3;
+	repeated LinuxSeccompArg args = 4;
+}
+
+message LinuxSeccompArg {
+	uint32 index = 1;
+	uint64 value = 2;
+	uint64 value_two = 3;
+	string op = 4;
 }
 
 // Requested update to an already created container.

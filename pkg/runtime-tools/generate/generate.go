@@ -117,6 +117,9 @@ func (g *Generator) Adjust(adjust *nri.ContainerAdjustment) error {
 	g.AdjustDevices(adjust.GetLinux().GetDevices())
 	g.AdjustCgroupsPath(adjust.GetLinux().GetCgroupsPath())
 	g.AdjustOomScoreAdj(adjust.GetLinux().GetOomScoreAdj())
+	if err := g.AdjustSeccompPolicy(adjust.GetLinux().GetSeccompPolicy()); err != nil {
+		return err
+	}
 
 	resources := adjust.GetLinux().GetResources()
 	if err := g.AdjustResources(resources); err != nil {
@@ -330,6 +333,43 @@ func (g *Generator) AdjustOomScoreAdj(score *nri.OptionalInt) {
 	if score != nil {
 		g.SetProcessOOMScoreAdj(int(score.Value))
 	}
+}
+
+// AdjustSeccompPolicy adjusts the seccomp policy for the container, which may
+// override kubelet's settings for the seccomp policy.
+func (g *Generator) AdjustSeccompPolicy(policy *nri.LinuxSeccomp) error {
+	if policy == nil {
+		return nil
+	}
+
+	// Note: we explicitly do not use the SetDefaultSeccompAction() and
+	// SetSeccompArchitecture() helpers from generate here, because they
+	// expect a "humanized" version of the action (e.g. "allow" or "x86").
+	// since these helpers do not exist for the below, we would be
+	// inconsistent: here we would want the humanized strings, in favor of
+	// the rspec definitions like SCMP_ACT_ALLOW. let's just use the rspec
+	// versions everywhere since helpers don't exist in runtime-tools for
+	// setting actual syscall policies, only default actions.
+	archs := make([]rspec.Arch, len(policy.Architectures))
+	for i, arch := range policy.Architectures {
+		archs[i] = rspec.Arch(arch)
+	}
+
+	flags := make([]rspec.LinuxSeccompFlag, len(policy.Flags))
+	for i, f := range policy.Flags {
+		flags[i] = rspec.LinuxSeccompFlag(f)
+	}
+
+	g.Config.Linux.Seccomp = &rspec.LinuxSeccomp{
+		DefaultAction:    rspec.LinuxSeccompAction(policy.DefaultAction),
+		Architectures:    archs,
+		ListenerPath:     policy.ListenerPath,
+		ListenerMetadata: policy.ListenerMetadata,
+		Flags:            flags,
+		Syscalls:         nri.ToOCILinuxSyscalls(policy.Syscalls),
+	}
+
+	return nil
 }
 
 // AdjustDevices adjusts the (Linux) devices in the OCI Spec.

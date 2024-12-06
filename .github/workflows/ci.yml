@@ -45,6 +45,11 @@ jobs:
         with:
           go-version: 1.21.x
 
+      # needed for wasm plugins
+      - uses: acifani/setup-tinygo@v2
+        with:
+          tinygo-version: "0.34.0"
+
       - name: Set env
         shell: bash
         run: |
@@ -53,7 +58,7 @@ jobs:
       - name: Install protoc and plugins
         run: |
           sudo make install-protoc
-          make install-protoc-dependencies install-ttrpc-plugin
+          make install-protoc-dependencies install-ttrpc-plugin install-wasm-plugin
 
       - name: Force regeneration of protobuf files on build
         run: |

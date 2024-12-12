@@ -63,11 +63,10 @@ type plugin struct {
 	rpcs   *ttrpc.Server
 	events EventMask
 	closed bool
-	stub   api.PluginService
 	regC   chan error
 	closeC chan struct{}
 	r      *Adaptation
-	wasm   api.Plugin
+	impl   *pluginType
 }
 
 // SetPluginRegistrationTimeout sets the timeout for plugin registration.
@@ -114,7 +113,7 @@ func (r *Adaptation) newLaunchedPlugin(dir, idx, base, cfg string) (p *plugin, r
 			idx:  idx,
 			base: base,
 			r:    r,
-			wasm: wasm,
+			impl: &pluginType{wasmImpl: wasm},
 		}, nil
 	}
 
@@ -258,7 +257,6 @@ func (p *plugin) connect(conn stdnet.Conn) (retErr error) {
 			rpcc.Close()
 		}
 	}()
-	stub := api.NewPluginClient(rpcc)
 
 	rpcs, err := ttrpc.NewServer(p.r.serverOpts...)
 	if err != nil {
@@ -279,7 +277,7 @@ func (p *plugin) connect(conn stdnet.Conn) (retErr error) {
 	p.rpcc = rpcc
 	p.rpcl = rpcl
 	p.rpcs = rpcs
-	p.stub = stub
+	p.impl = &pluginType{ttrpcImpl: api.NewPluginClient(rpcc)}
 
 	p.pid, err = getPeerPid(p.mux.Trunk())
 	if err != nil {
@@ -295,7 +293,7 @@ func (p *plugin) connect(conn stdnet.Conn) (retErr error) {
 func (p *plugin) start(name, version string) (err error) {
 	// skip start for WASM plugins and head right to the registration for
 	// events config
-	if p.wasm == nil {
+	if p.impl.isTtrpc() {
 		var (
 			err     error
 			timeout = getPluginRegistrationTimeout()
@@ -337,7 +335,7 @@ func (p *plugin) start(name, version string) (err error) {
 
 // close a plugin shutting down its multiplexed ttrpc connections.
 func (p *plugin) close() {
-	if p.wasm != nil {
+	if p.impl.isWasm() {
 		return
 	}
 
@@ -362,7 +360,7 @@ func (p *plugin) isClosed() bool {
 
 // stop a plugin (if it was launched by us)
 func (p *plugin) stop() error {
-	if p.isExternal() || p.cmd.Process == nil || p.wasm != nil {
+	if p.isExternal() || p.cmd.Process == nil || p.impl.isWasm() {
 		return nil
 	}
 
@@ -436,7 +434,6 @@ func (p *plugin) configure(ctx context.Context, name, version, config string) (e
 	ctx, cancel := context.WithTimeout(ctx, getPluginRequestTimeout())
 	defer cancel()
 
-	var rpl *api.ConfigureResponse
 	req := &ConfigureRequest{
 		Config:              config,
 		RuntimeName:         name,
@@ -444,11 +441,8 @@ func (p *plugin) configure(ctx context.Context, name, version, config string) (e
 		RegistrationTimeout: getPluginRegistrationTimeout().Milliseconds(),
 		RequestTimeout:      getPluginRequestTimeout().Milliseconds(),
 	}
-	if p.wasm != nil {
-		rpl, err = p.wasm.Configure(ctx, req)
-	} else {
-		rpl, err = p.stub.Configure(ctx, req)
-	}
+
+	rpl, err := p.impl.Configure(ctx, req)
 	if err != nil {
 		return fmt.Errorf("failed to configure plugin: %w", err)
 	}
@@ -493,12 +487,7 @@ func (p *plugin) synchronize(ctx context.Context, pods []*PodSandbox, containers
 		log.Debugf(ctx, "sending sync message, %d/%d, %d/%d (more: %v)",
 			len(req.Pods), len(podsToSend), len(req.Containers), len(ctrsToSend), req.More)
 
-		if p.wasm != nil {
-			rpl, err = p.wasm.Synchronize(ctx, req)
-		} else {
-			rpl, err = p.stub.Synchronize(ctx, req)
-		}
-
+		rpl, err = p.impl.Synchronize(ctx, req)
 		if err == nil {
 			if !req.More {
 				break
@@ -574,7 +563,7 @@ func recalcObjsPerSyncMsg(pods, ctrs int, err error) (int, int, error) {
 }
 
 // Relay CreateContainer request to plugin.
-func (p *plugin) createContainer(ctx context.Context, req *CreateContainerRequest) (rpl *CreateContainerResponse, err error) {
+func (p *plugin) createContainer(ctx context.Context, req *CreateContainerRequest) (*CreateContainerResponse, error) {
 	if !p.events.IsSet(Event_CREATE_CONTAINER) {
 		return nil, nil
 	}
@@ -582,11 +571,7 @@ func (p *plugin) createContainer(ctx context.Context, req *CreateContainerReques
 	ctx, cancel := context.WithTimeout(ctx, getPluginRequestTimeout())
 	defer cancel()
 
-	if p.wasm != nil {
-		rpl, err = p.wasm.CreateContainer(ctx, req)
-	} else {
-		rpl, err = p.stub.CreateContainer(ctx, req)
-	}
+	rpl, err := p.impl.CreateContainer(ctx, req)
 	if err != nil {
 		if isFatalError(err) {
 			log.Errorf(ctx, "closing plugin %s, failed to handle CreateContainer request: %v",
@@ -601,7 +586,7 @@ func (p *plugin) createContainer(ctx context.Context, req *CreateContainerReques
 }
 
 // Relay UpdateContainer request to plugin.
-func (p *plugin) updateContainer(ctx context.Context, req *UpdateContainerRequest) (rpl *UpdateContainerResponse, err error) {
+func (p *plugin) updateContainer(ctx context.Context, req *UpdateContainerRequest) (*UpdateContainerResponse, error) {
 	if !p.events.IsSet(Event_UPDATE_CONTAINER) {
 		return nil, nil
 	}
@@ -609,11 +594,7 @@ func (p *plugin) updateContainer(ctx context.Context, req *UpdateContainerReques
 	ctx, cancel := context.WithTimeout(ctx, getPluginRequestTimeout())
 	defer cancel()
 
-	if p.wasm != nil {
-		rpl, err = p.wasm.UpdateContainer(ctx, req)
-	} else {
-		rpl, err = p.stub.UpdateContainer(ctx, req)
-	}
+	rpl, err := p.impl.UpdateContainer(ctx, req)
 	if err != nil {
 		if isFatalError(err) {
 			log.Errorf(ctx, "closing plugin %s, failed to handle UpdateContainer request: %v",
@@ -636,11 +617,7 @@ func (p *plugin) stopContainer(ctx context.Context, req *StopContainerRequest) (
 	ctx, cancel := context.WithTimeout(ctx, getPluginRequestTimeout())
 	defer cancel()
 
-	if p.wasm != nil {
-		rpl, err = p.wasm.StopContainer(ctx, req)
-	} else {
-		rpl, err = p.stub.StopContainer(ctx, req)
-	}
+	rpl, err = p.impl.StopContainer(ctx, req)
 	if err != nil {
 		if isFatalError(err) {
 			log.Errorf(ctx, "closing plugin %s, failed to handle StopContainer request: %v",
@@ -663,12 +640,7 @@ func (p *plugin) StateChange(ctx context.Context, evt *StateChangeEvent) (err er
 	ctx, cancel := context.WithTimeout(ctx, getPluginRequestTimeout())
 	defer cancel()
 
-	if p.wasm != nil {
-		_, err = p.wasm.StateChange(ctx, evt)
-	} else {
-		_, err = p.stub.StateChange(ctx, evt)
-	}
-	if err != nil {
+	if err = p.impl.StateChange(ctx, evt); err != nil {
 		if isFatalError(err) {
 			log.Errorf(ctx, "closing plugin %s, failed to handle event %d: %v",
 				p.name(), evt.Event, err)

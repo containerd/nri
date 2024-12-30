@@ -88,6 +88,10 @@ build-plugins: $(PLUGINS)
 build-check:
 	$(Q)$(GO_BUILD) -v $(GO_MODULES)
 
+mod-tidy:
+	$(Q)$(GO_CMD) mod tidy
+	$(Q)./scripts/go-mod-tidy
+
 #
 # clean targets
 #

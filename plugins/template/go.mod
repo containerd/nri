@@ -1,6 +1,6 @@
 module github.com/containerd/nri/plugins/template
 
-go 1.21
+go 1.22.0
 
 require (
 	github.com/containerd/nri v0.6.1

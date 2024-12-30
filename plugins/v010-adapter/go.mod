@@ -1,6 +1,6 @@
 module github.com/containerd/nri/plugins/v010-adapter
 
-go 1.21
+go 1.22.0
 
 require (
 	github.com/containerd/containerd v1.6.9

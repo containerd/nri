@@ -1,6 +1,6 @@
 module github.com/containerd/nri/plugins/ulimit-adjuster
 
-go 1.21
+go 1.22.0
 
 replace github.com/containerd/nri => ../..
 

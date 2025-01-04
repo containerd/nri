@@ -5,7 +5,7 @@ go 1.21
 require (
 	github.com/containerd/containerd v1.6.9
 	github.com/containerd/nri v0.6.1
-	github.com/opencontainers/runtime-spec v1.0.3-0.20220825212826-86290f6a00fb
+	github.com/opencontainers/runtime-spec v1.1.0
 	github.com/sirupsen/logrus v1.9.3
 )
 

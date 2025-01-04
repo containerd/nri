@@ -3,7 +3,7 @@ module github.com/containerd/nri
 go 1.21
 
 require (
-	github.com/containerd/ttrpc v1.2.6-0.20240827082320-b5cd6e4b3287
+	github.com/containerd/ttrpc v1.2.7
 	github.com/knqyf263/go-plugin v0.8.1-0.20240827022226-114c6257e441
 	github.com/moby/sys/mountinfo v0.6.2
 	github.com/onsi/ginkgo/v2 v2.19.1

@@ -1,0 +1,37 @@
+version: 2
+updates:
+  - package-ecosystem: "gomod"
+    directories:
+      # we didn't enable dependabot for the root module `./go.mod`,
+      # since it's expected to be used as a library instead of a binary,
+      # so we want to keep the dependencies at minimum unless we want to
+      # fix something or use new features from new dependency versions.
+      - "/examples"
+      - "/plugins/**/*"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    groups:
+      golang-x:
+        patterns:
+          - "golang.org/x/*"
+      google-golang:
+        patterns:
+          - "google.golang.org/*"
+      containerd:
+        patterns:
+          - "github.com/containerd/*"
+      opencontainers:
+        patterns:
+          - "github.com/opencontainers/*"
+      k8s:
+        patterns:
+          - "k8s.io/*"
+      sig-k8s:
+        patterns:
+          - "sigs.k8s.io/*"
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10

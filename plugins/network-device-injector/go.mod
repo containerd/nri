@@ -12,7 +12,7 @@ require (
 
 require (
 	github.com/containerd/log v0.1.0 // indirect
-	github.com/containerd/ttrpc v1.2.6-0.20240827082320-b5cd6e4b3287 // indirect
+	github.com/containerd/ttrpc v1.2.7 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/knqyf263/go-plugin v0.8.1-0.20240827022226-114c6257e441 // indirect
 	github.com/kr/text v0.2.0 // indirect

@@ -608,4 +608,5 @@ enum Field {
     CgroupsPath = 28;
     OomScoreAdj = 29;
     Rlimits = 30;
+    Namespace = 31;
 }

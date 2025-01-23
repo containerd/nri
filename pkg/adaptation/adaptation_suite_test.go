@@ -505,6 +505,12 @@ var _ = Describe("Plugin container creation adjustments", func() {
 			}
 			a.AddDevice(dev)
 
+		case "namespace":
+			ns := &api.LinuxNamespace{
+				Type: "cgroup",
+			}
+			a.AddOrReplaceNamespace(ns)
+
 		case "rlimit":
 			a.AddRlimit("nofile", 456, 123)
 
@@ -711,6 +717,17 @@ var _ = Describe("Plugin container creation adjustments", func() {
 								Type:  "c",
 								Major: 313,
 								Minor: 100,
+							},
+						},
+					},
+				},
+			),
+			Entry("adjust namespace", "namespace",
+				&api.ContainerAdjustment{
+					Linux: &api.LinuxContainerAdjustment{
+						Namespaces: []*api.LinuxNamespace{
+							{
+								Type: "cgroup",
 							},
 						},
 					},

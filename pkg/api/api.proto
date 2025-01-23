@@ -664,4 +664,5 @@ enum Field {
     Rlimits = 30;
     IoPriority = 31;
     SeccompPolicy = 32;
+    Namespace = 33;
 }

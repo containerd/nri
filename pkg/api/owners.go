@@ -53,6 +53,10 @@ func (o *OwningPlugins) ClaimDevice(id, path, plugin string) error {
 	return o.mustOwnersFor(id).ClaimDevice(path, plugin)
 }
 
+func (o *OwningPlugins) ClaimNamespace(id, typ, plugin string) error {
+	return o.mustOwnersFor(id).ClaimNamespace(typ, plugin)
+}
+
 func (o *OwningPlugins) ClaimCdiDevice(id, name, plugin string) error {
 	return o.mustOwnersFor(id).ClaimCdiDevice(name, plugin)
 }
@@ -417,6 +421,10 @@ func (f *FieldOwners) ClaimDevice(path, plugin string) error {
 
 func (f *FieldOwners) ClaimCdiDevice(name, plugin string) error {
 	return f.claimCompound(Field_CdiDevices.Key(), name, plugin)
+}
+
+func (f *FieldOwners) ClaimNamespace(typ, plugin string) error {
+	return f.claimCompound(Field_Namespace.Key(), typ, plugin)
 }
 
 func (f *FieldOwners) ClaimEnv(name, plugin string) error {

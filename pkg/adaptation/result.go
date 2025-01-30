@@ -79,6 +79,9 @@ func collectCreateContainerResult(request *CreateContainerRequest) *result {
 	if request.Container.Linux.Resources.Unified == nil {
 		request.Container.Linux.Resources.Unified = map[string]string{}
 	}
+	if request.Container.Linux.Namespaces == nil {
+		request.Container.Linux.Namespaces = []*LinuxNamespace{}
+	}
 
 	return &result{
 		request: resultRequest{
@@ -100,6 +103,7 @@ func collectCreateContainerResult(request *CreateContainerRequest) *result {
 						HugepageLimits: []*HugepageLimit{},
 						Unified:        map[string]string{},
 					},
+					Namespaces: []*LinuxNamespace{},
 				},
 			},
 		},
@@ -217,6 +221,9 @@ func (r *result) adjust(rpl *ContainerAdjustment, plugin string) error {
 			return err
 		}
 		if err := r.adjustOomScoreAdj(rpl.Linux.OomScoreAdj, plugin); err != nil {
+			return err
+		}
+		if err := r.adjustNamespaces(rpl.Linux.Namespaces, plugin); err != nil {
 			return err
 		}
 	}
@@ -398,6 +405,44 @@ func (r *result) adjustDevices(devices []*LinuxDevice, plugin string) error {
 
 	// finally, apply additions/modifications to plugin container creation request
 	create.Container.Linux.Devices = append(create.Container.Linux.Devices, add...)
+
+	return nil
+}
+
+func (r *result) adjustNamespaces(namespaces []*LinuxNamespace, plugin string) error {
+	if len(namespaces) == 0 {
+		return nil
+	}
+
+	create, id := r.request.create, r.request.create.Container.Id
+
+	creatensmap := map[string]*LinuxNamespace{}
+	for _, n := range create.Container.Linux.Namespaces {
+		creatensmap[n.Type] = n
+	}
+
+	for _, n := range namespaces {
+		if n == nil {
+			continue
+		}
+		key, marked := n.IsMarkedForRemoval()
+		if err := r.owners.claimNamespace(id, key, plugin); err != nil {
+			return err
+		}
+		if marked {
+			delete(creatensmap, key)
+		} else {
+			creatensmap[key] = n
+		}
+		r.reply.adjust.Linux.Namespaces = append(r.reply.adjust.Linux.Namespaces, n)
+	}
+
+	// maps.Values() requires go 1.23+
+	creatensarray := []*LinuxNamespace{}
+	for _, n := range creatensmap {
+		creatensarray = append(creatensarray, n)
+	}
+	create.Container.Linux.Namespaces = creatensarray
 
 	return nil
 }
@@ -952,6 +997,7 @@ type owners struct {
 	annotations         map[string]string
 	mounts              map[string]string
 	devices             map[string]string
+	namespaces          map[string]string
 	cdiDevices          map[string]string
 	env                 map[string]string
 	memLimit            string
@@ -998,6 +1044,10 @@ func (ro resultOwners) claimMount(id, destination, plugin string) error {
 
 func (ro resultOwners) claimDevice(id, path, plugin string) error {
 	return ro.ownersFor(id).claimDevice(path, plugin)
+}
+
+func (ro resultOwners) claimNamespace(id, typ, plugin string) error {
+	return ro.ownersFor(id).claimNamespace(typ, plugin)
 }
 
 func (ro resultOwners) claimCDIDevice(id, path, plugin string) error {
@@ -1130,6 +1180,17 @@ func (o *owners) claimDevice(path, plugin string) error {
 		return conflict(plugin, other, "device", path)
 	}
 	o.devices[path] = plugin
+	return nil
+}
+
+func (o *owners) claimNamespace(typ, plugin string) error {
+	if o.namespaces == nil {
+		o.namespaces = make(map[string]string)
+	}
+	if other, taken := o.namespaces[typ]; taken {
+		return conflict(plugin, other, "namespace", typ)
+	}
+	o.namespaces[typ] = plugin
 	return nil
 }
 

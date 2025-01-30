@@ -488,6 +488,12 @@ var _ = Describe("Plugin container creation adjustments", func() {
 			}
 			a.AddDevice(dev)
 
+		case "namespace":
+			ns := &api.LinuxNamespace{
+				Type: "cgroup",
+			}
+			a.AddOrReplaceNamespace(ns)
+
 		case "rlimit":
 			a.AddRlimit("nofile", 456, 123)
 
@@ -648,6 +654,17 @@ var _ = Describe("Plugin container creation adjustments", func() {
 								Type:  "c",
 								Major: 313,
 								Minor: 100,
+							},
+						},
+					},
+				},
+			),
+			Entry("adjust namespace", "namespace",
+				&api.ContainerAdjustment{
+					Linux: &api.LinuxContainerAdjustment{
+						Namespaces: []*api.LinuxNamespace{
+							{
+								Type: "cgroup",
 							},
 						},
 					},
@@ -2008,8 +2025,9 @@ func stripLinuxAdjustment(a *api.ContainerAdjustment) {
 		return
 	}
 	stripLinuxDevices(a)
+	stripLinuxNamespace(a)
 	a.Linux.Resources = stripLinuxResources(a.Linux.Resources)
-	if a.Linux.Devices == nil && a.Linux.Resources == nil && a.Linux.CgroupsPath == "" {
+	if a.Linux.Devices == nil && a.Linux.Resources == nil && a.Linux.CgroupsPath == "" && a.Linux.OomScoreAdj == nil && a.Linux.Namespaces == nil {
 		a.Linux = nil
 	}
 }
@@ -2017,6 +2035,12 @@ func stripLinuxAdjustment(a *api.ContainerAdjustment) {
 func stripLinuxDevices(a *api.ContainerAdjustment) {
 	if len(a.Linux.Devices) == 0 {
 		a.Linux.Devices = nil
+	}
+}
+
+func stripLinuxNamespace(a *api.ContainerAdjustment) {
+	if len(a.Linux.Namespaces) == 0 {
+		a.Linux.Namespaces = nil
 	}
 }
 

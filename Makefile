@@ -40,10 +40,11 @@ TINYGO_DOCKER ?= 0
 # Keep the tinygo version in sync with .github/workflows/ci.yml
 tinygo-docker-build = \
     echo "Docker-tinygo-building $(1)..."; \
-    docker run --rm -v $(PWD):$(PWD) tinygo/tinygo:0.34.0 \
-        /bin/bash -c "cd $(PWD); make TINYGO_DOCKER=0 $(1)"
+    docker run --rm -v $(RESOLVED_PWD):$(RESOLVED_PWD) tinygo/tinygo:0.34.0 \
+        /bin/bash -c "cd $(RESOLVED_PWD); make TINYGO_DOCKER=0 $(1)"
 
-BUILD_PATH    := $(shell pwd)/build
+RESOLVED_PWD  := $(shell realpath $(shell pwd))
+BUILD_PATH    := $(RESOLVED_PWD)/build
 BIN_PATH      := $(BUILD_PATH)/bin
 COVERAGE_PATH := $(BUILD_PATH)/coverage
 

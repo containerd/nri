@@ -59,6 +59,8 @@ func (p *plugin) StateChange(ctx context.Context, req *api.StateChangeEvent) (*a
 	switch req.GetEvent() {
 	case api.Event_RUN_POD_SANDBOX:
 		return p.RunPodSandbox(ctx, req.GetPod())
+	case api.Event_POST_UPDATE_POD_SANDBOX:
+		return p.PostUpdatePodSandbox(ctx, req.GetPod())
 	case api.Event_STOP_POD_SANDBOX:
 		return p.StopPodSandbox(ctx, req.GetPod())
 	case api.Event_REMOVE_POD_SANDBOX:
@@ -80,6 +82,16 @@ func (p *plugin) StateChange(ctx context.Context, req *api.StateChangeEvent) (*a
 
 func (p *plugin) RunPodSandbox(ctx context.Context, pod *api.PodSandbox) (*api.Empty, error) {
 	log(ctx, "Got run pod sandbox request")
+	return nil, nil
+}
+
+func (p *plugin) UpdatePodSandbox(ctx context.Context, req *api.UpdatePodSandboxRequest) (*api.UpdatePodSandboxResponse, error) {
+	log(ctx, "Got update pod sandbox request")
+	return nil, nil
+}
+
+func (p *plugin) PostUpdatePodSandbox(ctx context.Context, pod *api.PodSandbox) (*api.Empty, error) {
+	log(ctx, "Got post update pod sandbox request")
 	return nil, nil
 }
 

@@ -222,6 +222,12 @@ func (m *mockRuntime) RunPodSandbox(ctx context.Context, evt *api.StateChangeEve
 	return m.runtime.RunPodSandbox(ctx, evt)
 }
 
+func (m *mockRuntime) UpdatePodSandbox(ctx context.Context, req *api.UpdatePodSandboxRequest) (*api.UpdatePodSandboxResponse, error) {
+	b := m.runtime.BlockPluginSync()
+	defer b.Unblock()
+	return m.runtime.UpdatePodSandbox(ctx, req)
+}
+
 func (m *mockRuntime) CreateContainer(ctx context.Context, req *api.CreateContainerRequest) (*api.CreateContainerResponse, error) {
 	b := m.runtime.BlockPluginSync()
 	defer b.Unblock()
@@ -236,6 +242,22 @@ func (m *mockRuntime) UpdateContainer(ctx context.Context, req *api.UpdateContai
 
 func (m *mockRuntime) startStopPodAndContainer(ctx context.Context, pod *api.PodSandbox, ctr *api.Container) error {
 	err := m.RunPodSandbox(ctx, &api.StateChangeEvent{
+		Pod: pod,
+	})
+	if err != nil {
+		return err
+	}
+
+	_, err = m.UpdatePodSandbox(ctx, &api.UpdatePodSandboxRequest{
+		Pod:                    pod,
+		OverheadLinuxResources: &api.LinuxResources{},
+		LinuxResources:         &api.LinuxResources{},
+	})
+	if err != nil {
+		return err
+	}
+
+	err = m.runtime.PostUpdatePodSandbox(ctx, &api.StateChangeEvent{
 		Pod: pod,
 	})
 	if err != nil {
@@ -341,25 +363,29 @@ type mockPlugin struct {
 	pods map[string]*api.PodSandbox
 	ctrs map[string]*api.Container
 
-	runPodSandbox       func(*mockPlugin, *api.PodSandbox, *api.Container) error
-	stopPodSandbox      func(*mockPlugin, *api.PodSandbox, *api.Container) error
-	removePodSandbox    func(*mockPlugin, *api.PodSandbox, *api.Container) error
-	createContainer     func(*mockPlugin, *api.PodSandbox, *api.Container) (*api.ContainerAdjustment, []*api.ContainerUpdate, error)
-	postCreateContainer func(*mockPlugin, *api.PodSandbox, *api.Container) error
-	startContainer      func(*mockPlugin, *api.PodSandbox, *api.Container) error
-	postStartContainer  func(*mockPlugin, *api.PodSandbox, *api.Container) error
-	updateContainer     func(*mockPlugin, *api.PodSandbox, *api.Container, *api.LinuxResources) ([]*api.ContainerUpdate, error)
-	postUpdateContainer func(*mockPlugin, *api.PodSandbox, *api.Container) error
-	stopContainer       func(*mockPlugin, *api.PodSandbox, *api.Container) ([]*api.ContainerUpdate, error)
-	removeContainer     func(*mockPlugin, *api.PodSandbox, *api.Container) error
+	runPodSandbox        func(*mockPlugin, *api.PodSandbox, *api.Container) error
+	updatePodSandbox     func(*mockPlugin, *api.PodSandbox, *api.LinuxResources, *api.LinuxResources) error
+	postUpdatePodSandbox func(*mockPlugin, *api.PodSandbox, *api.Container) error
+	stopPodSandbox       func(*mockPlugin, *api.PodSandbox, *api.Container) error
+	removePodSandbox     func(*mockPlugin, *api.PodSandbox, *api.Container) error
+	createContainer      func(*mockPlugin, *api.PodSandbox, *api.Container) (*api.ContainerAdjustment, []*api.ContainerUpdate, error)
+	postCreateContainer  func(*mockPlugin, *api.PodSandbox, *api.Container) error
+	startContainer       func(*mockPlugin, *api.PodSandbox, *api.Container) error
+	postStartContainer   func(*mockPlugin, *api.PodSandbox, *api.Container) error
+	updateContainer      func(*mockPlugin, *api.PodSandbox, *api.Container, *api.LinuxResources) ([]*api.ContainerUpdate, error)
+	postUpdateContainer  func(*mockPlugin, *api.PodSandbox, *api.Container) error
+	stopContainer        func(*mockPlugin, *api.PodSandbox, *api.Container) ([]*api.ContainerUpdate, error)
+	removeContainer      func(*mockPlugin, *api.PodSandbox, *api.Container) error
 }
 
 var (
 	_ = stub.ConfigureInterface(&mockPlugin{})
 	_ = stub.SynchronizeInterface(&mockPlugin{})
 	_ = stub.RunPodInterface(&mockPlugin{})
+	_ = stub.UpdatePodInterface(&mockPlugin{})
 	_ = stub.StopPodInterface(&mockPlugin{})
 	_ = stub.RemovePodInterface(&mockPlugin{})
+	_ = stub.PostUpdatePodInterface(&mockPlugin{})
 	_ = stub.CreateContainerInterface(&mockPlugin{})
 	_ = stub.StartContainerInterface(&mockPlugin{})
 	_ = stub.UpdateContainerInterface(&mockPlugin{})
@@ -433,6 +459,12 @@ func (m *mockPlugin) Init(dir string) error {
 
 	if m.runPodSandbox == nil {
 		m.runPodSandbox = nopEvent
+	}
+	if m.updatePodSandbox == nil {
+		m.updatePodSandbox = nopUpdatePodSandbox
+	}
+	if m.postUpdatePodSandbox == nil {
+		m.postUpdatePodSandbox = nopEvent
 	}
 	if m.stopPodSandbox == nil {
 		m.stopPodSandbox = nopEvent
@@ -543,6 +575,20 @@ func (m *mockPlugin) RunPodSandbox(_ context.Context, pod *api.PodSandbox) error
 	return err
 }
 
+func (m *mockPlugin) UpdatePodSandbox(_ context.Context, pod *api.PodSandbox, overhead *api.LinuxResources, res *api.LinuxResources) error {
+	m.pods[pod.Id] = pod
+	m.q.Add(PodSandboxEvent(pod, UpdatePodSandbox))
+
+	return m.updatePodSandbox(m, pod, overhead, res)
+}
+
+func (m *mockPlugin) PostUpdatePodSandbox(_ context.Context, pod *api.PodSandbox) error {
+	m.pods[pod.Id] = pod
+	err := m.postUpdatePodSandbox(m, pod, nil)
+	m.q.Add(PodSandboxEvent(pod, PostUpdatePodSandbox))
+	return err
+}
+
 func (m *mockPlugin) StopPodSandbox(_ context.Context, pod *api.PodSandbox) error {
 	m.pods[pod.Id] = pod
 	err := m.stopPodSandbox(m, pod, nil)
@@ -624,6 +670,10 @@ func nopEvent(*mockPlugin, *api.PodSandbox, *api.Container) error {
 	return nil
 }
 
+func nopUpdatePodSandbox(*mockPlugin, *api.PodSandbox, *api.LinuxResources, *api.LinuxResources) error {
+	return nil
+}
+
 func nopCreateContainer(*mockPlugin, *api.PodSandbox, *api.Container) (*api.ContainerAdjustment, []*api.ContainerUpdate, error) {
 	return nil, nil, nil
 }
@@ -648,17 +698,19 @@ const (
 	Disconnected = "closed"
 	Stopped      = "stopped"
 
-	RunPodSandbox       = "RunPodSandbox"
-	StopPodSandbox      = "StopPodSandbox"
-	RemovePodSandbox    = "RemovePodSandbox"
-	CreateContainer     = "CreateContainer"
-	StartContainer      = "StartContainer"
-	UpdateContainer     = "UpdateContainer"
-	StopContainer       = "StopContainer"
-	RemoveContainer     = "RemoveContainer"
-	PostCreateContainer = "PostCreateContainer"
-	PostStartContainer  = "PostStartContainer"
-	PostUpdateContainer = "PostUpdateContainer"
+	RunPodSandbox        = "RunPodSandbox"
+	UpdatePodSandbox     = "UpdatePodSandbox"
+	StopPodSandbox       = "StopPodSandbox"
+	RemovePodSandbox     = "RemovePodSandbox"
+	PostUpdatePodSandbox = "PostUpdatePodSandbox"
+	CreateContainer      = "CreateContainer"
+	StartContainer       = "StartContainer"
+	UpdateContainer      = "UpdateContainer"
+	StopContainer        = "StopContainer"
+	RemoveContainer      = "RemoveContainer"
+	PostCreateContainer  = "PostCreateContainer"
+	PostStartContainer   = "PostStartContainer"
+	PostUpdateContainer  = "PostUpdateContainer"
 
 	Error   = "Error"
 	Timeout = ""

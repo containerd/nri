@@ -321,6 +321,8 @@ var _ = Describe("Pod and container requests and events", func() {
 				}
 			},
 			Entry("with RunPodSandbox", "RunPodSandbox"),
+			Entry("with UpdatePodSandbox", "UpdatePodSandbox"),
+			Entry("with PostUpdatePodSandbox", "PostUpdatePodSandbox"),
 			Entry("with StopPodSandbox", "StopPodSandbox"),
 			Entry("with RemovePodSandbox", "RemovePodSandbox"),
 
@@ -343,7 +345,7 @@ var _ = Describe("Pod and container requests and events", func() {
 				"RemoveContainer",
 			),
 			Entry("with all pod and container requests and events",
-				"RunPodSandbox,StopPodSandbox,RemovePodSandbox",
+				"RunPodSandbox,UpdatePodSandbox,PostUpdatePodSandbox,StopPodSandbox,RemovePodSandbox",
 				"CreateContainer,PostCreateContainer",
 				"StartContainer,PostStartContainer",
 				"UpdateContainer,PostUpdateContainer",
@@ -419,7 +421,7 @@ var _ = Describe("Pod and container requests and events", func() {
 				"RemoveContainer",
 			),
 			Entry("with all pod and container requests and events",
-				"RunPodSandbox,StopPodSandbox,RemovePodSandbox",
+				"RunPodSandbox,UpdatePodSandbox,PostUpdatePodSandbox,StopPodSandbox,RemovePodSandbox",
 				"CreateContainer,PostCreateContainer",
 				"StartContainer,PostStartContainer",
 				"UpdateContainer,PostUpdateContainer",

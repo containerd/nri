@@ -431,6 +431,7 @@ message ContainerAdjustment {
   LinuxContainerAdjustment linux = 6;
   repeated POSIXRlimit rlimits = 7;
   repeated CDIDevice CDI_devices = 8;
+  repeated string args = 9;
 }
 
 // Adjustments to (linux) resources.

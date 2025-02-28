@@ -18,6 +18,7 @@ package adaptation
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/containerd/nri/pkg/api"
@@ -201,6 +202,9 @@ func (r *result) adjust(rpl *ContainerAdjustment, plugin string) error {
 		return err
 	}
 	if err := r.adjustEnv(rpl.Env, plugin); err != nil {
+		return err
+	}
+	if err := r.adjustArgs(rpl.Args, plugin); err != nil {
 		return err
 	}
 	if err := r.adjustHooks(rpl.Hooks); err != nil {
@@ -502,6 +506,28 @@ func splitEnvVar(s string) (string, string) {
 		return split[0], ""
 	}
 	return split[0], split[1]
+}
+
+func (r *result) adjustArgs(args []string, plugin string) error {
+	if len(args) == 0 {
+		return nil
+	}
+
+	create, id := r.request.create, r.request.create.Container.Id
+
+	if args[0] == "" {
+		r.owners.clearArgs(id)
+		args = args[1:]
+	}
+
+	if err := r.owners.claimArgs(id, plugin); err != nil {
+		return err
+	}
+
+	r.reply.adjust.Args = slices.Clone(args)
+	create.Container.Args = r.reply.adjust.Args
+
+	return nil
 }
 
 func (r *result) adjustHooks(hooks *Hooks) error {
@@ -954,6 +980,7 @@ type owners struct {
 	devices             map[string]string
 	cdiDevices          map[string]string
 	env                 map[string]string
+	args                string
 	memLimit            string
 	memReservation      string
 	memSwapLimit        string
@@ -1006,6 +1033,10 @@ func (ro resultOwners) claimCDIDevice(id, path, plugin string) error {
 
 func (ro resultOwners) claimEnv(id, name, plugin string) error {
 	return ro.ownersFor(id).claimEnv(name, plugin)
+}
+
+func (ro resultOwners) claimArgs(id, plugin string) error {
+	return ro.ownersFor(id).claimArgs(plugin)
 }
 
 func (ro resultOwners) claimMemLimit(id, plugin string) error {
@@ -1153,6 +1184,14 @@ func (o *owners) claimEnv(name, plugin string) error {
 	}
 	o.env[name] = plugin
 	return nil
+}
+
+func (o *owners) claimArgs(plugin string) error {
+	if o.args == "" {
+		o.args = plugin
+		return nil
+	}
+	return conflict(plugin, o.args, "args")
 }
 
 func (o *owners) claimMemLimit(plugin string) error {
@@ -1365,6 +1404,10 @@ func (ro resultOwners) clearEnv(id, name string) {
 	ro.ownersFor(id).clearEnv(name)
 }
 
+func (ro resultOwners) clearArgs(id string) {
+	ro.ownersFor(id).clearArgs()
+}
+
 func (o *owners) clearAnnotation(key string) {
 	if o.annotations == nil {
 		return
@@ -1391,6 +1434,10 @@ func (o *owners) clearEnv(name string) {
 		return
 	}
 	delete(o.env, name)
+}
+
+func (o *owners) clearArgs() {
+	o.args = ""
 }
 
 func conflict(plugin, other, subject string, qualif ...string) error {

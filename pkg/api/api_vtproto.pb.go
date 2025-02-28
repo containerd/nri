@@ -2431,6 +2431,15 @@ func (m *ContainerAdjustment) MarshalToSizedBufferVT(dAtA []byte) (int, error) {
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
 	}
+	if len(m.Args) > 0 {
+		for iNdEx := len(m.Args) - 1; iNdEx >= 0; iNdEx-- {
+			i -= len(m.Args[iNdEx])
+			copy(dAtA[i:], m.Args[iNdEx])
+			i = encodeVarint(dAtA, i, uint64(len(m.Args[iNdEx])))
+			i--
+			dAtA[i] = 0x4a
+		}
+	}
 	if len(m.CDIDevices) > 0 {
 		for iNdEx := len(m.CDIDevices) - 1; iNdEx >= 0; iNdEx-- {
 			size, err := m.CDIDevices[iNdEx].MarshalToSizedBufferVT(dAtA[:i])
@@ -4084,6 +4093,12 @@ func (m *ContainerAdjustment) SizeVT() (n int) {
 	if len(m.CDIDevices) > 0 {
 		for _, e := range m.CDIDevices {
 			l = e.SizeVT()
+			n += 1 + l + sov(uint64(l))
+		}
+	}
+	if len(m.Args) > 0 {
+		for _, s := range m.Args {
+			l = len(s)
 			n += 1 + l + sov(uint64(l))
 		}
 	}
@@ -11062,6 +11077,38 @@ func (m *ContainerAdjustment) UnmarshalVT(dAtA []byte) error {
 			if err := m.CDIDevices[len(m.CDIDevices)-1].UnmarshalVT(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
+			iNdEx = postIndex
+		case 9:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Args", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflow
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLength
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLength
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Args = append(m.Args, string(dAtA[iNdEx:postIndex]))
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex

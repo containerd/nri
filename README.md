@@ -211,6 +211,7 @@ container parameters:
 
   - annotations
   - mounts
+  - command line arguments
   - environment variables
   - OCI hooks
   - rlimits

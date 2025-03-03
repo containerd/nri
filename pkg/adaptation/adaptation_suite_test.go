@@ -20,6 +20,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -437,7 +438,7 @@ var _ = Describe("Plugin container creation adjustments", func() {
 		s = &Suite{}
 	)
 
-	adjust := func(subject string, p *mockPlugin, _ *api.PodSandbox, _ *api.Container, overwrite bool) (*api.ContainerAdjustment, []*api.ContainerUpdate, error) {
+	adjust := func(subject string, p *mockPlugin, _ *api.PodSandbox, c *api.Container, overwrite bool) (*api.ContainerAdjustment, []*api.ContainerUpdate, error) {
 		plugin := p.idx + "-" + p.name
 		a := &api.ContainerAdjustment{}
 		switch subject {
@@ -465,6 +466,13 @@ var _ = Describe("Plugin container creation adjustments", func() {
 				a.RemoveEnv("key")
 			}
 			a.AddEnv("key", plugin)
+
+		case "arguments":
+			if !overwrite {
+				a.SetArgs([]string{"echo", "updated", "argument", "list"})
+			} else {
+				a.UpdateArgs(append(slices.Clone(c.Args), "twice..."))
+			}
 
 		case "hooks":
 			a.AddHooks(
@@ -572,6 +580,12 @@ var _ = Describe("Plugin container creation adjustments", func() {
 								Destination: "/remove/test/destination",
 							},
 						},
+						Args: []string{
+							"echo",
+							"original",
+							"argument",
+							"list",
+						},
 					}
 				)
 
@@ -627,6 +641,16 @@ var _ = Describe("Plugin container creation adjustments", func() {
 							Key:   "key",
 							Value: "00-test",
 						},
+					},
+				},
+			),
+			Entry("adjust arguments", "arguments",
+				&api.ContainerAdjustment{
+					Args: []string{
+						"echo",
+						"updated",
+						"argument",
+						"list",
 					},
 				},
 			),
@@ -781,6 +805,12 @@ var _ = Describe("Plugin container creation adjustments", func() {
 						PodSandboxId: "pod0",
 						Name:         "ctr0",
 						State:        api.ContainerState_CONTAINER_CREATED, // XXX FIXME-kludge
+						Args: []string{
+							"echo",
+							"original",
+							"argument",
+							"list",
+						},
 					}
 				)
 
@@ -840,6 +870,20 @@ var _ = Describe("Plugin container creation adjustments", func() {
 					},
 				},
 			),
+
+			Entry("adjust arguments (conflicts)", "arguments", false, true, nil),
+			Entry("adjust arguments", "arguments", true, false,
+				&api.ContainerAdjustment{
+					Args: []string{
+						"echo",
+						"updated",
+						"argument",
+						"list",
+						"twice...",
+					},
+				},
+			),
+
 			Entry("adjust hooks", "hooks", false, false,
 				&api.ContainerAdjustment{
 					Hooks: &api.Hooks{

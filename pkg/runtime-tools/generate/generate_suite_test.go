@@ -69,6 +69,28 @@ var _ = Describe("Adjustment", func() {
 		})
 	})
 
+	When("has args", func() {
+		It("adjusts Spec correctly", func() {
+			var (
+				spec   = makeSpec()
+				adjust = &api.ContainerAdjustment{
+					Args: []string{
+						"arg0",
+						"arg1",
+						"arg2",
+					},
+				}
+			)
+
+			rg := &rgen.Generator{Config: spec}
+			xg := xgen.SpecGenerator(rg)
+
+			Expect(xg).ToNot(BeNil())
+			Expect(xg.Adjust(adjust)).To(Succeed())
+			Expect(spec).To(Equal(makeSpec(withArgs("arg0", "arg1", "arg2"))))
+		})
+	})
+
 	When("has rlimits", func() {
 		It("adjusts Spec correctly", func() {
 			var (
@@ -378,6 +400,15 @@ var _ = Describe("Adjustment", func() {
 })
 
 type specOption func(*rspec.Spec)
+
+func withArgs(args ...string) specOption {
+	return func(spec *rspec.Spec) {
+		if spec.Process == nil {
+			spec.Process = &rspec.Process{}
+		}
+		spec.Process.Args = args
+	}
+}
 
 func withMemoryLimit(v int64) specOption {
 	return func(spec *rspec.Spec) {

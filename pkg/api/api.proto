@@ -292,6 +292,12 @@ message Container {
   LinuxContainer linux = 11;
   uint32 pid = 12; // for NRI v1 emulation
   repeated POSIXRlimit rlimits = 13;
+  int64 created_at = 14;
+  int64 started_at = 15;
+  int64 finished_at = 16;
+  int32 exit_code = 17;
+  string status_reason = 18;
+  string status_message = 19;
 }
 
 // Possible container states.

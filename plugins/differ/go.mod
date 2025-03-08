@@ -1,6 +1,6 @@
 module github.com/containerd/nri/plugins/differ
 
-go 1.21
+go 1.22.0
 
 require (
 	github.com/containerd/nri v0.6.1
@@ -12,7 +12,7 @@ require (
 
 require (
 	github.com/containerd/log v0.1.0 // indirect
-	github.com/containerd/ttrpc v1.2.6-0.20240827082320-b5cd6e4b3287 // indirect
+	github.com/containerd/ttrpc v1.2.7 // indirect
 	github.com/fatih/color v1.12.0 // indirect
 	github.com/goccy/go-yaml v1.8.10 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
@@ -21,8 +21,8 @@ require (
 	github.com/knqyf263/go-plugin v0.8.1-0.20240827022226-114c6257e441 // indirect
 	github.com/mattn/go-colorable v0.1.8 // indirect
 	github.com/mattn/go-isatty v0.0.14 // indirect
-	github.com/opencontainers/runtime-spec v1.0.3-0.20220825212826-86290f6a00fb // indirect
-	github.com/tetratelabs/wazero v1.8.2-0.20241030035603-dc08732e57d5 // indirect
+	github.com/opencontainers/runtime-spec v1.1.0 // indirect
+	github.com/tetratelabs/wazero v1.9.0 // indirect
 	github.com/vmihailenco/msgpack v4.0.4+incompatible // indirect
 	golang.org/x/net v0.25.0 // indirect
 	golang.org/x/sys v0.21.0 // indirect

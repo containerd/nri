@@ -20,10 +20,12 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"strconv"
 	"strings"
 	"time"
+	"unsafe"
 
 	"sigs.k8s.io/yaml"
 
@@ -442,6 +444,23 @@ var _ = Describe("Plugin container creation adjustments", func() {
 		plugin := p.idx + "-" + p.name
 		a := &api.ContainerAdjustment{}
 		switch subject {
+		case "all-nil-adjustment":
+			return nil, nil, nil
+
+		case "00-nil-adjustment":
+			if p.idx == "00" {
+				return nil, nil, nil
+			} else {
+				a.AddAnnotation("non-nil-adjustment", p.idx+"-"+p.name)
+			}
+
+		case "10-nil-adjustment":
+			if p.idx == "10" {
+				return nil, nil, nil
+			} else {
+				a.AddAnnotation("non-nil-adjustment", p.idx+"-"+p.name)
+			}
+
 		case "annotation":
 			if overwrite {
 				a.RemoveAnnotation("key")
@@ -608,6 +627,9 @@ var _ = Describe("Plugin container creation adjustments", func() {
 				Expect(stripAdjustment(reply.Adjust)).Should(Equal(stripAdjustment(expected)))
 			},
 
+			Entry("nil adjustment", "all-nil-adjustment",
+				nil,
+			),
 			Entry("adjust annotations", "annotation",
 				&api.ContainerAdjustment{
 					Annotations: map[string]string{
@@ -839,6 +861,24 @@ var _ = Describe("Plugin container creation adjustments", func() {
 				}
 			},
 
+			Entry("all nil adjustment", "all-nil-adjustment", false, false,
+				nil,
+			),
+
+			Entry("00 nil adjustment", "00-nil-adjustment", false, false,
+				&api.ContainerAdjustment{
+					Annotations: map[string]string{
+						"non-nil-adjustment": "10-foo",
+					},
+				},
+			),
+			Entry("10 nil adjustment", "10-nil-adjustment", false, false,
+				&api.ContainerAdjustment{
+					Annotations: map[string]string{
+						"non-nil-adjustment": "00-bar",
+					},
+				},
+			),
 			Entry("adjust annotations (conflicts)", "annotation", false, true, nil),
 			Entry("adjust annotations", "annotation", true, false,
 				&api.ContainerAdjustment{
@@ -1992,13 +2032,28 @@ var _ = Describe("Plugin configuration request", func() {
 //	around we marshal then unmarshal compared objects in offending test cases to
 //	clear those unexported fields.
 func strip(obj interface{}, ptr interface{}) interface{} {
+	if isNil(obj) {
+		return nilPtrFor(ptr)
+	}
 	bytes, err := yaml.Marshal(obj)
 	Expect(err).To(BeNil())
 	Expect(yaml.Unmarshal(bytes, ptr)).To(Succeed())
 	return ptr
 }
 
+func isNil(obj interface{}) bool {
+	return (*[2]uintptr)(unsafe.Pointer(&obj))[1] == 0
+}
+
+func nilPtrFor(ptr interface{}) interface{} {
+	t := reflect.TypeOf(ptr)
+	return reflect.Zero(t).Interface()
+}
+
 func stripAdjustment(a *api.ContainerAdjustment) *api.ContainerAdjustment {
+	if a == nil {
+		return nil
+	}
 	stripAnnotations(a)
 	stripMounts(a)
 	stripEnv(a)

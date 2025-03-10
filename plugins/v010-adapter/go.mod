@@ -1,11 +1,11 @@
 module github.com/containerd/nri/plugins/v010-adapter
 
-go 1.21
+go 1.22.0
 
 require (
 	github.com/containerd/containerd v1.6.9
 	github.com/containerd/nri v0.6.1
-	github.com/opencontainers/runtime-spec v1.0.3-0.20220825212826-86290f6a00fb
+	github.com/opencontainers/runtime-spec v1.1.0
 	github.com/sirupsen/logrus v1.9.3
 )
 
@@ -16,7 +16,7 @@ require (
 	github.com/containerd/continuity v0.3.0 // indirect
 	github.com/containerd/fifo v1.0.0 // indirect
 	github.com/containerd/log v0.1.0 // indirect
-	github.com/containerd/ttrpc v1.2.6-0.20240827082320-b5cd6e4b3287 // indirect
+	github.com/containerd/ttrpc v1.2.7 // indirect
 	github.com/containerd/typeurl v1.0.2 // indirect
 	github.com/docker/go-events v0.0.0-20190806004212-e31b211e4f1c // indirect
 	github.com/gogo/googleapis v1.4.0 // indirect
@@ -34,7 +34,7 @@ require (
 	github.com/opencontainers/runc v1.1.2 // indirect
 	github.com/opencontainers/selinux v1.10.2 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
-	github.com/tetratelabs/wazero v1.8.2-0.20241030035603-dc08732e57d5 // indirect
+	github.com/tetratelabs/wazero v1.9.0 // indirect
 	go.opencensus.io v0.24.0 // indirect
 	golang.org/x/net v0.25.0 // indirect
 	golang.org/x/sync v0.7.0 // indirect

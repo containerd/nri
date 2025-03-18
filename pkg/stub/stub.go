@@ -720,7 +720,7 @@ func (stub *stub) Shutdown(ctx context.Context, _ *api.ShutdownRequest) (*api.Sh
 func (stub *stub) CreateContainer(ctx context.Context, req *api.CreateContainerRequest) (*api.CreateContainerResponse, error) {
 	handler := stub.handlers.CreateContainer
 	if handler == nil {
-		return nil, nil
+		return &api.CreateContainerResponse{}, nil
 	}
 	adjust, update, err := handler(ctx, req.Pod, req.Container)
 	return &api.CreateContainerResponse{
@@ -733,7 +733,7 @@ func (stub *stub) CreateContainer(ctx context.Context, req *api.CreateContainerR
 func (stub *stub) UpdateContainer(ctx context.Context, req *api.UpdateContainerRequest) (*api.UpdateContainerResponse, error) {
 	handler := stub.handlers.UpdateContainer
 	if handler == nil {
-		return nil, nil
+		return &api.UpdateContainerResponse{}, nil
 	}
 	update, err := handler(ctx, req.Pod, req.Container, req.LinuxResources)
 	return &api.UpdateContainerResponse{
@@ -745,7 +745,7 @@ func (stub *stub) UpdateContainer(ctx context.Context, req *api.UpdateContainerR
 func (stub *stub) StopContainer(ctx context.Context, req *api.StopContainerRequest) (*api.StopContainerResponse, error) {
 	handler := stub.handlers.StopContainer
 	if handler == nil {
-		return nil, nil
+		return &api.StopContainerResponse{}, nil
 	}
 	update, err := handler(ctx, req.Pod, req.Container)
 	return &api.StopContainerResponse{
@@ -757,7 +757,7 @@ func (stub *stub) StopContainer(ctx context.Context, req *api.StopContainerReque
 func (stub *stub) UpdatePodSandbox(ctx context.Context, req *api.UpdatePodSandboxRequest) (*api.UpdatePodSandboxResponse, error) {
 	handler := stub.handlers.UpdatePodSandbox
 	if handler == nil {
-		return nil, nil
+		return &api.UpdatePodSandboxResponse{}, nil
 	}
 	err := handler(ctx, req.Pod, req.OverheadLinuxResources, req.LinuxResources)
 	return &api.UpdatePodSandboxResponse{}, err

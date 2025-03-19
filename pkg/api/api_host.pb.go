@@ -1,4 +1,4 @@
-//go:build !tinygo.wasm
+//go:build !wasip1
 
 //
 //Copyright The containerd Authors.
@@ -95,7 +95,7 @@ type PluginPlugin struct {
 func NewPluginPlugin(ctx context.Context, opts ...wazeroConfigOption) (*PluginPlugin, error) {
 	o := &WazeroConfig{
 		newRuntime:   DefaultWazeroRuntime(),
-		moduleConfig: wazero.NewModuleConfig(),
+		moduleConfig: wazero.NewModuleConfig().WithStartFunctions("_initialize"),
 	}
 
 	for _, opt := range opts {
@@ -259,7 +259,7 @@ func (p *pluginPlugin) Configure(ctx context.Context, request *ConfigureRequest)
 			return nil, err
 		}
 		dataPtr = results[0]
-		// This pointer is managed by TinyGo, but TinyGo is unaware of external usage.
+		// This pointer is managed by the Wasm module, which is unaware of external usage.
 		// So, we have to free it when finished
 		defer p.free.Call(ctx, dataPtr)
 
@@ -320,7 +320,7 @@ func (p *pluginPlugin) Synchronize(ctx context.Context, request *SynchronizeRequ
 			return nil, err
 		}
 		dataPtr = results[0]
-		// This pointer is managed by TinyGo, but TinyGo is unaware of external usage.
+		// This pointer is managed by the Wasm module, which is unaware of external usage.
 		// So, we have to free it when finished
 		defer p.free.Call(ctx, dataPtr)
 
@@ -381,7 +381,7 @@ func (p *pluginPlugin) Shutdown(ctx context.Context, request *Empty) (*Empty, er
 			return nil, err
 		}
 		dataPtr = results[0]
-		// This pointer is managed by TinyGo, but TinyGo is unaware of external usage.
+		// This pointer is managed by the Wasm module, which is unaware of external usage.
 		// So, we have to free it when finished
 		defer p.free.Call(ctx, dataPtr)
 
@@ -442,7 +442,7 @@ func (p *pluginPlugin) CreateContainer(ctx context.Context, request *CreateConta
 			return nil, err
 		}
 		dataPtr = results[0]
-		// This pointer is managed by TinyGo, but TinyGo is unaware of external usage.
+		// This pointer is managed by the Wasm module, which is unaware of external usage.
 		// So, we have to free it when finished
 		defer p.free.Call(ctx, dataPtr)
 
@@ -503,7 +503,7 @@ func (p *pluginPlugin) UpdateContainer(ctx context.Context, request *UpdateConta
 			return nil, err
 		}
 		dataPtr = results[0]
-		// This pointer is managed by TinyGo, but TinyGo is unaware of external usage.
+		// This pointer is managed by the Wasm module, which is unaware of external usage.
 		// So, we have to free it when finished
 		defer p.free.Call(ctx, dataPtr)
 
@@ -564,7 +564,7 @@ func (p *pluginPlugin) StopContainer(ctx context.Context, request *StopContainer
 			return nil, err
 		}
 		dataPtr = results[0]
-		// This pointer is managed by TinyGo, but TinyGo is unaware of external usage.
+		// This pointer is managed by the Wasm module, which is unaware of external usage.
 		// So, we have to free it when finished
 		defer p.free.Call(ctx, dataPtr)
 
@@ -625,7 +625,7 @@ func (p *pluginPlugin) UpdatePodSandbox(ctx context.Context, request *UpdatePodS
 			return nil, err
 		}
 		dataPtr = results[0]
-		// This pointer is managed by TinyGo, but TinyGo is unaware of external usage.
+		// This pointer is managed by the Wasm module, which is unaware of external usage.
 		// So, we have to free it when finished
 		defer p.free.Call(ctx, dataPtr)
 
@@ -686,7 +686,7 @@ func (p *pluginPlugin) StateChange(ctx context.Context, request *StateChangeEven
 			return nil, err
 		}
 		dataPtr = results[0]
-		// This pointer is managed by TinyGo, but TinyGo is unaware of external usage.
+		// This pointer is managed by the Wasm module, which is unaware of external usage.
 		// So, we have to free it when finished
 		defer p.free.Call(ctx, dataPtr)
 

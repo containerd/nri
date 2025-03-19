@@ -24,7 +24,9 @@ import (
 
 type plugin struct{}
 
-func main() {
+func main() {}
+
+func init() {
 	api.RegisterPlugin(&plugin{})
 }
 

@@ -5,7 +5,7 @@ linters:
     - gofmt
     - goimports
     - ineffassign
-    - vet
+    - govet
     - unused
     - misspell
     - revive

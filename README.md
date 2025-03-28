@@ -23,25 +23,15 @@ The goal is to enable NRI support in the most commonly used OCI runtimes,
 [containerd](https://github.com/containerd/containerd) and
 [CRI-O](https://github.com/cri-o/cri-o).
 
-## Background
-
-The revisited API is a major rewrite of NRI. It changes the scope of NRI
-and how it gets integrated into runtimes. It reworks how plugins are
-implemented, how they communicate with the runtime, and what kind of
-changes they can make to containers.
-
-[NRI v0.1.0](README-v0.1.0.md) used an OCI hook-like one-shot plugin invocation
-mechanism where a separate instance of a plugin was spawned for every NRI
-event. This instance then used its standard input and output to receive a
-request and provide a response, both as JSON data.
-
+### Plugins
 Plugins in NRI are daemon-like entities. A single instance of a plugin is
-now responsible for handling the full stream of NRI events and requests. A
-unix-domain socket is used as the transport for communication. Instead of
-JSON requests and responses NRI is defined as a formal, protobuf-based
-'NRI plugin protocol' which is compiled into ttRPC bindings. This should
-result in improved communication efficiency with lower per-message overhead,
-and enable straightforward implementation of stateful NRI plugins.
+responsible for handling the full stream of NRI events and requests.
+A unix-domain socket is used as the transport for communication.
+
+NRI is defined as a formal, protobuf-based 'NRI plugin protocol' which is
+compiled into ttRPC bindings. This should result in improved communication
+efficiency with lower per-message overhead, and enable straightforward
+implementation of stateful NRI plugins.
 
 ## Components
 

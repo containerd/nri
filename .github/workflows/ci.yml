@@ -14,10 +14,6 @@ jobs:
     timeout-minutes: 5
 
     steps:
-      - uses: actions/setup-go@v5
-        with:
-          go-version: 1.21.x
-
       - name: Set env
         shell: bash
         # TODO(thaJeztah): remove working-directory, path, and GOPATH once project-checks stops needing them; see https://github.com/containerd/nri/pull/53/commits/872fb0ce3dce136f3ae67c068ce78607565194ef#r1324366346
@@ -30,7 +26,9 @@ jobs:
           path: src/github.com/containerd/nri
           fetch-depth: 25
 
-      - uses: containerd/project-checks@v1
+      - uses: ./src/github.com/containerd/nri/.github/actions/install-go
+
+      - uses: containerd/project-checks@v1.2.2
         with:
           working-directory: src/github.com/containerd/nri
 
@@ -41,9 +39,7 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version: 1.21.x
+      - uses: ./.github/actions/install-go
 
       # needed for wasm plugins
       - uses: acifani/setup-tinygo@v2
@@ -78,23 +74,23 @@ jobs:
 
     strategy:
       matrix:
-        go: [1.22.3]
+        go-version: ["1.23.7", "1.24.1"]
         os: [ubuntu-22.04]
 
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: ./.github/actions/install-go
         with:
-          go-version: ${{ matrix.go }}
+          go-version: ${{ matrix.go-version }}
 
       - name: Set env
         shell: bash
         run: |
           echo "${{ github.workspace }}/bin" >> $GITHUB_PATH
 
-      - uses: golangci/golangci-lint-action@v3
+      - uses: golangci/golangci-lint-action@v6
         with:
-          version: v1.58.0
+          version: v1.64.8
 
   tests:
     name: Tests
@@ -103,13 +99,13 @@ jobs:
 
     strategy:
       matrix:
-        go: [1.21.x, 1.22.3]
+        go-version: ["1.23.7", "1.24.1"]
 
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: ./.github/actions/install-go
         with:
-          go-version: ${{ matrix.go }}
+          go-version: ${{ matrix.go-version }}
 
       - name: Set env
         shell: bash

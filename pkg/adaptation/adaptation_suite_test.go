@@ -514,6 +514,17 @@ var _ = Describe("Plugin container creation adjustments", func() {
 				},
 			)
 
+		case "I/O priority":
+			a.SetLinuxIOPriority(&nri.LinuxIOPriority{
+				Class:    api.IOPrioClass_IOPRIO_CLASS_RT,
+				Priority: 5,
+			})
+
+		case "clear I/O priority":
+			a.SetLinuxIOPriority(&nri.LinuxIOPriority{
+				Class: api.IOPrioClass_IOPRIO_CLASS_NONE,
+			})
+
 		case "resources/cpu":
 			a.SetLinuxCPUShares(123)
 			a.SetLinuxCPUQuota(456)
@@ -700,6 +711,25 @@ var _ = Describe("Plugin container creation adjustments", func() {
 					},
 				},
 			),
+
+			Entry("adjust I/O priority", "I/O priority",
+				&api.ContainerAdjustment{
+					Linux: &api.LinuxContainerAdjustment{
+						IoPriority: &api.LinuxIOPriority{
+							Class:    api.IOPrioClass_IOPRIO_CLASS_RT,
+							Priority: 5,
+						},
+					},
+				},
+			),
+			Entry("clear I/O priority", "clear I/O priority",
+				&api.ContainerAdjustment{
+					Linux: &api.LinuxContainerAdjustment{
+						IoPriority: &api.LinuxIOPriority{},
+					},
+				},
+			),
+
 			Entry("adjust CPU resources", "resources/cpu",
 				&api.ContainerAdjustment{
 					Linux: &api.LinuxContainerAdjustment{
@@ -921,6 +951,7 @@ var _ = Describe("Plugin container creation adjustments", func() {
 				},
 			),
 			Entry("adjust resources", "resources/classes", false, true, nil),
+			Entry("adjust I/O priority (conflicts)", "I/O priority", false, true, nil),
 		)
 	})
 

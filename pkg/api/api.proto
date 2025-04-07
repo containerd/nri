@@ -373,6 +373,7 @@ message LinuxContainer {
   LinuxResources resources = 3;
   OptionalInt oom_score_adj = 4;
   string cgroups_path = 5;
+  LinuxIOPriority io_priority = 6;
 }
 
 // A linux namespace.
@@ -459,6 +460,20 @@ message LinuxPids {
   int64 limit = 1;
 }
 
+message LinuxIOPriority {
+  // Scheduling class of the IO priority.
+  IOPrioClass class = 1;
+  // The value of the IO priority.
+  int32 priority = 2;
+}
+
+enum IOPrioClass {
+  IOPRIO_CLASS_NONE = 0;
+  IOPRIO_CLASS_RT = 1;
+  IOPRIO_CLASS_BE = 2;
+  IOPRIO_CLASS_IDLE = 3;
+}
+
 // Requested adjustments to a container being created.
 message ContainerAdjustment {
   map<string, string> annotations = 2;
@@ -477,6 +492,7 @@ message LinuxContainerAdjustment {
   LinuxResources resources = 2;
   string cgroups_path = 3;
   OptionalInt oom_score_adj = 4;
+  LinuxIOPriority io_priority = 5;
 }
 
 // Requested update to an already created container.
@@ -607,4 +623,5 @@ enum Field {
     CgroupsPath = 28;
     OomScoreAdj = 29;
     Rlimits = 30;
+    IoPriority = 31;
 }

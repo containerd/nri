@@ -221,6 +221,9 @@ func (r *result) adjust(rpl *ContainerAdjustment, plugin string) error {
 		if err := r.adjustOomScoreAdj(rpl.Linux.OomScoreAdj, plugin); err != nil {
 			return err
 		}
+		if err := r.adjustIOPriority(rpl.Linux.IoPriority, plugin); err != nil {
+			return err
+		}
 	}
 	if err := r.adjustRlimits(rpl.Rlimits, plugin); err != nil {
 		return err
@@ -769,6 +772,23 @@ func (r *result) adjustOomScoreAdj(OomScoreAdj *OptionalInt, plugin string) erro
 
 	create.Container.Linux.OomScoreAdj = OomScoreAdj
 	r.reply.adjust.Linux.OomScoreAdj = OomScoreAdj
+
+	return nil
+}
+
+func (r *result) adjustIOPriority(priority *LinuxIOPriority, plugin string) error {
+	if priority == nil {
+		return nil
+	}
+
+	create, id := r.request.create, r.request.create.Container.Id
+
+	if err := r.owners.ClaimIOPriority(id, plugin); err != nil {
+		return err
+	}
+
+	create.Container.Linux.IoPriority = priority
+	r.reply.adjust.Linux.IoPriority = priority
 
 	return nil
 }

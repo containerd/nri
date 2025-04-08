@@ -80,6 +80,9 @@ func collectCreateContainerResult(request *CreateContainerRequest) *result {
 	if request.Container.Linux.Resources.Unified == nil {
 		request.Container.Linux.Resources.Unified = map[string]string{}
 	}
+	if request.Container.Linux.NetDevices == nil {
+		request.Container.Linux.NetDevices = map[string]*LinuxNetDevice{}
+	}
 
 	return &result{
 		request: resultRequest{
@@ -101,6 +104,7 @@ func collectCreateContainerResult(request *CreateContainerRequest) *result {
 						HugepageLimits: []*HugepageLimit{},
 						Unified:        map[string]string{},
 					},
+					NetDevices: map[string]*LinuxNetDevice{},
 				},
 			},
 		},
@@ -221,6 +225,9 @@ func (r *result) adjust(rpl *ContainerAdjustment, plugin string) error {
 			return err
 		}
 		if err := r.adjustOomScoreAdj(rpl.Linux.OomScoreAdj, plugin); err != nil {
+			return err
+		}
+		if err := r.adjustLinuxNetDevices(rpl.Linux.NetDevices, plugin); err != nil {
 			return err
 		}
 	}
@@ -777,6 +784,41 @@ func (r *result) adjustRlimits(rlimits []*POSIXRlimit, plugin string) error {
 	return nil
 }
 
+func (r *result) adjustLinuxNetDevices(devices map[string]*LinuxNetDevice, plugin string) error {
+	if len(devices) == 0 {
+		return nil
+	}
+
+	create, id := r.request.create, r.request.create.Container.Id
+	del := map[string]struct{}{}
+	for k := range devices {
+		if key, marked := IsMarkedForRemoval(k); marked {
+			del[key] = struct{}{}
+			delete(devices, k)
+		}
+	}
+
+	for k, v := range devices {
+		if _, ok := del[k]; ok {
+			r.owners.clearLinuxNetDevice(id, k)
+			delete(create.Container.Linux.NetDevices, k)
+			r.reply.adjust.Linux.NetDevices[MarkForRemoval(k)] = nil
+		}
+		if err := r.owners.claimLinuxNetDevice(id, k, plugin); err != nil {
+			return err
+		}
+		create.Container.Linux.NetDevices[k] = v
+		r.reply.adjust.Linux.NetDevices[k] = v
+		delete(del, k)
+	}
+
+	for k := range del {
+		r.reply.adjust.Linux.NetDevices[MarkForRemoval(k)] = nil
+	}
+
+	return nil
+}
+
 func (r *result) updateResources(reply, u *ContainerUpdate, plugin string) error {
 	if u.Linux == nil || u.Linux.Resources == nil {
 		return nil
@@ -1004,6 +1046,7 @@ type owners struct {
 	cgroupsPath         string
 	oomScoreAdj         string
 	rlimits             map[string]string
+	linuxNetDevices     map[string]string
 }
 
 func (ro resultOwners) ownersFor(id string) *owners {
@@ -1129,6 +1172,10 @@ func (ro resultOwners) claimOomScoreAdj(id, plugin string) error {
 
 func (ro resultOwners) claimRlimits(id, typ, plugin string) error {
 	return ro.ownersFor(id).claimRlimit(typ, plugin)
+}
+
+func (ro resultOwners) claimLinuxNetDevice(id, key, plugin string) error {
+	return ro.ownersFor(id).claimLinuxNetDevice(key, plugin)
 }
 
 func (o *owners) claimAnnotation(key, plugin string) error {
@@ -1388,6 +1435,17 @@ func (o *owners) claimOomScoreAdj(plugin string) error {
 	return nil
 }
 
+func (o *owners) claimLinuxNetDevice(key, plugin string) error {
+	if o.linuxNetDevices == nil {
+		o.linuxNetDevices = make(map[string]string)
+	}
+	if other, taken := o.linuxNetDevices[key]; taken {
+		return conflict(plugin, other, "linux net device", key)
+	}
+	o.linuxNetDevices[key] = plugin
+	return nil
+}
+
 func (ro resultOwners) clearAnnotation(id, key string) {
 	ro.ownersFor(id).clearAnnotation(key)
 }
@@ -1406,6 +1464,10 @@ func (ro resultOwners) clearEnv(id, name string) {
 
 func (ro resultOwners) clearArgs(id string) {
 	ro.ownersFor(id).clearArgs()
+}
+
+func (ro resultOwners) clearLinuxNetDevice(id, key string) {
+	ro.ownersFor(id).clearLinuxNetDevice(key)
 }
 
 func (o *owners) clearAnnotation(key string) {
@@ -1438,6 +1500,13 @@ func (o *owners) clearEnv(name string) {
 
 func (o *owners) clearArgs() {
 	o.args = ""
+}
+
+func (o *owners) clearLinuxNetDevice(key string) {
+	if o.linuxNetDevices == nil {
+		return
+	}
+	delete(o.linuxNetDevices, key)
 }
 
 func conflict(plugin, other, subject string, qualif ...string) error {

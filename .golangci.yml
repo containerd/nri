@@ -38,6 +38,12 @@ linters:
       - linters:
           - staticcheck
         text: "QF1008:"
+      # Ignore deprecation errors related to us haveing adjustment support for
+      # obsoleted Prestart OCI hook and kernel memory limit.
+      - path: 'pkg/api/hooks.go'
+        linters:
+          - staticcheck
+        text: "is deprecated"
 
 formatters:
   enable:

@@ -43,6 +43,10 @@ const (
 	cdiDeviceKey = "cdi-devices.noderesource.dev"
 	// Deprecated: Prefix of the key used for CDI device annotations.
 	oldCDIDeviceKey = "cdi-devices.nri.io"
+	// Prefix of the key used for I/O priority adjustment.
+	ioPrioKey = "io-priority.noderesource.dev"
+	// Deprecated: Prefix of the key used for I/O priority adjustment.
+	oldIoPrioKey = "io-priority.nri.io"
 )
 
 var (
@@ -69,6 +73,12 @@ type mount struct {
 	Options     []string `json:"options"`
 }
 
+// an I/O priority adjustment
+type ioPrio struct {
+	Class    string `json:"class"`
+	Priority int32  `json:"priority"`
+}
+
 // our injector plugin
 type plugin struct {
 	stub stub.Stub
@@ -91,6 +101,10 @@ func (p *plugin) CreateContainer(_ context.Context, pod *api.PodSandbox, ctr *ap
 	}
 
 	if err := injectMounts(pod, ctr, adjust); err != nil {
+		return nil, nil, err
+	}
+
+	if err := setIOPriority(pod, ctr, adjust); err != nil {
 		return nil, nil, err
 	}
 
@@ -232,6 +246,46 @@ func parseMounts(ctr string, annotations map[string]string) ([]mount, error) {
 	return mounts, nil
 }
 
+func setIOPriority(pod *api.PodSandbox, ctr *api.Container, a *api.ContainerAdjustment) error {
+	priority, err := parseIOPriority(ctr.Name, pod.Annotations)
+	if err != nil {
+		return err
+	}
+
+	if priority == nil {
+		log.Debugf("%s: no I/O priority annotated...", containerName(pod, ctr))
+		return nil
+	}
+
+	if verbose {
+		dump(containerName(pod, ctr), "annotated I/O priority", priority)
+	}
+
+	a.SetLinuxIOPriority(priority.toNRI())
+	if !verbose {
+		log.Infof("%s: injected I/O priority %+v...", containerName(pod, ctr), priority)
+	}
+
+	return nil
+}
+
+func parseIOPriority(ctr string, annotations map[string]string) (*ioPrio, error) {
+	var (
+		priority = &ioPrio{}
+	)
+
+	annotation := getAnnotation(annotations, ioPrioKey, oldIoPrioKey, ctr)
+	if annotation == nil {
+		return nil, nil
+	}
+
+	if err := yaml.Unmarshal(annotation, priority); err != nil {
+		return nil, fmt.Errorf("invalid I/O priority annotation %q: %w", string(annotation), err)
+	}
+
+	return priority, nil
+}
+
 func getAnnotation(annotations map[string]string, mainKey, oldKey, ctr string) []byte {
 	for _, key := range []string{
 		mainKey + "/container." + ctr,
@@ -278,6 +332,41 @@ func (m *mount) toNRI() *api.Mount {
 		Options:     m.Options,
 	}
 	return apiMnt
+}
+
+// Convert ioPrio to NRI API representation.
+func (p *ioPrio) toNRI() *api.LinuxIOPriority {
+	if p == nil {
+		return nil
+	}
+
+	var class api.IOPrioClass
+
+	switch p.Class {
+	case "IOPRIO_CLASS_NONE":
+		class = api.IOPrioClass_IOPRIO_CLASS_NONE
+	case "IOPRIO_CLASS_RT":
+		class = api.IOPrioClass_IOPRIO_CLASS_RT
+	case "IOPRIO_CLASS_BE":
+		class = api.IOPrioClass_IOPRIO_CLASS_BE
+	case "IOPRIO_CLASS_IDLE":
+		class = api.IOPrioClass_IOPRIO_CLASS_IDLE
+	default:
+		log.Warnf("unknown I/O priority class %q, using IOPRIO_CLASS_BE", p.Class)
+		return nil
+	}
+
+	return &api.LinuxIOPriority{
+		Class:    class,
+		Priority: p.Priority,
+	}
+}
+
+func (p *ioPrio) String() string {
+	if p == nil {
+		return "<no I/O priority>"
+	}
+	return fmt.Sprintf("<I/O priority class %s:%d>", p.Class, p.Priority)
 }
 
 // Construct a container name for log messages.

@@ -378,6 +378,7 @@ message LinuxContainer {
   SecurityProfile seccomp_profile = 7;
   LinuxSeccomp seccomp_policy = 8;
   map<string, string> sysctl = 9;
+  map<string, LinuxNetDevice> net_devices = 10;
 }
 
 // A linux namespace.
@@ -496,6 +497,11 @@ enum IOPrioClass {
   IOPRIO_CLASS_IDLE = 3;
 }
 
+// A linux network device.
+message LinuxNetDevice {
+  string name = 1;
+}
+
 // Requested adjustments to a container being created.
 message ContainerAdjustment {
   map<string, string> annotations = 2;
@@ -518,6 +524,7 @@ message LinuxContainerAdjustment {
   LinuxSeccomp seccomp_policy = 6;
   repeated LinuxNamespace namespaces = 7;
   map<string, string> sysctl = 8;
+  map<string,LinuxNetDevice> net_devices = 9;
 }
 
 message LinuxSeccomp {
@@ -676,4 +683,5 @@ enum Field {
     SeccompPolicy = 32;
     Namespace = 33;
     Sysctl = 34;
+    LinuxNetDevices = 35;
 }

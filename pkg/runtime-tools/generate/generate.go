@@ -176,6 +176,7 @@ func (g *Generator) Adjust(adjust *nri.ContainerAdjustment) error {
 	if err := g.AdjustSysctl(adjust.GetLinux().GetSysctl()); err != nil {
 		return err
 	}
+	g.AdjustLinuxNetDevices(adjust.GetLinux().GetNetDevices())
 
 	resources := adjust.GetLinux().GetResources()
 	if err := g.AdjustResources(resources); err != nil {
@@ -496,6 +497,19 @@ func (g *Generator) AdjustDevices(devices []*nri.LinuxDevice) {
 	}
 }
 
+// AdjustLinuxNetDevices adjusts the linux net devices in the OCI Spec.
+func (g *Generator) AdjustLinuxNetDevices(devices map[string]*nri.LinuxNetDevice) error {
+	for k, v := range devices {
+		if key, marked := nri.IsMarkedForRemoval(k); marked {
+			g.RemoveLinuxNetDevice(key)
+		} else {
+			g.AddLinuxNetDevice(k, v)
+		}
+	}
+
+	return nil
+}
+
 // InjectCDIDevices injects the requested CDI devices into the OCI Spec.
 // Devices are given by their fully qualified CDI device names. The
 // actual device injection is done using a runtime-specific CDI
@@ -694,6 +708,21 @@ func (g *Generator) SetLinuxResourcesPidsLimit(limit int64) {
 	}
 }
 
+// AddLinuxNetDevice adds a new Linux net device.
+func (g *Generator) AddLinuxNetDevice(hostDev string, device *nri.LinuxNetDevice) {
+	if device == nil {
+		return
+	}
+	g.initConfigLinuxNetDevices()
+	g.Config.Linux.NetDevices[hostDev] = device.ToOCI()
+}
+
+// RemoveLinuxNetDevice removes a Linux net device.
+func (g *Generator) RemoveLinuxNetDevice(hostDev string) {
+	g.initConfigLinuxNetDevices()
+	delete(g.Config.Linux.NetDevices, hostDev)
+}
+
 func (g *Generator) initConfig() {
 	if g.Config == nil {
 		g.Config = &rspec.Spec{}
@@ -725,5 +754,12 @@ func (g *Generator) initConfigLinuxResources() {
 	g.initConfigLinux()
 	if g.Config.Linux.Resources == nil {
 		g.Config.Linux.Resources = &rspec.LinuxResources{}
+	}
+}
+
+func (g *Generator) initConfigLinuxNetDevices() {
+	g.initConfigLinux()
+	if g.Config.Linux.NetDevices == nil {
+		g.Config.Linux.NetDevices = map[string]rspec.LinuxNetDevice{}
 	}
 }

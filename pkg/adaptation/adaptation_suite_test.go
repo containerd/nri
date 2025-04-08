@@ -532,6 +532,17 @@ var _ = Describe("Plugin container creation adjustments", func() {
 				Class: api.IOPrioClass_IOPRIO_CLASS_NONE,
 			})
 
+		case "linux net device":
+			if overwrite {
+				a.RemoveLinuxNetDevice("hostIf")
+			}
+			a.AddLinuxNetDevice(
+				"hostIf",
+				&api.LinuxNetDevice{
+					Name: "containerIf",
+				},
+			)
+
 		case "resources/cpu":
 			a.SetLinuxCPUShares(123)
 			a.SetLinuxCPUQuota(456)
@@ -777,6 +788,19 @@ var _ = Describe("Plugin container creation adjustments", func() {
 					},
 				},
 			),
+
+			Entry("adjust linux net devices", "linux net device",
+				&api.ContainerAdjustment{
+					Linux: &api.LinuxContainerAdjustment{
+						NetDevices: map[string]*api.LinuxNetDevice{
+							"hostIf": {
+								Name: "containerIf",
+							},
+						},
+					},
+				},
+			),
+
 			Entry("clear I/O priority", "clear I/O priority",
 				&api.ContainerAdjustment{
 					Linux: &api.LinuxContainerAdjustment{
@@ -1045,7 +1069,21 @@ var _ = Describe("Plugin container creation adjustments", func() {
 				},
 			),
 			Entry("adjust resources", "resources/classes", false, true, nil),
+
 			Entry("adjust I/O priority (conflicts)", "I/O priority", false, true, nil),
+			Entry("adjust linux net devices", "linux net device", true, false,
+				&api.ContainerAdjustment{
+					Linux: &api.LinuxContainerAdjustment{
+						NetDevices: map[string]*api.LinuxNetDevice{
+							"-hostIf": nil,
+							"hostIf": {
+								Name: "containerIf",
+							},
+						},
+					},
+				},
+			),
+			Entry("adjust linux net devices (conflicts)", "linux net device", false, true, nil),
 		)
 	})
 

@@ -82,6 +82,7 @@ type (
 	LinuxMemory              = api.LinuxMemory
 	LinuxDevice              = api.LinuxDevice
 	LinuxDeviceCgroup        = api.LinuxDeviceCgroup
+	LinuxIOPriority          = api.LinuxIOPriority
 	CDIDevice                = api.CDIDevice
 	HugepageLimit            = api.HugepageLimit
 	Hooks                    = api.Hooks
@@ -152,6 +153,7 @@ var (
 	FromOCILinuxNamespaces = api.FromOCILinuxNamespaces
 	FromOCILinuxDevices    = api.FromOCILinuxDevices
 	FromOCILinuxResources  = api.FromOCILinuxResources
+	FromOCILinuxIOPriority = api.FromOCILinuxIOPriority
 	DupStringSlice         = api.DupStringSlice
 	DupStringMap           = api.DupStringMap
 	IsMarkedForRemoval     = api.IsMarkedForRemoval

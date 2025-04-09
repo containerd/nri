@@ -16,7 +16,7 @@ require (
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/knqyf263/go-plugin v0.8.1-0.20240827022226-114c6257e441 // indirect
 	github.com/kr/text v0.2.0 // indirect
-	github.com/opencontainers/runtime-spec v1.2.0 // indirect
+	github.com/opencontainers/runtime-spec v1.2.2-0.20250401095657-e935f995dd67 // indirect
 	github.com/tetratelabs/wazero v1.9.0 // indirect
 	github.com/vishvananda/netns v0.0.4 // indirect
 	golang.org/x/net v0.25.0 // indirect

@@ -37,6 +37,8 @@ const (
 	mountKey = "mounts.nri.io"
 	// Prefix of the key used for CDI device annotations.
 	cdiDeviceKey = "cdi-devices.nri.io"
+	// Prefix of the key used for network device injection.
+	netDeviceKey = "network-devices.nri.io"
 )
 
 var (
@@ -63,6 +65,12 @@ type mount struct {
 	Options     []string `json:"options"`
 }
 
+// a network device to inject
+type netDevice struct {
+	HostIf string `json:"hostIf"`
+	Name   string `json:"name"`
+}
+
 // our injector plugin
 type plugin struct {
 	stub stub.Stub
@@ -85,6 +93,10 @@ func (p *plugin) CreateContainer(_ context.Context, pod *api.PodSandbox, ctr *ap
 	}
 
 	if err := injectMounts(pod, ctr, adjust); err != nil {
+		return nil, nil, err
+	}
+
+	if err := injectNetDevices(pod, ctr, adjust); err != nil {
 		return nil, nil, err
 	}
 
@@ -224,6 +236,51 @@ func parseMounts(ctr string, annotations map[string]string) ([]mount, error) {
 	}
 
 	return mounts, nil
+}
+
+func injectNetDevices(pod *api.PodSandbox, ctr *api.Container, a *api.ContainerAdjustment) error {
+	devices, err := parseNetDevices(ctr.Name, pod.Annotations)
+	if err != nil {
+		return err
+	}
+
+	if len(devices) == 0 {
+		log.Debugf("%s: no network devices annotated...", containerName(pod, ctr))
+		return nil
+	}
+
+	if verbose {
+		dump(containerName(pod, ctr), "annotated network devices", devices)
+	}
+
+	for _, d := range devices {
+		a.AddLinuxNetDevice(d.HostIf, &api.LinuxNetDevice{
+			Name: d.Name,
+		})
+		if !verbose {
+			log.Infof("%s: injected network device %q -> %q...", containerName(pod, ctr),
+				d.HostIf, d.Name)
+		}
+	}
+
+	return nil
+}
+
+func parseNetDevices(ctr string, annotations map[string]string) ([]*netDevice, error) {
+	var (
+		devices []*netDevice
+	)
+
+	annotation := getAnnotation(annotations, netDeviceKey, ctr)
+	if annotation == nil {
+		return nil, nil
+	}
+
+	if err := yaml.Unmarshal(annotation, &devices); err != nil {
+		return nil, fmt.Errorf("invalid net device annotation %q: %w", string(annotation), err)
+	}
+
+	return devices, nil
 }
 
 func getAnnotation(annotations map[string]string, mainKey, ctr string) []byte {

@@ -51,6 +51,10 @@ const (
 	netDeviceKey = "network-devices.noderesource.dev"
 	// Deprecated: Prefix of the key used for network device injection.
 	oldNetDeviceKey = "network-devices.nri.io"
+	// Prefix of the key used for scheduler attribute adjustment.
+	schedulerKey = "scheduling-policy.noderesource.dev"
+	// Deprecated: Prefix of the key used for scheduler attribute adjustment.
+	oldSchedulerKey = "scheduling-policy.nri.io"
 )
 
 var (
@@ -89,6 +93,17 @@ type netDevice struct {
 	Name   string `json:"name"`
 }
 
+// scheduler attribute adjustment
+type scheduler struct {
+	Policy   string   `json:"policy"`
+	Nice     int32    `json:"nice"`
+	Priority int32    `json:"priority"`
+	Flags    []string `json:"flags"`
+	Runtime  uint64   `json:"runtime"`
+	Deadline uint64   `json:"deadline"`
+	Period   uint64   `json:"period"`
+}
+
 // our injector plugin
 type plugin struct {
 	stub stub.Stub
@@ -115,6 +130,9 @@ func (p *plugin) CreateContainer(_ context.Context, pod *api.PodSandbox, ctr *ap
 	}
 
 	if err := setIOPriority(pod, ctr, adjust); err != nil {
+		return nil, nil, err
+	}
+	if err := adjustScheduler(pod, ctr, adjust); err != nil {
 		return nil, nil, err
 	}
 
@@ -275,6 +293,29 @@ func setIOPriority(pod *api.PodSandbox, ctr *api.Container, a *api.ContainerAdju
 	return nil
 }
 
+func adjustScheduler(pod *api.PodSandbox, ctr *api.Container, a *api.ContainerAdjustment) error {
+	sch, err := parseScheduler(ctr.Name, pod.Annotations)
+	if err != nil {
+		return err
+	}
+
+	if sch == nil {
+		log.Debugf("%s: no scheduling attributes annotated...", containerName(pod, ctr))
+		return nil
+	}
+
+	if verbose {
+		dump(containerName(pod, ctr), "annotated scheduling attributes", sch)
+	}
+
+	a.SetLinuxScheduler(sch.ToNRI())
+	if !verbose {
+		log.Infof("%s: adjusted scheduling attributes to %s...", containerName(pod, ctr), sch)
+	}
+
+	return nil
+}
+
 func parseIOPriority(ctr string, annotations map[string]string) (*ioPrio, error) {
 	var (
 		priority = &ioPrio{}
@@ -335,6 +376,23 @@ func parseNetDevices(ctr string, annotations map[string]string) ([]*netDevice, e
 	}
 
 	return devices, nil
+}
+
+func parseScheduler(ctr string, annotations map[string]string) (*scheduler, error) {
+	var (
+		sch = &scheduler{}
+	)
+
+	annotation := getAnnotation(annotations, schedulerKey, oldSchedulerKey, ctr)
+	if annotation == nil {
+		return nil, nil
+	}
+
+	if err := yaml.Unmarshal(annotation, sch); err != nil {
+		return nil, fmt.Errorf("invalid scheduler annotation %q: %w", string(annotation), err)
+	}
+
+	return sch, nil
 }
 
 func getAnnotation(annotations map[string]string, mainKey, oldKey, ctr string) []byte {
@@ -418,6 +476,47 @@ func (p *ioPrio) String() string {
 		return "<no I/O priority>"
 	}
 	return fmt.Sprintf("<I/O priority class %s:%d>", p.Class, p.Priority)
+}
+
+// Convert scheduling attributes to the NRI API representation.
+func (sch *scheduler) ToNRI() *api.LinuxScheduler {
+	apiSch := &api.LinuxScheduler{
+		Policy:   api.LinuxSchedulerPolicy(api.LinuxSchedulerPolicy_value[sch.Policy]),
+		Nice:     sch.Nice,
+		Priority: sch.Priority,
+		Runtime:  sch.Runtime,
+		Deadline: sch.Deadline,
+		Period:   sch.Period,
+	}
+
+	for _, f := range sch.Flags {
+		apiSch.Flags = append(apiSch.Flags, api.LinuxSchedulerFlag(api.LinuxSchedulerFlag_value[f]))
+	}
+
+	return apiSch
+}
+
+func (sc *scheduler) String() string {
+	if sc == nil {
+		return "<no scheduling attributes>"
+	}
+
+	s := fmt.Sprintf("<scheduler policy=%s", sc.Policy)
+	if sc.Nice != 0 {
+		s += fmt.Sprintf(", nice=%d", sc.Nice)
+	}
+	if sc.Priority != 0 {
+		s += fmt.Sprintf(", priority=%d", sc.Priority)
+	}
+	if sc.Runtime != 0 {
+		s += fmt.Sprintf(", runtime=%d, deadline=%d, period=%d", sc.Runtime, sc.Deadline, sc.Period)
+	}
+	if len(sc.Flags) > 0 {
+		s += fmt.Sprintf(", flags=%v", sc.Flags)
+	}
+	s += ">"
+
+	return s
 }
 
 // Construct a container name for log messages.

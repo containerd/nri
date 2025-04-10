@@ -342,6 +342,7 @@ message LinuxContainer {
   LinuxResources resources = 3;
   OptionalInt oom_score_adj = 4;
   string cgroups_path = 5;
+  LinuxScheduler scheduler = 6;
 }
 
 // A linux namespace.
@@ -428,6 +429,39 @@ message LinuxPids {
   int64 limit = 1;
 }
 
+// Linux process scheduling attributes.
+message LinuxScheduler {
+  LinuxSchedulerPolicy policy = 1;
+  int32 nice = 2;
+  int32 priority = 3;
+  repeated LinuxSchedulerFlag flags = 4;
+  uint64 runtime = 5;
+  uint64 deadline = 6;
+  uint64 period = 7;
+}
+
+// Linux scheduling policies.
+enum LinuxSchedulerPolicy {
+  SCHED_NONE = 0;
+  SCHED_OTHER = 1;
+  SCHED_FIFO = 2;
+  SCHED_RR = 3;
+  SCHED_BATCH = 4;
+  SCHED_ISO = 5;
+  SCHED_IDLE = 6;
+  SCHED_DEADLINE = 7;
+}
+
+enum LinuxSchedulerFlag {
+  SCHED_FLAG_RESET_ON_FORK = 0;
+  SCHED_FLAG_RECLAIM = 1;
+  SCHED_FLAG_DL_OVERRUN = 2;
+  SCHED_FLAG_KEEP_POLICY = 3;
+  SCHED_FLAG_KEEP_PARAMS = 4;
+  SCHED_FLAG_UTIL_CLAMP_MIN = 5;
+  SCHED_FLAG_UTIL_CLAMP_MAX = 6;
+}
+
 // Requested adjustments to a container being created.
 message ContainerAdjustment {
   map<string, string> annotations = 2;
@@ -446,6 +480,7 @@ message LinuxContainerAdjustment {
   LinuxResources resources = 2;
   string cgroups_path = 3;
   OptionalInt oom_score_adj = 4;
+  LinuxScheduler scheduler = 5;
 }
 
 // Requested update to an already created container.

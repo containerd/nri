@@ -508,6 +508,20 @@ var _ = Describe("Plugin container creation adjustments", func() {
 				},
 			)
 
+		case "linux scheduler":
+			a.SetLinuxScheduler(&api.LinuxScheduler{
+				Policy:   api.LinuxSchedulerPolicy_SCHED_FIFO,
+				Priority: 10,
+				Flags: []api.LinuxSchedulerFlag{
+					api.LinuxSchedulerFlag_SCHED_FLAG_RESET_ON_FORK,
+				},
+			})
+
+		case "clear linux scheduler":
+			a.SetLinuxScheduler(&api.LinuxScheduler{
+				Policy: api.LinuxSchedulerPolicy_SCHED_NONE,
+			})
+
 		case "resources/cpu":
 			a.SetLinuxCPUShares(123)
 			a.SetLinuxCPUQuota(456)
@@ -689,6 +703,28 @@ var _ = Describe("Plugin container creation adjustments", func() {
 					CDIDevices: []*api.CDIDevice{
 						{
 							Name: "vendor0.com/dev=dev0",
+						},
+					},
+				},
+			),
+			Entry("adjust linux scheduler", "linux scheduler",
+				&api.ContainerAdjustment{
+					Linux: &api.LinuxContainerAdjustment{
+						Scheduler: &api.LinuxScheduler{
+							Policy:   api.LinuxSchedulerPolicy_SCHED_FIFO,
+							Priority: 10,
+							Flags: []api.LinuxSchedulerFlag{
+								api.LinuxSchedulerFlag_SCHED_FLAG_RESET_ON_FORK,
+							},
+						},
+					},
+				},
+			),
+			Entry("clear linux scheduler", "clear linux scheduler",
+				&api.ContainerAdjustment{
+					Linux: &api.LinuxContainerAdjustment{
+						Scheduler: &api.LinuxScheduler{
+							Policy: api.LinuxSchedulerPolicy_SCHED_NONE,
 						},
 					},
 				},
@@ -914,6 +950,7 @@ var _ = Describe("Plugin container creation adjustments", func() {
 				},
 			),
 			Entry("adjust resources", "resources/classes", false, true, nil),
+			Entry("adjust linux scheduler (conflicts)", "linux scheduler", false, true, nil),
 		)
 	})
 
@@ -2055,7 +2092,8 @@ func stripLinuxAdjustment(a *api.ContainerAdjustment) {
 	}
 	stripLinuxDevices(a)
 	a.Linux.Resources = stripLinuxResources(a.Linux.Resources)
-	if a.Linux.Devices == nil && a.Linux.Resources == nil && a.Linux.CgroupsPath == "" {
+	if a.Linux.Devices == nil && a.Linux.Resources == nil && a.Linux.CgroupsPath == "" &&
+		a.Linux.OomScoreAdj == nil && a.Linux.Scheduler == nil {
 		a.Linux = nil
 	}
 }

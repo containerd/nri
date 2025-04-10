@@ -209,6 +209,7 @@ The following pieces of container metadata are available to plugins in NRI:
       - RDT class
       - Unified cgroup v2 parameter map
     - Linux seccomp profile and policy
+    - scheduling policy parameters
   - container (init) process ID
   - container (init process) exit status
   - timestamp of container creation
@@ -258,6 +259,7 @@ container parameters:
       - Unified cgroup v2 parameter map
       - Linux seccomp policy
     - Linux namespaces
+    - scheduling policy parameters
 
 ### Container Updates
 

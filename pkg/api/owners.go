@@ -153,6 +153,10 @@ func (o *OwningPlugins) ClaimOomScoreAdj(id, plugin string) error {
 	return o.mustOwnersFor(id).ClaimOomScoreAdj(plugin)
 }
 
+func (o *OwningPlugins) ClaimLinuxScheduler(id, plugin string) error {
+	return o.mustOwnersFor(id).ClaimLinuxScheduler(plugin)
+}
+
 func (o *OwningPlugins) ClaimRlimit(id, typ, plugin string) error {
 	return o.mustOwnersFor(id).ClaimRlimit(typ, plugin)
 }
@@ -287,6 +291,10 @@ func (o *OwningPlugins) CgroupsPathOwner(id string) (string, bool) {
 
 func (o *OwningPlugins) OomScoreAdjOwner(id string) (string, bool) {
 	return o.ownersFor(id).simpleOwner(Field_OomScoreAdj.Key())
+}
+
+func (o *OwningPlugins) LinuxScheduler(id string) (string, bool) {
+	return o.ownersFor(id).simpleOwner(Field_LinuxSched.Key())
 }
 
 func (o *OwningPlugins) RlimitOwner(id, typ string) (string, bool) {
@@ -497,6 +505,10 @@ func (f *FieldOwners) ClaimCgroupsPath(plugin string) error {
 
 func (f *FieldOwners) ClaimOomScoreAdj(plugin string) error {
 	return f.claimSimple(Field_OomScoreAdj.Key(), plugin)
+}
+
+func (f *FieldOwners) ClaimLinuxScheduler(plugin string) error {
+	return f.claimSimple(Field_LinuxSched.Key(), plugin)
 }
 
 func (f *FieldOwners) ClaimRlimit(typ, plugin string) error {

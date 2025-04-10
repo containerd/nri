@@ -245,6 +245,9 @@ func (r *result) adjust(rpl *ContainerAdjustment, plugin string) error {
 		if err := r.adjustLinuxNetDevices(rpl.Linux.NetDevices, plugin); err != nil {
 			return err
 		}
+		if err := r.adjustLinuxScheduler(rpl.Linux.Scheduler, plugin); err != nil {
+			return err
+		}
 	}
 	if err := r.adjustRlimits(rpl.Rlimits, plugin); err != nil {
 		return err
@@ -950,6 +953,23 @@ func (r *result) adjustSeccompPolicy(adjustment *LinuxSeccomp, plugin string) er
 
 	create.Container.Linux.SeccompPolicy = adjustment
 	r.reply.adjust.Linux.SeccompPolicy = adjustment
+
+	return nil
+}
+
+func (r *result) adjustLinuxScheduler(sch *LinuxScheduler, plugin string) error {
+	if sch == nil {
+		return nil
+	}
+
+	create, id := r.request.create, r.request.create.Container.Id
+
+	if err := r.owners.ClaimLinuxScheduler(id, plugin); err != nil {
+		return err
+	}
+
+	create.Container.Linux.Scheduler = sch
+	r.reply.adjust.Linux.Scheduler = sch
 
 	return nil
 }

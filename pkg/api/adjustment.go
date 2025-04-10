@@ -283,6 +283,12 @@ func (a *ContainerAdjustment) SetLinuxOomScoreAdj(value *int) {
 	a.Linux.OomScoreAdj = Int(value) // using Int(value) from ./options.go to optionally allocate a pointer to normalized copy of value
 }
 
+// SetLinuxScheduler records setting the Linux scheduler attributes for a container.
+func (a *ContainerAdjustment) SetLinuxScheduler(sch *LinuxScheduler) {
+	a.initLinux()
+	a.Linux.Scheduler = sch
+}
+
 //
 // Initializing a container adjustment and container update.
 //

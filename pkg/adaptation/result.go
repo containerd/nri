@@ -223,6 +223,9 @@ func (r *result) adjust(rpl *ContainerAdjustment, plugin string) error {
 		if err := r.adjustOomScoreAdj(rpl.Linux.OomScoreAdj, plugin); err != nil {
 			return err
 		}
+		if err := r.adjustIOPriority(rpl.Linux.IoPriority, plugin); err != nil {
+			return err
+		}
 	}
 	if err := r.adjustRlimits(rpl.Rlimits, plugin); err != nil {
 		return err
@@ -764,6 +767,23 @@ func (r *result) adjustOomScoreAdj(OomScoreAdj *OptionalInt, plugin string) erro
 	return nil
 }
 
+func (r *result) adjustIOPriority(priority *LinuxIOPriority, plugin string) error {
+	if priority == nil {
+		return nil
+	}
+
+	create, id := r.request.create, r.request.create.Container.Id
+
+	if err := r.owners.claimIOPriority(id, plugin); err != nil {
+		return err
+	}
+
+	create.Container.Linux.IoPriority = priority
+	r.reply.adjust.Linux.IoPriority = priority
+
+	return nil
+}
+
 func (r *result) adjustRlimits(rlimits []*POSIXRlimit, plugin string) error {
 	create, id, adjust := r.request.create, r.request.create.Container.Id, r.reply.adjust
 	for _, l := range rlimits {
@@ -1004,6 +1024,7 @@ type owners struct {
 	cgroupsPath         string
 	oomScoreAdj         string
 	rlimits             map[string]string
+	ioPriority          string
 }
 
 func (ro resultOwners) ownersFor(id string) *owners {
@@ -1129,6 +1150,10 @@ func (ro resultOwners) claimOomScoreAdj(id, plugin string) error {
 
 func (ro resultOwners) claimRlimits(id, typ, plugin string) error {
 	return ro.ownersFor(id).claimRlimit(typ, plugin)
+}
+
+func (ro resultOwners) claimIOPriority(id, plugin string) error {
+	return ro.ownersFor(id).claimIOPriority(plugin)
 }
 
 func (o *owners) claimAnnotation(key, plugin string) error {
@@ -1385,6 +1410,14 @@ func (o *owners) claimOomScoreAdj(plugin string) error {
 		return conflict(plugin, other, "oom score adj")
 	}
 	o.oomScoreAdj = plugin
+	return nil
+}
+
+func (o *owners) claimIOPriority(plugin string) error {
+	if other := o.ioPriority; other != "" {
+		return conflict(plugin, other, "I/O priority")
+	}
+	o.ioPriority = plugin
 	return nil
 }
 

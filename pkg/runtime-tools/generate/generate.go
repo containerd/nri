@@ -118,6 +118,7 @@ func (g *Generator) Adjust(adjust *nri.ContainerAdjustment) error {
 	g.AdjustDevices(adjust.GetLinux().GetDevices())
 	g.AdjustCgroupsPath(adjust.GetLinux().GetCgroupsPath())
 	g.AdjustOomScoreAdj(adjust.GetLinux().GetOomScoreAdj())
+	g.AdjustLinuxScheduler(adjust.GetLinux().GetScheduler())
 
 	resources := adjust.GetLinux().GetResources()
 	if err := g.AdjustResources(resources); err != nil {
@@ -340,6 +341,14 @@ func (g *Generator) AdjustOomScoreAdj(score *nri.OptionalInt) {
 	}
 }
 
+func (g *Generator) AdjustLinuxScheduler(sch *nri.LinuxScheduler) {
+	if sch == nil {
+		return
+	}
+	g.initConfigProcess()
+	g.Config.Process.Scheduler = sch.ToOCI()
+}
+
 // AdjustDevices adjusts the (Linux) devices in the OCI Spec.
 func (g *Generator) AdjustDevices(devices []*nri.LinuxDevice) {
 	for _, d := range devices {
@@ -530,6 +539,13 @@ func (g *Generator) SetLinuxResourcesBlockIO(blockIO *rspec.LinuxBlockIO) {
 func (g *Generator) initConfig() {
 	if g.Config == nil {
 		g.Config = &rspec.Spec{}
+	}
+}
+
+func (g *Generator) initConfigProcess() {
+	g.initConfig()
+	if g.Config.Process == nil {
+		g.Config.Process = &rspec.Process{}
 	}
 }
 

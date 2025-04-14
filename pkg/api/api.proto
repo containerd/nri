@@ -446,6 +446,14 @@ message LinuxContainerAdjustment {
   LinuxResources resources = 2;
   string cgroups_path = 3;
   OptionalInt oom_score_adj = 4;
+  LinuxMemoryPolicy memory_policy=6;
+}
+
+// Memory policy of a container being created.
+message LinuxMemoryPolicy {
+  string mode = 1;
+  string nodes = 2;
+  repeated string flags = 3;
 }
 
 // Requested update to an already created container.

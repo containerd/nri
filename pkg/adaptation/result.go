@@ -255,6 +255,9 @@ func (r *result) adjust(rpl *ContainerAdjustment, plugin string) error {
 		if err := r.adjustRdt(rpl.Linux.Rdt, plugin); err != nil {
 			return err
 		}
+		if err := r.adjustMemoryPolicy(rpl.Linux.MemoryPolicy, plugin); err != nil {
+			return err
+		}
 	}
 
 	if err := r.adjustRlimits(rpl.Rlimits, plugin); err != nil {
@@ -1020,6 +1023,22 @@ func (r *result) adjustLinuxScheduler(sch *LinuxScheduler, plugin string) error 
 
 	create.Container.Linux.Scheduler = sch
 	r.reply.adjust.Linux.Scheduler = sch
+
+	return nil
+}
+
+func (r *result) adjustMemoryPolicy(memoryPolicy *LinuxMemoryPolicy, plugin string) error {
+	if memoryPolicy == nil {
+		return nil
+	}
+
+	id := r.request.create.Container.Id
+
+	if err := r.owners.ClaimMemoryPolicy(id, plugin); err != nil {
+		return err
+	}
+
+	r.reply.adjust.Linux.MemoryPolicy = memoryPolicy
 
 	return nil
 }

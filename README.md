@@ -276,6 +276,7 @@ property was first available in.
 | Linux network devices                 | v0.11.0   | v2.2.1     | v1.35.0 |
 | Linux RDT CLOS adjustment             | v0.11.0   | v2.2.1     | v1.35.0 |
 | Linux sysctl                          | v0.11.0   | v2.2.1     | v1.35.0 |
+| Linux memory policy                   | TODO      | TODO       | TODO    |
 
 ### Container Updates
 

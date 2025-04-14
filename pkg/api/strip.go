@@ -389,6 +389,9 @@ func (c *LinuxContainerAdjustment) Strip() *LinuxContainerAdjustment {
 	if c.Rdt = c.Rdt.Strip(); c.Rdt != nil {
 		empty = false
 	}
+	if c.MemoryPolicy = c.MemoryPolicy.Strip(); c.MemoryPolicy != nil {
+		empty = false
+	}
 
 	if empty {
 		return nil
@@ -440,6 +443,35 @@ func (s *LinuxSeccomp) Strip() *LinuxSeccomp {
 	}
 
 	return s
+}
+
+// Strip empty fields from LinuxMemoryPolicy, reducing a fully empty
+// one to nil. Strip allows comparison of two LinuxMemoryPolicy structs for semantic
+// equality using go-cmp.
+func (m *LinuxMemoryPolicy) Strip() *LinuxMemoryPolicy {
+	if m == nil {
+		return nil
+	}
+
+	empty := true
+
+	if m.Mode != 0 {
+		empty = false
+	}
+	if m.Nodes != "" {
+		empty = false
+	}
+	if len(m.Flags) == 0 {
+		m.Flags = nil
+	} else {
+		empty = false
+	}
+
+	if empty {
+		return nil
+	}
+
+	return m
 }
 
 // Strip empty fields from ContainerUpdate, reducing a fully empty

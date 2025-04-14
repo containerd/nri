@@ -226,6 +226,9 @@ func (r *result) adjust(rpl *ContainerAdjustment, plugin string) error {
 		if err := r.adjustIOPriority(rpl.Linux.IoPriority, plugin); err != nil {
 			return err
 		}
+		if err := r.adjustMemoryPolicy(rpl.Linux.MemoryPolicy, plugin); err != nil {
+			return err
+		}
 	}
 	if err := r.adjustRlimits(rpl.Rlimits, plugin); err != nil {
 		return err
@@ -780,7 +783,21 @@ func (r *result) adjustIOPriority(priority *LinuxIOPriority, plugin string) erro
 
 	create.Container.Linux.IoPriority = priority
 	r.reply.adjust.Linux.IoPriority = priority
+	return nil
+}
 
+func (r *result) adjustMemoryPolicy(memoryPolicy *LinuxMemoryPolicy, plugin string) error {
+	if memoryPolicy == nil {
+		return nil
+	}
+
+	id := r.request.create.Container.Id
+
+	if err := r.owners.claimMemoryPolicy(id, plugin); err != nil {
+		return err
+	}
+
+	r.reply.adjust.Linux.MemoryPolicy = memoryPolicy
 	return nil
 }
 
@@ -1023,6 +1040,7 @@ type owners struct {
 	unified             map[string]string
 	cgroupsPath         string
 	oomScoreAdj         string
+	memoryPolicy        string
 	rlimits             map[string]string
 	ioPriority          string
 }
@@ -1146,6 +1164,10 @@ func (ro resultOwners) claimCgroupsPath(id, plugin string) error {
 
 func (ro resultOwners) claimOomScoreAdj(id, plugin string) error {
 	return ro.ownersFor(id).claimOomScoreAdj(plugin)
+}
+
+func (ro resultOwners) claimMemoryPolicy(id, plugin string) error {
+	return ro.ownersFor(id).claimMemoryPolicy(plugin)
 }
 
 func (ro resultOwners) claimRlimits(id, typ, plugin string) error {
@@ -1418,6 +1440,14 @@ func (o *owners) claimIOPriority(plugin string) error {
 		return conflict(plugin, other, "I/O priority")
 	}
 	o.ioPriority = plugin
+	return nil
+}
+
+func (o *owners) claimMemoryPolicy(plugin string) error {
+	if other := o.memoryPolicy; other != "" {
+		return conflict(plugin, other, "memory policy")
+	}
+	o.memoryPolicy = plugin
 	return nil
 }
 

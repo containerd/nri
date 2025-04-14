@@ -5,7 +5,7 @@ go 1.22.0
 require (
 	github.com/containerd/ttrpc v1.2.7
 	github.com/knqyf263/go-plugin v0.8.1-0.20240827022226-114c6257e441
-	github.com/moby/sys/mountinfo v0.6.2
+	github.com/moby/sys/mountinfo v0.7.2
 	github.com/onsi/ginkgo/v2 v2.19.1
 	github.com/onsi/gomega v1.34.0
 	github.com/opencontainers/runtime-spec v1.1.0
@@ -39,4 +39,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace github.com/opencontainers/runtime-tools v0.9.0 => github.com/opencontainers/runtime-tools v0.0.0-20221026201742-946c877fa809
+replace (
+	github.com/opencontainers/runtime-spec => github.com/askervin/runtime-spec v1.0.3-0.20250423073229-57c949588e88
+	github.com/opencontainers/runtime-tools => github.com/askervin/runtime-tools v0.0.0-20250423115353-73be79a869ac
+)

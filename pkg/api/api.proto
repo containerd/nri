@@ -462,6 +462,30 @@ message LinuxContainerAdjustment {
   string cgroups_path = 3;
   OptionalInt oom_score_adj = 4;
   LinuxIOPriority io_priority = 5;
+  LinuxMemoryPolicy memory_policy=6;
+}
+
+// Memory policy of a container being created.
+message LinuxMemoryPolicy {
+  MpolMode mode = 1;
+  string nodes = 2;
+  repeated MpolFlag flags = 3;
+}
+
+enum MpolMode {
+    MPOL_DEFAULT = 0;
+    MPOL_PREFERRED = 1;
+    MPOL_BIND = 2;
+    MPOL_INTERLEAVE = 3;
+    MPOL_LOCAL = 4;
+    MPOL_PREFERRED_MANY = 5;
+    MPOL_WEIGHTED_INTERLEAVE = 6;
+}
+
+enum MpolFlag {
+    MPOL_F_STATIC_NODES = 0;
+    MPOL_F_RELATIVE_NODES = 1;
+    MPOL_F_NUMA_BALANCING = 2;
 }
 
 // Requested update to an already created container.

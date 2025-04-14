@@ -508,6 +508,17 @@ var _ = Describe("Plugin container creation adjustments", func() {
 				},
 			)
 
+		case "linux net device":
+			if overwrite {
+				a.RemoveLinuxNetDevice("hostIf")
+			}
+			a.AddLinuxNetDevice(
+				"hostIf",
+				&api.LinuxNetDevice{
+					Name: "containerIf",
+				},
+			)
+
 		case "resources/cpu":
 			a.SetLinuxCPUShares(123)
 			a.SetLinuxCPUQuota(456)
@@ -689,6 +700,17 @@ var _ = Describe("Plugin container creation adjustments", func() {
 					CDIDevices: []*api.CDIDevice{
 						{
 							Name: "vendor0.com/dev=dev0",
+						},
+					},
+				},
+			),
+			Entry("adjust linux net devices", "linux net device",
+				&api.ContainerAdjustment{
+					Linux: &api.LinuxContainerAdjustment{
+						NetDevices: map[string]*api.LinuxNetDevice{
+							"hostIf": {
+								Name: "containerIf",
+							},
 						},
 					},
 				},
@@ -914,6 +936,19 @@ var _ = Describe("Plugin container creation adjustments", func() {
 				},
 			),
 			Entry("adjust resources", "resources/classes", false, true, nil),
+			Entry("adjust linux net devices", "linux net device", true, false,
+				&api.ContainerAdjustment{
+					Linux: &api.LinuxContainerAdjustment{
+						NetDevices: map[string]*api.LinuxNetDevice{
+							"-hostIf": nil,
+							"hostIf": {
+								Name: "containerIf",
+							},
+						},
+					},
+				},
+			),
+			Entry("adjust linux net devices (conflicts)", "linux net device", false, true, nil),
 		)
 	})
 
@@ -2055,7 +2090,9 @@ func stripLinuxAdjustment(a *api.ContainerAdjustment) {
 	}
 	stripLinuxDevices(a)
 	a.Linux.Resources = stripLinuxResources(a.Linux.Resources)
-	if a.Linux.Devices == nil && a.Linux.Resources == nil && a.Linux.CgroupsPath == "" {
+	stripLinuxNetDevices(a)
+	if a.Linux.Devices == nil && a.Linux.Resources == nil && a.Linux.CgroupsPath == "" &&
+		a.Linux.OomScoreAdj == nil && a.Linux.NetDevices == nil {
 		a.Linux = nil
 	}
 }
@@ -2063,6 +2100,12 @@ func stripLinuxAdjustment(a *api.ContainerAdjustment) {
 func stripLinuxDevices(a *api.ContainerAdjustment) {
 	if len(a.Linux.Devices) == 0 {
 		a.Linux.Devices = nil
+	}
+}
+
+func stripLinuxNetDevices(a *api.ContainerAdjustment) {
+	if len(a.Linux.NetDevices) == 0 {
+		a.Linux.NetDevices = nil
 	}
 }
 

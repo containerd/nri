@@ -39,6 +39,12 @@ issues:
     # We dot-import ginkgo and gomega in some tests. Silence any related errors.
     - path: 'pkg/adaptation|pkg/runtime-tools/generate|pkg/net/multiplex'
       text: "dot-imports:"
+    # Ignore deprecation errors related to us haveing adjustment support for
+    # obsoleted Prestart OCI hook and kernel memory limit.
+    - path: 'pkg/api/hooks.go'
+      linters:
+        - staticcheck
+      text: "is deprecated"
 
 run:
   timeout: 2m

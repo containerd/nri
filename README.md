@@ -260,6 +260,7 @@ container parameters:
       - Unified cgroup v2 parameter map
       - Linux seccomp policy
       - Linux network devices
+      - Linux memory policy
     - Linux namespaces
     - scheduling policy parameters
 

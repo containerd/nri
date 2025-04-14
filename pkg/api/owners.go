@@ -184,6 +184,10 @@ func (o *OwningPlugins) ClaimLinuxNetDevice(id, path, plugin string) error {
 	return o.mustOwnersFor(id).ClaimLinuxNetDevice(path, plugin)
 }
 
+func (o *OwningPlugins) ClaimMemoryPolicy(id, plugin string) error {
+	return o.mustOwnersFor(id).ClaimMemoryPolicy(plugin)
+}
+
 func (o *OwningPlugins) ClearAnnotation(id, key, plugin string) {
 	o.mustOwnersFor(id).ClearAnnotation(key, plugin)
 }
@@ -354,6 +358,10 @@ func (o *OwningPlugins) SysctlOwner(id, key string) (string, bool) {
 
 func (o *OwningPlugins) LinuxNetDeviceOwner(id, path string) (string, bool) {
 	return o.ownersFor(id).compoundOwner(Field_LinuxNetDevices.Key(), path)
+}
+
+func (o *OwningPlugins) MemoryPolicy(id string) (string, bool) {
+	return o.ownersFor(id).simpleOwner(Field_MemoryPolicy.Key())
 }
 
 func (o *OwningPlugins) mustOwnersFor(id string) *FieldOwners {
@@ -590,6 +598,10 @@ func (f *FieldOwners) ClaimLinuxNetDevice(path, plugin string) error {
 	return f.claimCompound(Field_LinuxNetDevices.Key(), path, plugin)
 }
 
+func (f *FieldOwners) ClaimMemoryPolicy(plugin string) error {
+	return f.claimSimple(Field_MemoryPolicy.Key(), plugin)
+}
+
 func (f *FieldOwners) clearCompound(field int32, key, plugin string) {
 	m, ok := f.Compound[field]
 	if !ok {
@@ -787,6 +799,10 @@ func (f *FieldOwners) OomScoreAdjOwner() (string, bool) {
 
 func (f *FieldOwners) RlimitOwner(typ string) (string, bool) {
 	return f.compoundOwner(Field_Rlimits.Key(), typ)
+}
+
+func (f *FieldOwners) MemoryPolicyOwner() (string, bool) {
+	return f.simpleOwner(Field_MemoryPolicy.Key())
 }
 
 func qualify(field int32, qualifiers ...string) string {

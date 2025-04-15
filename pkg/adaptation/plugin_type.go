@@ -85,3 +85,10 @@ func (p *pluginType) StateChange(ctx context.Context, req *StateChangeEvent) (er
 	}
 	return err
 }
+
+func (p *pluginType) ValidateContainerAdjustment(ctx context.Context, req *ValidateContainerAdjustmentRequest) (*ValidateContainerAdjustmentResponse, error) {
+	if p.wasmImpl != nil {
+		return p.wasmImpl.ValidateContainerAdjustment(ctx, req)
+	}
+	return p.ttrpcImpl.ValidateContainerAdjustment(ctx, req)
+}

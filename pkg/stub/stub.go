@@ -147,6 +147,12 @@ type PostUpdateContainerInterface interface {
 	PostUpdateContainer(context.Context, *api.PodSandbox, *api.Container) error
 }
 
+// ValidateContainerAdjustmentInterface handles container adjustment validation.
+type ValidateContainerAdjustmentInterface interface {
+	// ValidateContainerAdjustment validates the container adjustment.
+	ValidateContainerAdjustment(context.Context, *api.ValidateContainerAdjustmentRequest) error
+}
+
 // Stub is the interface the stub provides for the plugin implementation.
 type Stub interface {
 	// Run starts the plugin then waits for the plugin service to exit, either due to a
@@ -293,22 +299,23 @@ type stub struct {
 
 // Handlers for NRI plugin event and request.
 type handlers struct {
-	Configure            func(context.Context, string, string, string) (api.EventMask, error)
-	Synchronize          func(context.Context, []*api.PodSandbox, []*api.Container) ([]*api.ContainerUpdate, error)
-	Shutdown             func(context.Context)
-	RunPodSandbox        func(context.Context, *api.PodSandbox) error
-	UpdatePodSandbox     func(context.Context, *api.PodSandbox, *api.LinuxResources, *api.LinuxResources) error
-	StopPodSandbox       func(context.Context, *api.PodSandbox) error
-	RemovePodSandbox     func(context.Context, *api.PodSandbox) error
-	PostUpdatePodSandbox func(context.Context, *api.PodSandbox) error
-	CreateContainer      func(context.Context, *api.PodSandbox, *api.Container) (*api.ContainerAdjustment, []*api.ContainerUpdate, error)
-	StartContainer       func(context.Context, *api.PodSandbox, *api.Container) error
-	UpdateContainer      func(context.Context, *api.PodSandbox, *api.Container, *api.LinuxResources) ([]*api.ContainerUpdate, error)
-	StopContainer        func(context.Context, *api.PodSandbox, *api.Container) ([]*api.ContainerUpdate, error)
-	RemoveContainer      func(context.Context, *api.PodSandbox, *api.Container) error
-	PostCreateContainer  func(context.Context, *api.PodSandbox, *api.Container) error
-	PostStartContainer   func(context.Context, *api.PodSandbox, *api.Container) error
-	PostUpdateContainer  func(context.Context, *api.PodSandbox, *api.Container) error
+	Configure                   func(context.Context, string, string, string) (api.EventMask, error)
+	Synchronize                 func(context.Context, []*api.PodSandbox, []*api.Container) ([]*api.ContainerUpdate, error)
+	Shutdown                    func(context.Context)
+	RunPodSandbox               func(context.Context, *api.PodSandbox) error
+	UpdatePodSandbox            func(context.Context, *api.PodSandbox, *api.LinuxResources, *api.LinuxResources) error
+	StopPodSandbox              func(context.Context, *api.PodSandbox) error
+	RemovePodSandbox            func(context.Context, *api.PodSandbox) error
+	PostUpdatePodSandbox        func(context.Context, *api.PodSandbox) error
+	CreateContainer             func(context.Context, *api.PodSandbox, *api.Container) (*api.ContainerAdjustment, []*api.ContainerUpdate, error)
+	StartContainer              func(context.Context, *api.PodSandbox, *api.Container) error
+	UpdateContainer             func(context.Context, *api.PodSandbox, *api.Container, *api.LinuxResources) ([]*api.ContainerUpdate, error)
+	StopContainer               func(context.Context, *api.PodSandbox, *api.Container) ([]*api.ContainerUpdate, error)
+	RemoveContainer             func(context.Context, *api.PodSandbox, *api.Container) error
+	PostCreateContainer         func(context.Context, *api.PodSandbox, *api.Container) error
+	PostStartContainer          func(context.Context, *api.PodSandbox, *api.Container) error
+	PostUpdateContainer         func(context.Context, *api.PodSandbox, *api.Container) error
+	ValidateContainerAdjustment func(context.Context, *api.ValidateContainerAdjustmentRequest) error
 }
 
 // New creates a stub with the given plugin and options.
@@ -808,6 +815,22 @@ func (stub *stub) StateChange(ctx context.Context, evt *api.StateChangeEvent) (*
 	return &api.StateChangeResponse{}, err
 }
 
+func (stub *stub) ValidateContainerAdjustment(ctx context.Context, req *api.ValidateContainerAdjustmentRequest) (*api.ValidateContainerAdjustmentResponse, error) {
+	handler := stub.handlers.ValidateContainerAdjustment
+	if handler == nil {
+		return &api.ValidateContainerAdjustmentResponse{}, nil
+	}
+
+	if err := handler(ctx, req); err != nil {
+		return &api.ValidateContainerAdjustmentResponse{
+			Reject: true,
+			Reason: err.Error(),
+		}, nil
+	}
+
+	return &api.ValidateContainerAdjustmentResponse{}, nil
+}
+
 // ensureIdentity sets plugin index and name from the binary if those are unset.
 func (stub *stub) ensureIdentity() error {
 	if stub.idx != "" && stub.name != "" {
@@ -893,6 +916,10 @@ func (stub *stub) setupHandlers() error {
 	if plugin, ok := stub.plugin.(PostUpdateContainerInterface); ok {
 		stub.handlers.PostUpdateContainer = plugin.PostUpdateContainer
 		stub.events.Set(api.Event_POST_UPDATE_CONTAINER)
+	}
+	if plugin, ok := stub.plugin.(ValidateContainerAdjustmentInterface); ok {
+		stub.handlers.ValidateContainerAdjustment = plugin.ValidateContainerAdjustment
+		stub.events.Set(api.Event_VALIDATE_CONTAINER_ADJUSTMENT)
 	}
 
 	if stub.events == 0 {

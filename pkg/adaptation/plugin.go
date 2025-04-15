@@ -229,6 +229,11 @@ func (p *plugin) isExternal() bool {
 	return p.cmd == nil
 }
 
+// Check if the plugin is a container adjustment validator.
+func (p *plugin) isContainerAdjustmentValidator() bool {
+	return p.events.IsSet(Event_VALIDATE_CONTAINER_ADJUSTMENT)
+}
+
 // 'connect' a plugin, setting up multiplexing on its socket.
 func (p *plugin) connect(conn stdnet.Conn) (retErr error) {
 	mux := multiplex.Multiplex(conn, multiplex.WithBlockedRead())
@@ -673,6 +678,26 @@ func (p *plugin) StateChange(ctx context.Context, evt *StateChangeEvent) (err er
 	}
 
 	return nil
+}
+
+func (p *plugin) ValidateContainerAdjustment(ctx context.Context, req *ValidateContainerAdjustmentRequest) error {
+	if !p.events.IsSet(Event_VALIDATE_CONTAINER_ADJUSTMENT) {
+		return nil
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, getPluginRequestTimeout())
+	defer cancel()
+
+	rpl, err := p.impl.ValidateContainerAdjustment(ctx, req)
+	if err != nil {
+		if isFatalError(err) {
+			log.Errorf(ctx, "closing plugin %s, failed to validate request: %v", p.name(), err)
+			p.close()
+		}
+		return fmt.Errorf("validator plugin %s failed: %v", p.name(), err)
+	}
+
+	return rpl.ValidationResult(p.name())
 }
 
 // isFatalError returns true if the error is fatal and the plugin connection should be closed.

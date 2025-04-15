@@ -18,6 +18,7 @@ package adaptation_test
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
@@ -918,6 +919,99 @@ var _ = Describe("Plugin container creation adjustments", func() {
 				},
 			),
 			Entry("adjust resources", "resources/classes", false, true, nil),
+		)
+	})
+
+	When("there are validating plugins", func() {
+		BeforeEach(func() {
+			s.Prepare(
+				&mockRuntime{},
+				&mockPlugin{idx: "00", name: "foo"},
+				&mockPlugin{idx: "00", name: "validator"},
+			)
+		})
+
+		DescribeTable("validation result should be honored",
+			func(subject string, shouldFail bool, expected *api.ContainerAdjustment) {
+				var (
+					runtime = s.runtime
+					plugins = s.plugins
+					ctx     = context.Background()
+
+					pod = &api.PodSandbox{
+						Id:        "pod0",
+						Name:      "pod0",
+						Uid:       "uid0",
+						Namespace: "default",
+					}
+					ctr = &api.Container{
+						Id:           "ctr0",
+						PodSandboxId: "pod0",
+						Name:         "ctr0",
+						State:        api.ContainerState_CONTAINER_CREATED, // XXX FIXME-kludge
+						Args: []string{
+							"echo",
+							"original",
+							"argument",
+							"list",
+						},
+					}
+
+					forbidden = "no-no"
+				)
+
+				create := func(p *mockPlugin, _ *api.PodSandbox, _ *api.Container) (*api.ContainerAdjustment, []*api.ContainerUpdate, error) {
+					plugin := p.idx + "-" + p.name
+					a := &api.ContainerAdjustment{}
+					switch subject {
+					case "annotation":
+						key := "key"
+						if shouldFail {
+							key = forbidden
+						}
+						a.AddAnnotation(key, plugin)
+					}
+
+					return a, nil, nil
+				}
+
+				validate := func(_ *mockPlugin, req *api.ValidateContainerAdjustmentRequest) error {
+					_, ok := req.Owners.AnnotationOwner(req.Container.Id, forbidden)
+					if ok {
+						return fmt.Errorf("forbidden annotation %q adjusted", forbidden)
+					}
+					return nil
+				}
+
+				plugins[0].createContainer = create
+				plugins[1].validateAdjustment = validate
+				s.Startup()
+
+				podReq := &api.RunPodSandboxRequest{Pod: pod}
+				Expect(runtime.RunPodSandbox(ctx, podReq)).To(Succeed())
+				ctrReq := &api.CreateContainerRequest{
+					Pod:       pod,
+					Container: ctr,
+				}
+				reply, err := runtime.CreateContainer(ctx, ctrReq)
+				if shouldFail {
+					Expect(err).ToNot(BeNil())
+				} else {
+					Expect(err).To(BeNil())
+					Expect(protoEqual(reply.Adjust.Strip(), expected.Strip())).Should(BeTrue(),
+						protoDiff(reply.Adjust, expected))
+				}
+			},
+
+			Entry("adjust allowed annotation", "annotation", false,
+				&api.ContainerAdjustment{
+					Annotations: map[string]string{
+						"key": "00-foo",
+					},
+				},
+			),
+
+			Entry("adjust forbidden annotation", "annotation", true, nil),
 		)
 	})
 

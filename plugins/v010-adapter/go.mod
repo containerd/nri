@@ -1,6 +1,8 @@
 module github.com/containerd/nri/plugins/v010-adapter
 
-go 1.22.0
+go 1.23.0
+
+toolchain go1.23.4
 
 require (
 	github.com/containerd/containerd v1.6.9
@@ -43,7 +45,6 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20230731190214-cbb8c96f2d6d // indirect
 	google.golang.org/grpc v1.57.1 // indirect
 	google.golang.org/protobuf v1.34.1 // indirect
-	k8s.io/cri-api v0.25.3 // indirect
 )
 
 replace github.com/containerd/nri => ../..

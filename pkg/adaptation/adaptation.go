@@ -27,6 +27,7 @@ import (
 	"sort"
 	"sync"
 
+	"github.com/containerd/nri/pkg/adaptation/builtin"
 	"github.com/containerd/nri/pkg/api"
 	"github.com/containerd/nri/pkg/log"
 	"github.com/containerd/ttrpc"
@@ -70,6 +71,7 @@ type Adaptation struct {
 	listener    net.Listener
 	plugins     []*plugin
 	validators  []*plugin
+	builtin     []*builtin.BuiltinPlugin
 	syncLock    sync.RWMutex
 	wasmService *api.PluginPlugin
 }
@@ -119,6 +121,14 @@ func WithTTRPCOptions(clientOpts []ttrpc.ClientOpts, serverOpts []ttrpc.ServerOp
 	return func(r *Adaptation) error {
 		r.clientOpts = append(r.clientOpts, clientOpts...)
 		r.serverOpts = append(r.serverOpts, serverOpts...)
+		return nil
+	}
+}
+
+// WithBuiltinPlugins sets extra builtin plugins to register.
+func WithBuiltinPlugins(plugins ...*builtin.BuiltinPlugin) Option {
+	return func(r *Adaptation) error {
+		r.builtin = append(r.builtin, plugins...)
 		return nil
 	}
 }
@@ -432,6 +442,20 @@ func (r *Adaptation) startPlugins() (retErr error) {
 			}
 		}
 	}()
+
+	for _, b := range r.builtin {
+		log.Infof(noCtx, "starting builtin NRI plugin %q...", b.Index+"-"+b.Base)
+		p, err := r.newBuiltinPlugin(b)
+		if err != nil {
+			return fmt.Errorf("failed to initialize builtin NRI plugin %q: %v", b.Base, err)
+		}
+
+		if err := p.start(r.name, r.version); err != nil {
+			return fmt.Errorf("failed to start builtin NRI plugin %q: %v", b.Base, err)
+		}
+
+		plugins = append(plugins, p)
+	}
 
 	for i, name := range names {
 		log.Infof(noCtx, "starting pre-installed NRI plugin %q...", name)

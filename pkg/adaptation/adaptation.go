@@ -30,6 +30,7 @@ import (
 	"github.com/containerd/nri/pkg/adaptation/builtin"
 	"github.com/containerd/nri/pkg/api"
 	"github.com/containerd/nri/pkg/log"
+	validator "github.com/containerd/nri/plugins/default-validator/builtin"
 	"github.com/containerd/ttrpc"
 	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/imports/wasi_snapshot_preview1"
@@ -129,6 +130,16 @@ func WithTTRPCOptions(clientOpts []ttrpc.ClientOpts, serverOpts []ttrpc.ServerOp
 func WithBuiltinPlugins(plugins ...*builtin.BuiltinPlugin) Option {
 	return func(r *Adaptation) error {
 		r.builtin = append(r.builtin, plugins...)
+		return nil
+	}
+}
+
+// WithDefaultValidator sets up builtin validator plugin if it is configured.
+func WithDefaultValidator(cfg *validator.DefaultValidatorConfig) Option {
+	return func(r *Adaptation) error {
+		if plugin := validator.GetDefaultValidator(cfg); plugin != nil {
+			r.builtin = append([]*builtin.BuiltinPlugin{plugin}, r.builtin...)
+		}
 		return nil
 	}
 }

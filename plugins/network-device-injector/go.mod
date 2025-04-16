@@ -13,19 +13,15 @@ require (
 require (
 	github.com/containerd/log v0.1.0 // indirect
 	github.com/containerd/ttrpc v1.2.7 // indirect
-	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/knqyf263/go-plugin v0.8.1-0.20240827022226-114c6257e441 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/opencontainers/runtime-spec v1.2.0 // indirect
 	github.com/tetratelabs/wazero v1.9.0 // indirect
 	github.com/vishvananda/netns v0.0.4 // indirect
-	golang.org/x/net v0.25.0 // indirect
 	golang.org/x/sys v0.21.0 // indirect
-	golang.org/x/text v0.15.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240509183442-62759503f434 // indirect
 	google.golang.org/grpc v1.63.2 // indirect
 	google.golang.org/protobuf v1.34.1 // indirect
-	k8s.io/cri-api v0.30.0 // indirect
 )
 
 replace github.com/containerd/nri => ../..

@@ -25,7 +25,10 @@ import (
 	"strings"
 	"time"
 
-	"sigs.k8s.io/yaml"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/testing/protocmp"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -222,14 +225,14 @@ var _ = Describe("Plugin connection", func() {
 			),
 		)
 
-		runtime.pods = strip(runtime.pods, map[string]*api.PodSandbox{}).(map[string]*api.PodSandbox)
-		runtime.ctrs = strip(runtime.ctrs, map[string]*api.Container{}).(map[string]*api.Container)
-		plugin.pods = strip(plugin.pods, map[string]*api.PodSandbox{}).(map[string]*api.PodSandbox)
-		plugin.ctrs = strip(plugin.ctrs, map[string]*api.Container{}).(map[string]*api.Container)
-		Expect(plugin.pods["pod0"]).To(Equal(runtime.pods["pod0"]))
-		Expect(plugin.pods["pod1"]).To(Equal(runtime.pods["pod1"]))
-		Expect(plugin.ctrs["ctr0"]).To(Equal(runtime.ctrs["ctr0"]))
-		Expect(plugin.ctrs["ctr1"]).To(Equal(runtime.ctrs["ctr1"]))
+		Expect(protoEqual(plugin.pods["pod0"], runtime.pods["pod0"])).Should(BeTrue(),
+			protoDiff(plugin.pods["pod0"], runtime.pods["pod0"]))
+		Expect(protoEqual(plugin.pods["pod1"], runtime.pods["pod1"])).Should(BeTrue(),
+			protoDiff(plugin.pods["pod1"], runtime.pods["pod1"]))
+		Expect(protoEqual(plugin.ctrs["ctr0"], runtime.ctrs["ctr0"])).Should(BeTrue(),
+			protoDiff(plugin.ctrs["ctr0"], runtime.ctrs["ctr0"]))
+		Expect(protoEqual(plugin.ctrs["ctr1"], runtime.ctrs["ctr1"])).Should(BeTrue(),
+			protoDiff(plugin.ctrs["ctr1"], runtime.ctrs["ctr1"]))
 	})
 })
 
@@ -605,7 +608,8 @@ var _ = Describe("Plugin container creation adjustments", func() {
 				}
 				reply, err := runtime.CreateContainer(ctx, ctrReq)
 				Expect(err).To(BeNil())
-				Expect(stripAdjustment(reply.Adjust)).Should(Equal(stripAdjustment(expected)))
+				Expect(protoEqual(reply.Adjust.Strip(), expected.Strip())).Should(BeTrue(),
+					protoDiff(reply.Adjust, expected))
 			},
 
 			Entry("adjust annotations", "annotation",
@@ -834,8 +838,8 @@ var _ = Describe("Plugin container creation adjustments", func() {
 					Expect(err).ToNot(BeNil())
 				} else {
 					Expect(err).To(BeNil())
-					reply.Adjust = strip(reply.Adjust, &api.ContainerAdjustment{}).(*api.ContainerAdjustment)
-					Expect(stripAdjustment(reply.Adjust)).Should(Equal(stripAdjustment(expected)))
+					Expect(protoEqual(reply.Adjust.Strip(), expected.Strip())).Should(BeTrue(),
+						protoDiff(reply.Adjust, expected))
 				}
 			},
 
@@ -1048,7 +1052,8 @@ var _ = Describe("Plugin container updates during creation", func() {
 
 				Expect(len(reply.Update)).To(Equal(1))
 				expected.ContainerId = reply.Update[0].ContainerId
-				Expect(stripUpdate(reply.Update[0])).Should(Equal(stripUpdate(expected)))
+				Expect(protoEqual(reply.Update[0].Strip(), expected.Strip())).Should(BeTrue(),
+					protoDiff(reply.Update[0], expected))
 			},
 
 			Entry("update CPU resources", "resources/cpu",
@@ -1204,7 +1209,8 @@ var _ = Describe("Plugin container updates during creation", func() {
 					Expect(err).To(BeNil())
 					Expect(len(reply.Update)).To(Equal(1))
 					expected.ContainerId = reply.Update[0].ContainerId
-					Expect(stripUpdate(reply.Update[0])).Should(Equal(stripUpdate(expected)))
+					Expect(protoEqual(reply.Update[0].Strip(), expected.Strip())).Should(BeTrue(),
+						protoDiff(reply.Update[0], expected))
 				}
 			},
 
@@ -1425,7 +1431,8 @@ var _ = Describe("Solicited container updates by plugins", func() {
 				Expect(len(reply.Update)).To(Equal(1))
 				Expect(err).To(BeNil())
 				expected.ContainerId = reply.Update[0].ContainerId
-				Expect(stripUpdate(reply.Update[0])).Should(Equal(stripUpdate(expected)))
+				Expect(protoEqual(reply.Update[0].Strip(), expected.Strip())).Should(BeTrue(),
+					protoDiff(reply.Update[0], expected))
 			},
 
 			Entry("update CPU resources", "resources/cpu",
@@ -1666,7 +1673,9 @@ var _ = Describe("Solicited container updates by plugins", func() {
 					Expect(err).To(BeNil())
 					Expect(len(reply.Update)).To(Equal(1))
 					expected.ContainerId = reply.Update[0].ContainerId
-					Expect(stripUpdate(reply.Update[0])).Should(Equal(stripUpdate(expected)))
+					Expect(protoEqual(reply.Update[0].Strip(), expected.Strip())).Should(BeTrue(),
+						protoDiff(reply.Update[0], expected))
+
 				}
 			},
 
@@ -1981,210 +1990,10 @@ var _ = Describe("Plugin configuration request", func() {
 	})
 })
 
-// Notes:
-//
-//	XXX FIXME KLUDGE
-//	Ever since we had to switch from gogo/protobuf to google.golang.org/protobuf
-//	(from the gogo one), we can't turn off sizeCache and a few other generated
-//	unexported fields (or if we can, I failed to figure out so far how). In some
-//	of our test cases this gives a false positive in ginkgo.Expect/Equal combos,
-//	since that also checks unexported fields for equality. As a band-aid work-
-//	around we marshal then unmarshal compared objects in offending test cases to
-//	clear those unexported fields.
-func strip(obj interface{}, ptr interface{}) interface{} {
-	bytes, err := yaml.Marshal(obj)
-	Expect(err).To(BeNil())
-	Expect(yaml.Unmarshal(bytes, ptr)).To(Succeed())
-	return ptr
+func protoDiff(a, b proto.Message) string {
+	return cmp.Diff(a, b, protocmp.Transform())
 }
 
-func stripAdjustment(a *api.ContainerAdjustment) *api.ContainerAdjustment {
-	stripAnnotations(a)
-	stripMounts(a)
-	stripEnv(a)
-	stripHooks(a)
-	stripRlimits(a)
-	stripLinuxAdjustment(a)
-	stripCDIDevices(a)
-	return a
-}
-
-func stripAnnotations(a *api.ContainerAdjustment) {
-	if len(a.Annotations) == 0 {
-		a.Annotations = nil
-	}
-}
-
-func stripMounts(a *api.ContainerAdjustment) {
-	if len(a.Mounts) == 0 {
-		a.Mounts = nil
-	}
-}
-
-func stripEnv(a *api.ContainerAdjustment) {
-	if len(a.Env) == 0 {
-		a.Env = nil
-	}
-}
-
-func stripHooks(a *api.ContainerAdjustment) {
-	if a.Hooks == nil {
-		return
-	}
-	switch {
-	case len(a.Hooks.Prestart) > 0:
-	case len(a.Hooks.CreateRuntime) > 0:
-	case len(a.Hooks.CreateContainer) > 0:
-	case len(a.Hooks.StartContainer) > 0:
-	case len(a.Hooks.Poststart) > 0:
-	case len(a.Hooks.Poststop) > 0:
-	default:
-		a.Hooks = nil
-	}
-}
-
-func stripRlimits(a *api.ContainerAdjustment) {
-	if len(a.Rlimits) == 0 {
-		a.Rlimits = nil
-	}
-}
-
-func stripLinuxAdjustment(a *api.ContainerAdjustment) {
-	if a.Linux == nil {
-		return
-	}
-	stripLinuxDevices(a)
-	a.Linux.Resources = stripLinuxResources(a.Linux.Resources)
-	if a.Linux.Devices == nil && a.Linux.Resources == nil && a.Linux.CgroupsPath == "" {
-		a.Linux = nil
-	}
-}
-
-func stripLinuxDevices(a *api.ContainerAdjustment) {
-	if len(a.Linux.Devices) == 0 {
-		a.Linux.Devices = nil
-	}
-}
-
-func stripCDIDevices(a *api.ContainerAdjustment) {
-	if len(a.CDIDevices) == 0 {
-		a.CDIDevices = nil
-	}
-}
-
-func stripLinuxResources(r *api.LinuxResources) *api.LinuxResources {
-	if r == nil {
-		return nil
-	}
-
-	r.Memory = stripLinuxResourcesMemory(r.Memory)
-	r.Cpu = stripLinuxResourcesCpu(r.Cpu)
-	r.HugepageLimits = stripLinuxResourcesHugepageLimits(r.HugepageLimits)
-	r.Unified = stripLinuxResourcesUnified(r.Unified)
-
-	switch {
-	case r.Memory != nil:
-		return r
-	case r.Cpu != nil:
-		return r
-	case r.HugepageLimits != nil:
-		return r
-	case r.Unified != nil:
-		return r
-	case r.BlockioClass.GetValue() != "":
-		return r
-	case r.RdtClass.GetValue() != "":
-		return r
-	}
-
-	return nil
-}
-
-func stripLinuxResourcesMemory(m *api.LinuxMemory) *api.LinuxMemory {
-	if m == nil {
-		return nil
-	}
-	switch {
-	case m.Limit.GetValue() != 0:
-		return m
-	case m.Reservation.GetValue() != 0:
-		return m
-	case m.Swap.GetValue() != 0:
-		return m
-	case m.Kernel.GetValue() != 0:
-		return m
-	case m.KernelTcp.GetValue() != 0:
-		return m
-	case m.Swappiness.GetValue() != 0:
-		return m
-	case m.DisableOomKiller.GetValue():
-		return m
-	case m.UseHierarchy.GetValue():
-		return m
-	}
-	return nil
-}
-
-func stripLinuxResourcesCpu(c *api.LinuxCPU) *api.LinuxCPU {
-	if c == nil {
-		return nil
-	}
-	switch {
-	case c.Shares.GetValue() != 0:
-		return c
-	case c.Quota.GetValue() != 0:
-		return c
-	case c.Period.GetValue() != 0:
-		return c
-	case c.RealtimeRuntime.GetValue() != 0:
-		return c
-	case c.RealtimePeriod.GetValue() != 0:
-		return c
-	case c.Cpus != "":
-		return c
-	case c.Mems != "":
-		return c
-	}
-	return nil
-}
-
-func stripLinuxResourcesHugepageLimits(l []*api.HugepageLimit) []*api.HugepageLimit {
-	if len(l) == 0 {
-		return nil
-	}
-	return l
-}
-
-func stripLinuxResourcesUnified(u map[string]string) map[string]string {
-	if len(u) == 0 {
-		return nil
-	}
-	return u
-}
-
-func stripUpdate(u *api.ContainerUpdate) *api.ContainerUpdate {
-	if u == nil {
-		return nil
-	}
-
-	u.Linux = stripUpdateLinux(u.Linux)
-	if u.ContainerId == "" && u.Linux == nil && !u.IgnoreFailure {
-		return nil
-	}
-
-	return u
-}
-
-func stripUpdateLinux(l *api.LinuxContainerUpdate) *api.LinuxContainerUpdate {
-	if l == nil {
-		return nil
-	}
-
-	r := stripLinuxResources(l.Resources)
-	if r == nil {
-		return l
-	}
-	l.Resources = r
-
-	return l
+func protoEqual(a, b proto.Message) bool {
+	return cmp.Equal(a, b, cmpopts.EquateEmpty(), protocmp.Transform())
 }

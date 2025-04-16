@@ -37,6 +37,9 @@ type (
 	SynchronizeRequest  = api.SynchronizeRequest
 	SynchronizeResponse = api.SynchronizeResponse
 
+	ShutdownRequest  = api.Empty
+	ShutdownResponse = api.Empty
+
 	CreateContainerRequest  = api.CreateContainerRequest
 	CreateContainerResponse = api.CreateContainerResponse
 	UpdateContainerRequest  = api.UpdateContainerRequest

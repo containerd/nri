@@ -155,7 +155,7 @@ func (r *Adaptation) newLaunchedPlugin(dir, idx, base, cfg string) (p *plugin, r
 	}
 
 	if err = p.cmd.Start(); err != nil {
-		return nil, fmt.Errorf("failed launch plugin %q: %w", p.name(), err)
+		return nil, fmt.Errorf("failed to launch plugin %q: %w", p.name(), err)
 	}
 
 	if err = p.connect(conn); err != nil {
@@ -281,7 +281,7 @@ func (p *plugin) connect(conn stdnet.Conn) (retErr error) {
 
 	p.pid, err = getPeerPid(p.mux.Trunk())
 	if err != nil {
-		log.Warnf(noCtx, "failed to determine plugin pid pid: %v", err)
+		log.Warnf(noCtx, "failed to determine plugin pid: %v", err)
 	}
 
 	api.RegisterRuntimeService(p.rpcs, p)
@@ -403,11 +403,11 @@ func (p *plugin) qualifiedName() string {
 func (p *plugin) RegisterPlugin(ctx context.Context, req *RegisterPluginRequest) (*RegisterPluginResponse, error) {
 	if p.isExternal() {
 		if req.PluginName == "" {
-			p.regC <- fmt.Errorf("plugin %q registered empty name", p.qualifiedName())
+			p.regC <- fmt.Errorf("plugin %q registered with an empty name", p.qualifiedName())
 			return &RegisterPluginResponse{}, errors.New("invalid (empty) plugin name")
 		}
 		if err := api.CheckPluginIndex(req.PluginIdx); err != nil {
-			p.regC <- fmt.Errorf("plugin %q registered invalid index: %w", req.PluginName, err)
+			p.regC <- fmt.Errorf("plugin %q registered with an invalid index: %w", req.PluginName, err)
 			return &RegisterPluginResponse{}, fmt.Errorf("invalid plugin index: %w", err)
 		}
 		p.base = req.PluginName

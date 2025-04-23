@@ -82,6 +82,9 @@ type (
 	LinuxMemory              = api.LinuxMemory
 	LinuxDevice              = api.LinuxDevice
 	LinuxDeviceCgroup        = api.LinuxDeviceCgroup
+	LinuxScheduler           = api.LinuxScheduler
+	LinuxSchedulerPolicy     = api.LinuxSchedulerPolicy
+	LinuxSchedulerFlag       = api.LinuxSchedulerFlag
 	CDIDevice                = api.CDIDevice
 	HugepageLimit            = api.HugepageLimit
 	Hooks                    = api.Hooks

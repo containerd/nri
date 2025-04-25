@@ -80,6 +80,7 @@ type (
 	LinuxResources           = api.LinuxResources
 	LinuxCPU                 = api.LinuxCPU
 	LinuxMemory              = api.LinuxMemory
+	LinuxMemoryPolicy        = api.LinuxMemoryPolicy
 	LinuxDevice              = api.LinuxDevice
 	LinuxDeviceCgroup        = api.LinuxDeviceCgroup
 	CDIDevice                = api.CDIDevice

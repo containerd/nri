@@ -118,6 +118,7 @@ func (g *Generator) Adjust(adjust *nri.ContainerAdjustment) error {
 	g.AdjustDevices(adjust.GetLinux().GetDevices())
 	g.AdjustCgroupsPath(adjust.GetLinux().GetCgroupsPath())
 	g.AdjustOomScoreAdj(adjust.GetLinux().GetOomScoreAdj())
+	g.AdjustMemoryPolicy(adjust.GetLinux().GetMemoryPolicy())
 
 	resources := adjust.GetLinux().GetResources()
 	if err := g.AdjustResources(resources); err != nil {
@@ -337,6 +338,15 @@ func (g *Generator) AdjustCgroupsPath(path string) {
 func (g *Generator) AdjustOomScoreAdj(score *nri.OptionalInt) {
 	if score != nil {
 		g.SetProcessOOMScoreAdj(int(score.Value))
+	}
+}
+
+// AdjustMemoryPolicy adjusts default memory policy (set_mempolicy) for the container.
+func (g *Generator) AdjustMemoryPolicy(memoryPolicy *nri.LinuxMemoryPolicy) {
+	if memoryPolicy != nil && memoryPolicy.Mode != "" {
+		g.SetLinuxMemoryPolicyMode(memoryPolicy.Mode)
+		g.SetLinuxMemoryPolicyNodes(memoryPolicy.Nodes)
+		g.SetLinuxMemoryPolicyFlags(memoryPolicy.Flags)
 	}
 }
 

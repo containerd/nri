@@ -101,6 +101,7 @@ func collectCreateContainerResult(request *CreateContainerRequest) *result {
 						HugepageLimits: []*HugepageLimit{},
 						Unified:        map[string]string{},
 					},
+					MemoryPolicy: &LinuxMemoryPolicy{},
 				},
 			},
 		},
@@ -221,6 +222,9 @@ func (r *result) adjust(rpl *ContainerAdjustment, plugin string) error {
 			return err
 		}
 		if err := r.adjustOomScoreAdj(rpl.Linux.OomScoreAdj, plugin); err != nil {
+			return err
+		}
+		if err := r.adjustMemoryPolicy(rpl.Linux.MemoryPolicy, plugin); err != nil {
 			return err
 		}
 	}
@@ -764,6 +768,22 @@ func (r *result) adjustOomScoreAdj(OomScoreAdj *OptionalInt, plugin string) erro
 	return nil
 }
 
+func (r *result) adjustMemoryPolicy(memoryPolicy *LinuxMemoryPolicy, plugin string) error {
+	if memoryPolicy == nil {
+		return nil
+	}
+
+	id := r.request.create.Container.Id
+
+	if err := r.owners.claimMemoryPolicy(id, plugin); err != nil {
+		return err
+	}
+
+	r.reply.adjust.Linux.MemoryPolicy = memoryPolicy
+
+	return nil
+}
+
 func (r *result) adjustRlimits(rlimits []*POSIXRlimit, plugin string) error {
 	create, id, adjust := r.request.create, r.request.create.Container.Id, r.reply.adjust
 	for _, l := range rlimits {
@@ -1003,6 +1023,7 @@ type owners struct {
 	unified             map[string]string
 	cgroupsPath         string
 	oomScoreAdj         string
+	memoryPolicy        string
 	rlimits             map[string]string
 }
 
@@ -1125,6 +1146,10 @@ func (ro resultOwners) claimCgroupsPath(id, plugin string) error {
 
 func (ro resultOwners) claimOomScoreAdj(id, plugin string) error {
 	return ro.ownersFor(id).claimOomScoreAdj(plugin)
+}
+
+func (ro resultOwners) claimMemoryPolicy(id, plugin string) error {
+	return ro.ownersFor(id).claimMemoryPolicy(plugin)
 }
 
 func (ro resultOwners) claimRlimits(id, typ, plugin string) error {
@@ -1385,6 +1410,14 @@ func (o *owners) claimOomScoreAdj(plugin string) error {
 		return conflict(plugin, other, "oom score adj")
 	}
 	o.oomScoreAdj = plugin
+	return nil
+}
+
+func (o *owners) claimMemoryPolicy(plugin string) error {
+	if other := o.memoryPolicy; other != "" {
+		return conflict(plugin, other, "memory policy")
+	}
+	o.memoryPolicy = plugin
 	return nil
 }
 

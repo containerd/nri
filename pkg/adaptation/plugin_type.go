@@ -23,8 +23,9 @@ import (
 )
 
 type pluginType struct {
-	wasmImpl  api.Plugin
-	ttrpcImpl api.PluginService
+	wasmImpl    api.Plugin
+	ttrpcImpl   api.PluginService
+	builtinImpl api.PluginService
 }
 
 func (p *pluginType) isWasm() bool {
@@ -35,53 +36,88 @@ func (p *pluginType) isTtrpc() bool {
 	return p.ttrpcImpl != nil
 }
 
+func (p *pluginType) isBuiltin() bool {
+	return p.builtinImpl != nil
+}
+
 func (p *pluginType) Synchronize(ctx context.Context, req *SynchronizeRequest) (*SynchronizeResponse, error) {
-	if p.wasmImpl != nil {
-		return p.wasmImpl.Synchronize(ctx, req)
+	switch {
+	case p.ttrpcImpl != nil:
+		return p.ttrpcImpl.Synchronize(ctx, req)
+	case p.builtinImpl != nil:
+		return p.builtinImpl.Synchronize(ctx, req)
 	}
-	return p.ttrpcImpl.Synchronize(ctx, req)
+	return p.wasmImpl.Synchronize(ctx, req)
 }
 
 func (p *pluginType) Configure(ctx context.Context, req *ConfigureRequest) (*ConfigureResponse, error) {
-	if p.wasmImpl != nil {
-		return p.wasmImpl.Configure(ctx, req)
+	switch {
+	case p.ttrpcImpl != nil:
+		return p.ttrpcImpl.Configure(ctx, req)
+	case p.builtinImpl != nil:
+		return p.builtinImpl.Configure(ctx, req)
 	}
-	return p.ttrpcImpl.Configure(ctx, req)
+	return p.wasmImpl.Configure(ctx, req)
 }
 
 func (p *pluginType) CreateContainer(ctx context.Context, req *CreateContainerRequest) (*CreateContainerResponse, error) {
-	if p.wasmImpl != nil {
-		return p.wasmImpl.CreateContainer(ctx, req)
+	switch {
+	case p.ttrpcImpl != nil:
+		return p.ttrpcImpl.CreateContainer(ctx, req)
+	case p.builtinImpl != nil:
+		return p.builtinImpl.CreateContainer(ctx, req)
 	}
-	return p.ttrpcImpl.CreateContainer(ctx, req)
+	return p.wasmImpl.CreateContainer(ctx, req)
 }
 
 func (p *pluginType) UpdateContainer(ctx context.Context, req *UpdateContainerRequest) (*UpdateContainerResponse, error) {
-	if p.wasmImpl != nil {
-		return p.wasmImpl.UpdateContainer(ctx, req)
+	switch {
+	case p.ttrpcImpl != nil:
+		return p.ttrpcImpl.UpdateContainer(ctx, req)
+	case p.builtinImpl != nil:
+		return p.builtinImpl.UpdateContainer(ctx, req)
 	}
-	return p.ttrpcImpl.UpdateContainer(ctx, req)
+	return p.wasmImpl.UpdateContainer(ctx, req)
 }
 
 func (p *pluginType) StopContainer(ctx context.Context, req *StopContainerRequest) (*StopContainerResponse, error) {
-	if p.wasmImpl != nil {
-		return p.wasmImpl.StopContainer(ctx, req)
+	switch {
+	case p.ttrpcImpl != nil:
+		return p.ttrpcImpl.StopContainer(ctx, req)
+	case p.builtinImpl != nil:
+		return p.builtinImpl.StopContainer(ctx, req)
 	}
-	return p.ttrpcImpl.StopContainer(ctx, req)
+	return p.wasmImpl.StopContainer(ctx, req)
 }
 
 func (p *pluginType) UpdatePodSandbox(ctx context.Context, req *UpdatePodSandboxRequest) (*UpdatePodSandboxResponse, error) {
-	if p.wasmImpl != nil {
-		return p.wasmImpl.UpdatePodSandbox(ctx, req)
+	switch {
+	case p.ttrpcImpl != nil:
+		return p.ttrpcImpl.UpdatePodSandbox(ctx, req)
+	case p.builtinImpl != nil:
+		return p.builtinImpl.UpdatePodSandbox(ctx, req)
 	}
-	return p.ttrpcImpl.UpdatePodSandbox(ctx, req)
+	return p.wasmImpl.UpdatePodSandbox(ctx, req)
 }
 
 func (p *pluginType) StateChange(ctx context.Context, req *StateChangeEvent) (err error) {
-	if p.wasmImpl != nil {
-		_, err = p.wasmImpl.StateChange(ctx, req)
-	} else {
+	switch {
+	case p.ttrpcImpl != nil:
 		_, err = p.ttrpcImpl.StateChange(ctx, req)
+	case p.builtinImpl != nil:
+		_, err = p.builtinImpl.StateChange(ctx, req)
+	default:
+		_, err = p.wasmImpl.StateChange(ctx, req)
 	}
 	return err
+}
+
+func (p *pluginType) ValidateContainerAdjustment(ctx context.Context, req *ValidateContainerAdjustmentRequest) (*ValidateContainerAdjustmentResponse, error) {
+	switch {
+	case p.ttrpcImpl != nil:
+		return p.ttrpcImpl.ValidateContainerAdjustment(ctx, req)
+	case p.builtinImpl != nil:
+		return p.builtinImpl.ValidateContainerAdjustment(ctx, req)
+	}
+	return p.wasmImpl.ValidateContainerAdjustment(ctx, req)
 }

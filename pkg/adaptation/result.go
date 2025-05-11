@@ -693,6 +693,11 @@ func (r *result) adjustResources(resources *LinuxResources, plugin string) error
 		reply.HugepageLimits = append(reply.HugepageLimits, l)
 	}
 
+	for _, d := range resources.Devices {
+		container.Devices = append(container.Devices, d)
+		reply.Devices = append(reply.Devices, d)
+	}
+
 	if len(resources.Unified) != 0 {
 		for k, v := range resources.Unified {
 			if err := r.owners.claimUnified(id, k, plugin); err != nil {

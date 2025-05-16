@@ -513,3 +513,67 @@ message OptionalBool {
 message OptionalFileMode {
   uint32 value = 1;
 }
+
+// CompoundFieldOwners tracks 'plugin ownership' of compound fields
+// which can be adjusted entry by entry, typically maps or slices.
+// It is used to track ownership for annotations, mounts, devices,
+// environment variables, hugepage limits, etc. The key identifies
+// the owned entry (annotation key, mount destination, device path,
+// environment variable name, etc.). The value is the owning plugin.
+message CompoundFieldOwners {
+    map<string, string> owners = 1;
+}
+
+// FieldOwners tracks field 'plugin ownership' for a single container.
+// Keys represent adjustable fields of a container. For simple fields,
+// the value is the plugin that last modified the field. For compound
+// fields, the value is a CompoundFieldOwners which provides tracking
+// 'plugin ownership' per field for compound data, typically maps and
+// slices. Field enum values are used to index both maps, using Key()
+// to get the int32 for the Field.
+message FieldOwners {
+    map<int32, string> simple = 1;
+    map<int32, CompoundFieldOwners> compound = 2;
+}
+
+// OwningPlugins tracks field 'plugin ownership' for multiple containers.
+// The string keys are container IDs. The values are FieldOwners which
+// track 'plugin ownership' per adjustable field for the container.
+message OwningPlugins {
+    map<string, FieldOwners> owners = 1;
+}
+
+// Field enumerates all fields that can be adjusted by plugins.
+enum Field {
+    None = 0;
+    Annotations = 1;
+    Mounts = 2;
+    OciHooks = 3;
+    Devices = 4;
+    CdiDevices = 5;
+    Env = 6;
+    Args = 7;
+    MemLimit = 8;
+    MemReservation = 9;
+    MemSwapLimit = 10;
+    MemKernelLimit = 11;
+    MemTCPLimit = 12;
+    MemSwappiness = 13;
+    MemDisableOomKiller = 14;
+    MemUseHierarchy = 15;
+    CPUShares = 16;
+    CPUQuota = 17;
+    CPUPeriod = 18;
+    CPURealtimeRuntime = 19;
+    CPURealtimePeriod = 20;
+    CPUSetCPUs = 21;
+    CPUSetMems = 22;
+    PidsLimit = 23;
+    HugepageLimits = 24;
+    BlockioClass = 25;
+    RdtClass = 26;
+    CgroupsUnified = 27;
+    CgroupsPath = 28;
+    OomScoreAdj = 29;
+    Rlimits = 30;
+}

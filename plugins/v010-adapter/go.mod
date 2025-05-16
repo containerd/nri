@@ -43,7 +43,6 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20230731190214-cbb8c96f2d6d // indirect
 	google.golang.org/grpc v1.57.1 // indirect
 	google.golang.org/protobuf v1.34.1 // indirect
-	k8s.io/cri-api v0.25.3 // indirect
 )
 
 replace github.com/containerd/nri => ../..

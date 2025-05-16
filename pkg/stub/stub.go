@@ -23,6 +23,7 @@ import (
 	stdnet "net"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"sync"
 	"time"
@@ -585,7 +586,7 @@ func (stub *stub) connClosed() {
 		return
 	}
 
-	os.Exit(0)
+	runtime.Goexit() //The exit code can be determined when the coroutine exits
 }
 
 //

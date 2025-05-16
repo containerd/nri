@@ -109,6 +109,10 @@ service Plugin {
   // plugin-specific processing which needs to occur in connection with any of
   // these events.
   rpc StateChange(StateChangeEvent) returns (Empty);
+
+  // ValidateContainerAdjustment relays a container adjustment validation request
+  // to the plugin. Container creation will fail the plugin rejects the adjustments.
+  rpc ValidateContainerAdjustment(ValidateContainerAdjustmentRequest) returns (ValidateContainerAdjustmentResponse);
 }
 
 // go:plugin type=host
@@ -231,6 +235,31 @@ message StateChangeEvent {
   Container container = 3;
 }
 
+message ValidateContainerAdjustmentRequest {
+    // Pod of container being adjusted.
+    PodSandbox pod = 1;
+    // Container being adjusted in its pristine state.
+    Container container = 2;
+    // Pending container adjustments.
+    ContainerAdjustment adjust = 3;
+    // Pending updates to other containers.
+    repeated ContainerUpdate update = 4;
+    // Plugins that made the adjustments and updates.
+    OwningPlugins owners = 5;
+    // Plugins consulted for adjustments and updates.
+    repeated PluginInstance plugins = 6;
+}
+
+message PluginInstance {
+    string name = 1;
+    string index = 2;
+}
+
+message ValidateContainerAdjustmentResponse {
+    bool reject = 1;
+    string reason = 2;
+}
+
 // Empty response for those *Requests that are semantically events.
 message Empty {}
 
@@ -250,7 +279,8 @@ enum Event {
   REMOVE_CONTAINER = 11;
   UPDATE_POD_SANDBOX = 12;
   POST_UPDATE_POD_SANDBOX = 13;
-  LAST = 14;
+  VALIDATE_CONTAINER_ADJUSTMENT = 14;
+  LAST = 15;
 }
 
 // Pod metadata that is considered relevant for a plugin.

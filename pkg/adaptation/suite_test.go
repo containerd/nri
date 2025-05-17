@@ -376,6 +376,7 @@ type mockPlugin struct {
 	postUpdateContainer  func(*mockPlugin, *api.PodSandbox, *api.Container) error
 	stopContainer        func(*mockPlugin, *api.PodSandbox, *api.Container) ([]*api.ContainerUpdate, error)
 	removeContainer      func(*mockPlugin, *api.PodSandbox, *api.Container) error
+	validateAdjustment   func(*mockPlugin, *api.ValidateContainerAdjustmentRequest) error
 }
 
 var (
@@ -434,9 +435,6 @@ func (m *mockPlugin) Init(dir string) error {
 	}
 	if m.idx == "" {
 		m.idx = "00"
-	}
-	if m.mask == 0 {
-		m.mask = api.ValidEvents
 	}
 
 	m.q = &EventQ{}
@@ -548,7 +546,12 @@ func (m *mockPlugin) Configure(_ context.Context, _, runtime, version string) (s
 	m.runtime = runtime
 	m.version = version
 
-	return m.mask, nil
+	events := m.mask
+	if m.validateAdjustment == nil {
+		events.Clear(api.Event_VALIDATE_CONTAINER_ADJUSTMENT)
+	}
+
+	return events, nil
 }
 
 func (m *mockPlugin) Synchronize(_ context.Context, pods []*api.PodSandbox, ctrs []*api.Container) ([]*api.ContainerUpdate, error) {
@@ -666,6 +669,14 @@ func (m *mockPlugin) RemoveContainer(_ context.Context, pod *api.PodSandbox, ctr
 	return m.removeContainer(m, pod, ctr)
 }
 
+func (m *mockPlugin) ValidateContainerAdjustment(_ context.Context, req *api.ValidateContainerAdjustmentRequest) error {
+	if m.validateAdjustment != nil {
+		m.q.Add(ContainerEvent(req.Container, ValidateContainerAdjustment))
+		return m.validateAdjustment(m, req)
+	}
+	return nil
+}
+
 func nopEvent(*mockPlugin, *api.PodSandbox, *api.Container) error {
 	return nil
 }
@@ -711,6 +722,8 @@ const (
 	PostCreateContainer  = "PostCreateContainer"
 	PostStartContainer   = "PostStartContainer"
 	PostUpdateContainer  = "PostUpdateContainer"
+
+	ValidateContainerAdjustment = "ValidateContainerAdjustment"
 
 	Error   = "Error"
 	Timeout = ""

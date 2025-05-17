@@ -56,6 +56,7 @@ PLUGINS := \
 	$(BIN_PATH)/ulimit-adjuster \
 	$(BIN_PATH)/v010-adapter \
 	$(BIN_PATH)/template \
+	$(BIN_PATH)/default-validator \
 	$(BIN_PATH)/wasm
 
 
@@ -133,6 +134,11 @@ $(BIN_PATH)/v010-adapter: $(wildcard plugins/v010-adapter/*.go)
 $(BIN_PATH)/template: $(wildcard plugins/template/*.go)
 	$(Q)echo "Building $@..."; \
 	cd $(dir $<) && $(GO_BUILD) -o $@ .
+
+$(BIN_PATH)/default-validator: $(wildcard plugins/default-validator/external/*.go) $(wildcard plugins/default-validator/*.go)
+	$(Q)echo "Building $@..."; \
+	cd $(dir $<) && $(GO_BUILD) -o $@ .
+
 
 ifneq ($(TINYGO_DOCKER),1)
 $(BIN_PATH)/wasm: $(wildcard plugins/wasm/*.go)

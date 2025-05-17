@@ -144,3 +144,7 @@ func (p *plugin) RemoveContainer(ctx context.Context, pod *api.PodSandbox, conta
 	log(ctx, "Got remove container request")
 	return nil, nil
 }
+
+func (p *plugin) ValidateContainerAdjustment(ctx context.Context, req *api.ValidateContainerAdjustmentRequest) (*api.ValidateContainerAdjustmentResponse, error) {
+	return &api.ValidateContainerAdjustmentResponse{}, nil
+}

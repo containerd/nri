@@ -32,6 +32,8 @@ import (
 	"github.com/containerd/ttrpc"
 	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/imports/wasi_snapshot_preview1"
+
+	"google.golang.org/protobuf/proto"
 )
 
 const (
@@ -67,6 +69,7 @@ type Adaptation struct {
 	serverOpts  []ttrpc.ServerOpt
 	listener    net.Listener
 	plugins     []*plugin
+	validators  []*plugin
 	syncLock    sync.RWMutex
 	wasmService *api.PluginPlugin
 }
@@ -248,8 +251,22 @@ func (r *Adaptation) CreateContainer(ctx context.Context, req *CreateContainerRe
 	defer r.Unlock()
 	defer r.removeClosedPlugins()
 
-	result := collectCreateContainerResult(req)
+	var (
+		result   = collectCreateContainerResult(req)
+		validate *ValidateContainerAdjustmentRequest
+	)
+
+	if r.hasValidators() {
+		validate = &ValidateContainerAdjustmentRequest{
+			Pod:       req.Pod,
+			Container: proto.Clone(req.Container).(*Container),
+		}
+	}
+
 	for _, plugin := range r.plugins {
+		if validate != nil {
+			validate.AddPlugin(plugin.base, plugin.idx)
+		}
 		rpl, err := plugin.createContainer(ctx, req)
 		if err != nil {
 			return nil, err
@@ -260,7 +277,7 @@ func (r *Adaptation) CreateContainer(ctx context.Context, req *CreateContainerRe
 		}
 	}
 
-	return result.createContainerResponse(), nil
+	return r.validateContainerAdjustment(ctx, validate, result)
 }
 
 // PostCreateContainer relays the corresponding CRI event to plugins.
@@ -363,6 +380,40 @@ func (r *Adaptation) updateContainers(ctx context.Context, req []*ContainerUpdat
 	return r.updateFn(ctx, req)
 }
 
+// Validate requested container adjustments.
+func (r *Adaptation) validateContainerAdjustment(ctx context.Context, req *ValidateContainerAdjustmentRequest, result *result) (*CreateContainerResponse, error) {
+	rpl := result.createContainerResponse()
+
+	if req == nil || len(r.validators) == 0 {
+		return rpl, nil
+	}
+
+	req.AddResponse(rpl)
+	req.AddOwners(result.owners)
+
+	errors := make(chan error, len(r.validators))
+	wg := sync.WaitGroup{}
+
+	for _, p := range r.validators {
+		wg.Add(1)
+		go func(p *plugin) {
+			defer wg.Done()
+			errors <- p.ValidateContainerAdjustment(ctx, req)
+		}(p)
+	}
+
+	wg.Wait()
+	close(errors)
+
+	for err := range errors {
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return rpl, nil
+}
+
 // Start up pre-installed plugins.
 func (r *Adaptation) startPlugins() (retErr error) {
 	var plugins []*plugin
@@ -439,12 +490,15 @@ func (r *Adaptation) stopPlugins() {
 }
 
 func (r *Adaptation) removeClosedPlugins() {
-	var active, closed []*plugin
+	var active, closed, validators []*plugin
 	for _, p := range r.plugins {
 		if p.isClosed() {
 			closed = append(closed, p)
 		} else {
 			active = append(active, p)
+			if p.isContainerAdjustmentValidator() {
+				validators = append(validators, p)
+			}
 		}
 	}
 
@@ -455,7 +509,9 @@ func (r *Adaptation) removeClosedPlugins() {
 			}
 		}()
 	}
+
 	r.plugins = active
+	r.validators = validators
 }
 
 func (r *Adaptation) startListener() error {
@@ -519,6 +575,9 @@ func (r *Adaptation) acceptPluginConnections(l net.Listener) error {
 			} else {
 				r.Lock()
 				r.plugins = append(r.plugins, p)
+				if p.isContainerAdjustmentValidator() {
+					r.validators = append(r.validators, p)
+				}
 				r.sortPlugins()
 				r.Unlock()
 				log.Infof(ctx, "plugin %q connected and synchronized", p.name())
@@ -588,12 +647,25 @@ func (r *Adaptation) sortPlugins() {
 	sort.Slice(r.plugins, func(i, j int) bool {
 		return r.plugins[i].idx < r.plugins[j].idx
 	})
+	sort.Slice(r.validators, func(i, j int) bool {
+		return r.validators[i].idx < r.validators[j].idx
+	})
 	if len(r.plugins) > 0 {
 		log.Infof(noCtx, "plugin invocation order")
 		for i, p := range r.plugins {
 			log.Infof(noCtx, "  #%d: %q (%s)", i+1, p.name(), p.qualifiedName())
 		}
 	}
+	if len(r.validators) > 0 {
+		log.Infof(noCtx, "validator plugins")
+		for _, p := range r.validators {
+			log.Infof(noCtx, "  %q (%s)", p.name(), p.qualifiedName())
+		}
+	}
+}
+
+func (r *Adaptation) hasValidators() bool {
+	return len(r.validators) > 0
 }
 
 func (r *Adaptation) requestPluginSync() {

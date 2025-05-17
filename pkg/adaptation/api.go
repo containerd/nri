@@ -64,6 +64,10 @@ type (
 	PostUpdateContainerRequest   = api.PostUpdateContainerRequest
 	PostUpdateContainerResponse  = api.PostUpdateContainerResponse
 
+	ValidateContainerAdjustmentRequest  = api.ValidateContainerAdjustmentRequest
+	ValidateContainerAdjustmentResponse = api.ValidateContainerAdjustmentResponse
+	PluginInstance                      = api.PluginInstance
+
 	PodSandbox               = api.PodSandbox
 	LinuxPodSandbox          = api.LinuxPodSandbox
 	Container                = api.Container
@@ -94,21 +98,22 @@ type (
 // Aliased consts for api/api.proto.
 // nolint
 const (
-	Event_UNKNOWN                 = api.Event_UNKNOWN
-	Event_RUN_POD_SANDBOX         = api.Event_RUN_POD_SANDBOX
-	Event_UPDATE_POD_SANDBOX      = api.Event_UPDATE_POD_SANDBOX
-	Event_POST_UPDATE_POD_SANDBOX = api.Event_POST_UPDATE_POD_SANDBOX
-	Event_STOP_POD_SANDBOX        = api.Event_STOP_POD_SANDBOX
-	Event_REMOVE_POD_SANDBOX      = api.Event_REMOVE_POD_SANDBOX
-	Event_CREATE_CONTAINER        = api.Event_CREATE_CONTAINER
-	Event_POST_CREATE_CONTAINER   = api.Event_POST_CREATE_CONTAINER
-	Event_START_CONTAINER         = api.Event_START_CONTAINER
-	Event_POST_START_CONTAINER    = api.Event_POST_START_CONTAINER
-	Event_UPDATE_CONTAINER        = api.Event_UPDATE_CONTAINER
-	Event_POST_UPDATE_CONTAINER   = api.Event_POST_UPDATE_CONTAINER
-	Event_STOP_CONTAINER          = api.Event_STOP_CONTAINER
-	Event_REMOVE_CONTAINER        = api.Event_REMOVE_CONTAINER
-	ValidEvents                   = api.ValidEvents
+	Event_UNKNOWN                       = api.Event_UNKNOWN
+	Event_RUN_POD_SANDBOX               = api.Event_RUN_POD_SANDBOX
+	Event_UPDATE_POD_SANDBOX            = api.Event_UPDATE_POD_SANDBOX
+	Event_POST_UPDATE_POD_SANDBOX       = api.Event_POST_UPDATE_POD_SANDBOX
+	Event_STOP_POD_SANDBOX              = api.Event_STOP_POD_SANDBOX
+	Event_REMOVE_POD_SANDBOX            = api.Event_REMOVE_POD_SANDBOX
+	Event_CREATE_CONTAINER              = api.Event_CREATE_CONTAINER
+	Event_POST_CREATE_CONTAINER         = api.Event_POST_CREATE_CONTAINER
+	Event_START_CONTAINER               = api.Event_START_CONTAINER
+	Event_POST_START_CONTAINER          = api.Event_POST_START_CONTAINER
+	Event_UPDATE_CONTAINER              = api.Event_UPDATE_CONTAINER
+	Event_POST_UPDATE_CONTAINER         = api.Event_POST_UPDATE_CONTAINER
+	Event_STOP_CONTAINER                = api.Event_STOP_CONTAINER
+	Event_REMOVE_CONTAINER              = api.Event_REMOVE_CONTAINER
+	Event_VALIDATE_CONTAINER_ADJUSTMENT = api.Event_VALIDATE_CONTAINER_ADJUSTMENT
+	ValidEvents                         = api.ValidEvents
 
 	ContainerState_CONTAINER_UNKNOWN = api.ContainerState_CONTAINER_UNKNOWN
 	ContainerState_CONTAINER_CREATED = api.ContainerState_CONTAINER_CREATED

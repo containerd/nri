@@ -53,6 +53,7 @@ type Suite struct {
 	dir     string        // directory to create for test
 	runtime *mockRuntime  // runtime instance for test
 	plugins []*mockPlugin // plugin instances for test
+	byName  map[string]*mockPlugin
 }
 
 // SuiteOption can be applied to a suite.
@@ -83,6 +84,10 @@ func (s *Suite) Prepare(runtime *mockRuntime, plugins ...*mockPlugin) string {
 	s.runtime = runtime
 	s.plugins = plugins
 
+	if s.byName == nil {
+		s.byName = make(map[string]*mockPlugin)
+	}
+
 	return dir
 }
 
@@ -93,9 +98,11 @@ func (s *Suite) Dir() string {
 
 // Startup starts up the test suite.
 func (s *Suite) Startup() {
+	plugins := s.plugins
+	s.plugins = nil
 	s.StartRuntime()
-	s.StartPlugins()
-	s.WaitForPluginsToSync()
+	s.StartPlugins(plugins...)
+	s.WaitForPluginsToSync(plugins...)
 }
 
 // StartRuntime starts the suite runtime.
@@ -104,16 +111,18 @@ func (s *Suite) StartRuntime() {
 }
 
 // StartPlugins starts the suite plugins.
-func (s *Suite) StartPlugins() {
-	for _, plugin := range s.plugins {
+func (s *Suite) StartPlugins(plugins ...*mockPlugin) {
+	for _, plugin := range plugins {
+		s.plugins = append(s.plugins, plugin)
+		s.byName[plugin.FullName()] = plugin
 		Expect(plugin.Start(s.dir)).To(Succeed())
 	}
 }
 
-// WaitForPluginsToSync waits for the suite plugins to get synchronized.
-func (s *Suite) WaitForPluginsToSync() {
+// WaitForPluginsToSync waits for the given plugins to get synchronized.
+func (s *Suite) WaitForPluginsToSync(plugins ...*mockPlugin) {
 	timeout := time.After(startupTimeout)
-	for _, plugin := range s.plugins {
+	for _, plugin := range plugins {
 		Expect(plugin.Wait(PluginSynchronized, timeout)).To(Succeed())
 	}
 }
@@ -126,6 +135,11 @@ func (s *Suite) Cleanup() {
 		plugin.Stop()
 	}
 	Expect(os.RemoveAll(s.dir)).To(Succeed())
+}
+
+// Plugin returns a plugin started by StartPlugins by full plugin name.
+func (s *Suite) plugin(fullName string) *mockPlugin {
+	return s.byName[fullName]
 }
 
 // ------------------------------------
@@ -519,6 +533,10 @@ func (m *mockPlugin) Stop() {
 		m.stub.Wait()
 	}
 	m.q.Add(PluginStopped)
+}
+
+func (m *mockPlugin) FullName() string {
+	return m.idx + "-" + m.name
 }
 
 func (m *mockPlugin) RuntimeName() string {

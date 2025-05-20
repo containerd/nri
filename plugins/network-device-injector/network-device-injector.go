@@ -36,7 +36,8 @@ import (
 
 const (
 	// Prefix of the key used for network device annotations.
-	netdeviceKey = "netdevices.nri.containerd.io"
+	netdeviceKey    = "netdevice.noderesource.dev"
+	oldNetdeviceKey = "netdevices.nri.containerd.io" // Deprecated
 )
 
 var (
@@ -194,7 +195,9 @@ func parseNetdevices(annotations map[string]string) ([]netdevice, error) {
 	// look up effective device annotation and unmarshal devices
 	for _, key = range []string{
 		netdeviceKey + "/pod",
+		oldNetdeviceKey + "/pod",
 		netdeviceKey,
+		oldNetdeviceKey,
 	} {
 		if value, ok := annotations[key]; ok {
 			annotation = []byte(value)

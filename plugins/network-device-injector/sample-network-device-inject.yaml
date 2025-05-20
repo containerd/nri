@@ -11,7 +11,7 @@ metadata:
   labels:
     app: bbdev0
   annotations:
-    netdevices.nri.io: |+
+    netdevices.noderesource.dev: |+
       - name: dummy0
         new_name: eth33
         address: 192.168.2.2

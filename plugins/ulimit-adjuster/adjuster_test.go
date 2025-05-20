@@ -42,7 +42,7 @@ func TestParseAnnotations(t *testing.T) {
 		"one-valid": {
 			container: "foo",
 			annotations: map[string]string{
-				"ulimits.nri.containerd.io/container.foo": `
+				"ulimits.noderesource.dev/container.foo": `
 - type: RLIMIT_NOFILE
   soft: 123
   hard: 456
@@ -56,7 +56,7 @@ func TestParseAnnotations(t *testing.T) {
 		"multiple-valid": {
 			container: "foo",
 			annotations: map[string]string{
-				"ulimits.nri.containerd.io/container.foo": `
+				"ulimits.noderesource.dev/container.foo": `
 - type: RLIMIT_NOFILE
   soft: 123
   hard: 456
@@ -77,7 +77,7 @@ func TestParseAnnotations(t *testing.T) {
 		"missing-prefix": {
 			container: "foo",
 			annotations: map[string]string{
-				"ulimits.nri.containerd.io/container.foo": `
+				"ulimits.noderesource.dev/container.foo": `
 - type: AS
   soft: 123
   hard: 456
@@ -91,7 +91,7 @@ func TestParseAnnotations(t *testing.T) {
 		"lower-case": {
 			container: "foo",
 			annotations: map[string]string{
-				"ulimits.nri.containerd.io/container.foo": `
+				"ulimits.noderesource.dev/container.foo": `
 - type: rlimit_core
   soft: 123
   hard: 456
@@ -105,7 +105,7 @@ func TestParseAnnotations(t *testing.T) {
 		"lower-case-missing-prefix": {
 			container: "foo",
 			annotations: map[string]string{
-				"ulimits.nri.containerd.io/container.foo": `
+				"ulimits.noderesource.dev/container.foo": `
 - type: cpu
   soft: 123
   hard: 456
@@ -119,7 +119,7 @@ func TestParseAnnotations(t *testing.T) {
 		"invalid-prefix": {
 			container: "foo",
 			annotations: map[string]string{
-				"ulimits.nri.containerd.io/container.foo": `
+				"ulimits.noderesource.dev/container.foo": `
 - type: ULIMIT_NOFILE
   soft: 123
   hard: 456
@@ -129,7 +129,7 @@ func TestParseAnnotations(t *testing.T) {
 		"invalid-rlimit": {
 			container: "foo",
 			annotations: map[string]string{
-				"ulimits.nri.containerd.io/container.foo": `
+				"ulimits.noderesource.dev/container.foo": `
 - type: RLIMIT_FOO
   soft: 123
   hard: 456
@@ -139,7 +139,7 @@ func TestParseAnnotations(t *testing.T) {
 		"one-invalid": {
 			container: "foo",
 			annotations: map[string]string{
-				"ulimits.nri.containerd.io/container.foo": `
+				"ulimits.noderesource.dev/container.foo": `
 - type: RLIMIT_NICE
   soft: 456
   hard: 789

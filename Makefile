@@ -80,10 +80,14 @@ FORCE:
 #
 
 build-proto: check-protoc install-ttrpc-plugin install-wasm-plugin install-protoc-dependencies
-	for src in $(PROTO_SOURCES); do \
+	$(Q)for src in $(PROTO_SOURCES); do \
+	        echo "Proto-compiling $$src..."; \
 		$(PROTO_COMPILE) $$src; \
+		ttrpc=$(dirname $$src)api_ttrpc.pb.go && \
+		if [ -f "$$ttrpc" ]; then \
+	            sed -i '1s;^;//go:build !wasip1\n\n;' $$ttrpc; \
+		fi; \
 	done
-	sed -i '1s;^;//go:build !wasip1\n\n;' pkg/api/api_ttrpc.pb.go
 
 .PHONY: build-proto-dockerized
 build-proto-dockerized:

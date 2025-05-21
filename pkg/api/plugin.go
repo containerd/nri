@@ -31,6 +31,8 @@ const (
 	PluginNameEnvVar = "NRI_PLUGIN_NAME"
 	// PluginIdxEnvVar is used to inform NRI-launched plugins about their ID.
 	PluginIdxEnvVar = "NRI_PLUGIN_IDX"
+	// PluginAuthFileEnvVar causes authentication keys to be fetch from the named file.
+	PluginAuthFileEnvVar = "NRI_PLUGIN_AUTH_FILE"
 )
 
 // ParsePluginName parses the (file)name of a plugin into an index and a base.

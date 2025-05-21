@@ -81,17 +81,20 @@ FORCE:
 #
 
 build-proto: check-protoc install-ttrpc-plugin install-wasm-plugin install-protoc-dependencies build-protoc-gen-strip build-protoc-gen-owners
-	for src in $(PROTO_SOURCES); do \
-		$(PROTO_COMPILE) \
-			--plugin=protoc-gen-strip=$(abspath $(BIN_PATH)/protoc-gen-strip) \
-			--strip_out=pkg/api \
-			--strip_opt=file=strip.go \
-			--plugin=protoc-gen-owners=$(abspath $(BIN_PATH)/protoc-gen-owners) \
-			--owners_out=pkg/api \
-			--owners_opt=file=owners_generated.go \
-			$$src; \
+	$(Q)for src in $(PROTO_SOURCES); do \
+	    case $$src in \
+	        *pkg/api/*) \
+	            strip_opts="--plugin=protoc-gen-strip=$(abspath $(BIN_PATH)/protoc-gen-strip) --strip_out=pkg/api --strip_opt=file=strip.go"; \
+                    ownergen_opts="--plugin=protoc-gen-owners=$(abspath $(BIN_PATH)/protoc-gen-owners) --owners_out=pkg/api --owners_opt=file=owners_generated.go";; \
+	        *) strip_opts=""; ownergen_opts="";; \
+	    esac; \
+	    echo "Proto-compiling $$src..."; \
+		$(PROTO_COMPILE) $$strip_opts $$ownergen_opts $$src; \
+		ttrpc=$(dirname $$src)api_ttrpc.pb.go && \
+		if [ -f "$$ttrpc" ]; then \
+	            sed -i '1s;^;//go:build !wasip1\n\n;' $$ttrpc; \
+		fi; \
 	done
-	sed -i '1s;^;//go:build !wasip1\n\n;' pkg/api/api_ttrpc.pb.go
 
 .PHONY: build-proto-dockerized
 build-proto-dockerized:

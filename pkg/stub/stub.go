@@ -504,7 +504,7 @@ func (stub *stub) Run(ctx context.Context) error {
 
 	err = <-stub.srvErrC
 	if err == ttrpc.ErrServerClosed {
-		return nil
+		log.Infof(noCtx, "ttrpc server closed %s : %v", stub.Name(), err)
 	}
 
 	return err
@@ -591,8 +591,6 @@ func (stub *stub) connClosed() {
 		stub.onClose()
 		return
 	}
-
-	os.Exit(0)
 }
 
 //

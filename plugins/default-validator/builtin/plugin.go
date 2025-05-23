@@ -26,12 +26,13 @@ import (
 )
 
 type (
-	DefaultValidatorConfig = validator.DefaultValidatorConfig
+	Config        = validator.Config
+	DefaultConfig = validator.DefaultConfig
 )
 
 // GetDefaultValidator returns a configured instance of the default validator.
 // If default validation is disabled nil is returned.
-func GetDefaultValidator(cfg *DefaultValidatorConfig) *builtin.BuiltinPlugin {
+func GetDefaultValidator(cfg *DefaultConfig) *builtin.BuiltinPlugin {
 	if cfg == nil || !cfg.Enable {
 		log.Infof(context.TODO(), "built-in NRI default validator is disabled")
 		return nil

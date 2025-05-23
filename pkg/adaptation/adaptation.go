@@ -137,7 +137,7 @@ func WithBuiltinPlugins(plugins ...*builtin.BuiltinPlugin) Option {
 }
 
 // WithDefaultValidator sets up builtin validator plugin if it is configured.
-func WithDefaultValidator(cfg *validator.DefaultValidatorConfig) Option {
+func WithDefaultValidator(cfg *validator.DefaultConfig) Option {
 	return func(r *Adaptation) error {
 		if plugin := validator.GetDefaultValidator(cfg); plugin != nil {
 			r.builtin = append([]*builtin.BuiltinPlugin{plugin}, r.builtin...)

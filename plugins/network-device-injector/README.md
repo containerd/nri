@@ -21,7 +21,8 @@ and any modification can impact the existing system networking.
 
 ### Network Device Annotations
 
-Network devices are annotated using the `netdevices.nri.containerd.io` annotation key prefix.
+Network devices are annotated using the `netdevices.noderesource.dev` annotation key prefix.
+For compatibility with older versions of this plugin, the `netdevices.nri.containerd.io` annotation key prefix is also accepted.
 Network devices are defined at the Pod level, since are part of the network namespace.
 
 The annotation syntax for network device injection is

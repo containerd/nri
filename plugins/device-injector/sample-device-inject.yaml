@@ -11,17 +11,17 @@ metadata:
   labels:
     app: bbdev0
   annotations:
-    devices.nri.io/container.c0: |+
+    devices.noderesource.dev/container.c0: |+
       - path: /dev/nri-null
         type: c
         major: 1
         minor: 3
-    devices.nri.io/container.c1: |+
+    devices.noderesource.dev/container.c1: |+
       - path: /dev/nri-zero
         type: c
         major: 1
         minor: 5
-    mounts.nri.io/container.c2: |+
+    mounts.noderesource.dev/container.c2: |+
       - source: /home
         destination: /host-home
         type: bind

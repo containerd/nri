@@ -39,7 +39,7 @@ func TestParseDevices(t *testing.T) {
 		{
 			name: "a single annotated device",
 			annotations: map[string]string{
-				"devices.nri.io/container.ctr0": `
+				"devices.noderesource.dev/container.ctr0": `
 - path: /dev/test-null
   type: c
   major: 1
@@ -58,7 +58,7 @@ func TestParseDevices(t *testing.T) {
 		{
 			name: "multiple annotated devices",
 			annotations: map[string]string{
-				"devices.nri.io/container.ctr0": `
+				"devices.noderesource.dev/container.ctr0": `
 - path: /dev/test-null
   type: c
   major: 1
@@ -87,7 +87,7 @@ func TestParseDevices(t *testing.T) {
 		{
 			name: "annotated devices for non-matching container name",
 			annotations: map[string]string{
-				"devices.nri.io/container.ctr1": `
+				"devices.noderesource.dev/container.ctr1": `
 - path: /dev/test-null
   type: c
   major: 1
@@ -97,6 +97,76 @@ func TestParseDevices(t *testing.T) {
   major: 1
   minor: 5
 `,
+			},
+		},
+		{
+			name: "prefer new key for equal specificity",
+			annotations: map[string]string{
+				"devices.noderesource.dev/container.ctr0": `
+- path: /dev/test-null
+  type: c
+  major: 1
+  minor: 3
+`,
+				"devices.nri.io/container.ctr0": `
+- path: /dev/test-zero
+  type: c
+  major: 1
+  minor: 5`,
+			},
+			result: []device{
+				{
+					Path:  "/dev/test-null",
+					Type:  "c",
+					Major: 1,
+					Minor: 3,
+				},
+			},
+		},
+		{
+			name: "prefer more specific key",
+			annotations: map[string]string{
+				"devices.noderesource.dev/pod": `
+- path: /dev/test-zero
+  type: c
+  major: 1
+  minor: 5`,
+				"devices.noderesource.dev/container.ctr0": `
+- path: /dev/test-null
+  type: c
+  major: 1
+  minor: 3`,
+			},
+			result: []device{
+				{
+					Path:  "/dev/test-null",
+					Type:  "c",
+					Major: 1,
+					Minor: 3,
+				},
+			},
+		},
+		{
+			name: "prefer more specific key even if old",
+			annotations: map[string]string{
+				"devices.noderesource.dev/pod": `
+- path: /dev/test-zero
+  type: c
+  major: 1
+  minor: 5`,
+				"devices.nri.io/container.ctr0": `
+- path: /dev/test-null
+  type: c
+  major: 1
+  minor: 3`,
+			},
+			result: []device{
+				{
+					Path:  "/dev/test-null",
+					Type:  "c",
+					Major: 1,
+					Minor: 3,
+				},
 			},
 		},
 	} {
@@ -153,6 +223,48 @@ func TestParseCDIDevices(t *testing.T) {
 - vendor0.com/device=null
 - vendor0.com/device=zero
 `,
+			},
+		},
+		{
+			name: "prefer new key for equal specificity",
+			annotations: map[string]string{
+				"cdi-devices.nri.io/container.ctr0": `
+- - vendor0.com/device=zero
+`,
+				"cdi-devices.noderesource.dev/container.ctr0": `
+- vendor0.com/device=null
+`,
+			},
+			result: []string{
+				"vendor0.com/device=null",
+			},
+		},
+		{
+			name: "prefer more specific key",
+			annotations: map[string]string{
+				"cdi-devices.noderesource.dev/pod": `
+- - vendor0.com/device=zero
+`,
+				"cdi-devices.noderesource.dev/container.ctr0": `
+- vendor0.com/device=null
+`,
+			},
+			result: []string{
+				"vendor0.com/device=null",
+			},
+		},
+		{
+			name: "prefer more specific key even if old",
+			annotations: map[string]string{
+				"cdi-devices.noderesource.dev/pod": `
+- - vendor0.com/device=zero
+`,
+				"cdi-devices.nri.io/container.ctr0": `
+- vendor0.com/device=null
+`,
+			},
+			result: []string{
+				"vendor0.com/device=null",
 			},
 		},
 	} {
@@ -255,6 +367,99 @@ func TestParseMounts(t *testing.T) {
     - bind
     - ro
 `,
+			},
+		},
+		{
+			name: "prefer new key for equal specificity",
+			annotations: map[string]string{
+				"mounts.nri.io/container.ctr0": `
+- source: /bar
+  destination: /host/bar
+  type: bind
+  options:
+    - bind
+`,
+				"mounts.noderesource.dev/container.ctr0": `
+- source: /foo
+  destination: /host/foo
+  type: bind
+  options:
+    - bind
+    - ro
+`,
+			},
+			result: []mount{
+				{
+					Source:      "/foo",
+					Destination: "/host/foo",
+					Type:        "bind",
+					Options: []string{
+						"bind",
+						"ro",
+					},
+				},
+			},
+		},
+		{
+			name: "prefer more specific key",
+			annotations: map[string]string{
+				"mounts.noderesource.dev/pod": `
+- source: /bar
+  destination: /host/bar
+  type: bind
+  options:
+    - bind
+`,
+				"mounts.noderesource.dev/container.ctr0": `
+- source: /foo
+  destination: /host/foo
+  type: bind
+  options:
+    - bind
+    - ro
+`,
+			},
+			result: []mount{
+				{
+					Source:      "/foo",
+					Destination: "/host/foo",
+					Type:        "bind",
+					Options: []string{
+						"bind",
+						"ro",
+					},
+				},
+			},
+		},
+		{
+			name: "prefer more specific key even if old",
+			annotations: map[string]string{
+				"mounts.noderesource.dev/pod": `
+- source: /bar
+  destination: /host/bar
+  type: bind
+  options:
+    - bind
+`,
+				"mounts.nri.io/container.ctr0": `
+- source: /foo
+  destination: /host/foo
+  type: bind
+  options:
+    - bind
+    - ro
+`,
+			},
+			result: []mount{
+				{
+					Source:      "/foo",
+					Destination: "/host/foo",
+					Type:        "bind",
+					Options: []string{
+						"bind",
+						"ro",
+					},
+				},
 			},
 		},
 	} {

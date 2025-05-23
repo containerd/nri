@@ -245,7 +245,7 @@ func TestValidateRequiredPlugins(t *testing.T) {
 				}
 			)
 
-			err := v.validateRequiredPlugins(req)
+			err := v.validateRequiredPlugins(req, req.GetPluginMap())
 			if tc.fail {
 				require.Error(t, err)
 			} else {
@@ -271,8 +271,10 @@ func TestValidateSysctl(t *testing.T) {
 		{
 			name: "disallowed sysctl adjustment",
 			cfg: &DefaultValidatorConfig{
-				Enable:                 true,
-				RejectSysctlAdjustment: true,
+				Enable: true,
+				Config: &Config{
+					RejectSysctlAdjustment: func() *bool { v := true; return &v }(),
+				},
 			},
 			pod: &api.PodSandbox{
 				Id:        "pod-id",
@@ -323,7 +325,7 @@ func TestValidateSysctl(t *testing.T) {
 				Owners:    owners,
 			}
 
-			err := v.validateSysctl(req)
+			err := v.validateSysctl(req, nil)
 			if tc.fail {
 				require.Error(t, err)
 			} else {

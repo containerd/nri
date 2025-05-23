@@ -1228,8 +1228,10 @@ var _ = Describe("Plugin container creation adjustments", func() {
 					options: []nri.Option{
 						nri.WithDefaultValidator(
 							&validator.DefaultValidatorConfig{
-								Enable:                  true,
-								RejectOCIHookAdjustment: true,
+								Enable: true,
+								Config: &validator.Config{
+									RejectOCIHookAdjustment: boolptr(true),
+								},
 							},
 						),
 					},
@@ -1321,8 +1323,10 @@ var _ = Describe("Plugin container creation adjustments", func() {
 					options: []nri.Option{
 						nri.WithDefaultValidator(
 							&validator.DefaultValidatorConfig{
-								Enable:                                true,
-								RejectRuntimeDefaultSeccompAdjustment: true,
+								Enable: true,
+								Config: &validator.Config{
+									RejectRuntimeDefaultSeccompAdjustment: boolptr(true),
+								},
 							},
 						),
 					},
@@ -1424,8 +1428,10 @@ var _ = Describe("Plugin container creation adjustments", func() {
 					options: []nri.Option{
 						nri.WithDefaultValidator(
 							&validator.DefaultValidatorConfig{
-								Enable:                                true,
-								RejectRuntimeDefaultSeccompAdjustment: false,
+								Enable: true,
+								Config: &validator.Config{
+									RejectRuntimeDefaultSeccompAdjustment: boolptr(false),
+								},
 							},
 						),
 					},
@@ -1527,8 +1533,10 @@ var _ = Describe("Plugin container creation adjustments", func() {
 					options: []nri.Option{
 						nri.WithDefaultValidator(
 							&validator.DefaultValidatorConfig{
-								Enable:                        true,
-								RejectCustomSeccompAdjustment: true,
+								Enable: true,
+								Config: &validator.Config{
+									RejectCustomSeccompAdjustment: boolptr(true),
+								},
 							},
 						),
 					},
@@ -1631,8 +1639,10 @@ var _ = Describe("Plugin container creation adjustments", func() {
 					options: []nri.Option{
 						nri.WithDefaultValidator(
 							&validator.DefaultValidatorConfig{
-								Enable:                        true,
-								RejectCustomSeccompAdjustment: false,
+								Enable: true,
+								Config: &validator.Config{
+									RejectCustomSeccompAdjustment: boolptr(false),
+								},
 							},
 						),
 					},
@@ -1735,8 +1745,10 @@ var _ = Describe("Plugin container creation adjustments", func() {
 					options: []nri.Option{
 						nri.WithDefaultValidator(
 							&validator.DefaultValidatorConfig{
-								Enable:                            true,
-								RejectUnconfinedSeccompAdjustment: true,
+								Enable: true,
+								Config: &validator.Config{
+									RejectUnconfinedSeccompAdjustment: boolptr(true),
+								},
 							},
 						),
 					},
@@ -1838,8 +1850,10 @@ var _ = Describe("Plugin container creation adjustments", func() {
 					options: []nri.Option{
 						nri.WithDefaultValidator(
 							&validator.DefaultValidatorConfig{
-								Enable:                            true,
-								RejectUnconfinedSeccompAdjustment: false,
+								Enable: true,
+								Config: &validator.Config{
+									RejectUnconfinedSeccompAdjustment: boolptr(false),
+								},
 							},
 						),
 					},
@@ -1941,8 +1955,10 @@ var _ = Describe("Plugin container creation adjustments", func() {
 					options: []nri.Option{
 						nri.WithDefaultValidator(
 							&validator.DefaultValidatorConfig{
-								Enable:                    true,
-								RejectNamespaceAdjustment: true,
+								Enable: true,
+								Config: &validator.Config{
+									RejectNamespaceAdjustment: boolptr(true),
+								},
 							},
 						),
 					},
@@ -3396,4 +3412,8 @@ func protoDiff(a, b proto.Message) string {
 
 func protoEqual(a, b proto.Message) bool {
 	return cmp.Equal(a, b, cmpopts.EquateEmpty(), protocmp.Transform())
+}
+
+func boolptr(v bool) *bool {
+	return &v
 }

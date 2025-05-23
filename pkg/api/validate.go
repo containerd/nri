@@ -48,3 +48,17 @@ func (v *ValidateContainerAdjustmentResponse) ValidationResult(plugin string) er
 
 	return fmt.Errorf("validator %q rejected container adjustment, reason: %s", plugin, reason)
 }
+
+func (v *ValidateContainerAdjustmentRequest) GetPluginMap() map[string]*PluginInstance {
+	if v == nil {
+		return nil
+	}
+
+	plugins := make(map[string]*PluginInstance)
+	for _, p := range v.Plugins {
+		plugins[p.Name] = &PluginInstance{Name: p.Name}
+		plugins[p.Index+"-"+p.Name] = p
+	}
+
+	return plugins
+}

@@ -28,6 +28,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/containerd/nri/pkg/adaptation/builtin"
 	"github.com/containerd/nri/pkg/api"
 	"github.com/containerd/nri/pkg/log"
 	"github.com/containerd/nri/pkg/net"
@@ -165,6 +166,20 @@ func (r *Adaptation) newLaunchedPlugin(dir, idx, base, cfg string) (p *plugin, r
 	return p, nil
 }
 
+func (r *Adaptation) newBuiltinPlugin(b *builtin.BuiltinPlugin) (*plugin, error) {
+	if b.Base == "" || b.Index == "" {
+		return nil, fmt.Errorf("builtin plugin without index or name (%q, %q)", b.Index, b.Base)
+	}
+
+	return &plugin{
+		idx:    b.Index,
+		base:   b.Base,
+		closeC: make(chan struct{}),
+		r:      r,
+		impl:   &pluginType{builtinImpl: b},
+	}, nil
+}
+
 func isWasm(path string) bool {
 	file, err := os.Open(path)
 	if err != nil {
@@ -296,7 +311,7 @@ func (p *plugin) connect(conn stdnet.Conn) (retErr error) {
 
 // Start Runtime service, wait for plugin to register, then configure it.
 func (p *plugin) start(name, version string) (err error) {
-	// skip start for WASM plugins and head right to the registration for
+	// skip start for WASM and builtin plugins and head right to the registration for
 	// events config
 	if p.impl.isTtrpc() {
 		var (
@@ -340,7 +355,7 @@ func (p *plugin) start(name, version string) (err error) {
 
 // close a plugin shutting down its multiplexed ttrpc connections.
 func (p *plugin) close() {
-	if p.impl.isWasm() {
+	if p.impl.isWasm() || p.impl.isBuiltin() {
 		p.closed = true
 		return
 	}
@@ -366,7 +381,7 @@ func (p *plugin) isClosed() bool {
 
 // stop a plugin (if it was launched by us)
 func (p *plugin) stop() error {
-	if p.isExternal() || p.cmd.Process == nil || p.impl.isWasm() {
+	if p.isExternal() || p.cmd.Process == nil || p.impl.isWasm() || p.impl.isBuiltin() {
 		return nil
 	}
 
@@ -389,11 +404,20 @@ func (p *plugin) name() string {
 }
 
 func (p *plugin) qualifiedName() string {
-	var kind, idx, base string
-	if p.isExternal() {
-		kind = "external"
+	var kind, idx, base, pid string
+	if p.impl.isBuiltin() {
+		kind = "builtin"
 	} else {
-		kind = "pre-connected"
+		if p.isExternal() {
+			kind = "external"
+		} else {
+			kind = "pre-connected"
+		}
+		if p.impl.isWasm() {
+			kind += "-wasm"
+		} else {
+			pid = "[" + strconv.Itoa(p.pid) + "]"
+		}
 	}
 	if idx = p.idx; idx == "" {
 		idx = "??"
@@ -401,7 +425,7 @@ func (p *plugin) qualifiedName() string {
 	if base = p.base; base == "" {
 		base = "plugin"
 	}
-	return kind + ":" + idx + "-" + base + "[" + strconv.Itoa(p.pid) + "]"
+	return kind + ":" + idx + "-" + base + pid
 }
 
 // RegisterPlugin handles the plugin's registration request.

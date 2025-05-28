@@ -32,7 +32,8 @@ import (
 )
 
 const (
-	ulimitKey    = "ulimits.nri.containerd.io"
+	ulimitKey    = "ulimits.noderesource.dev"
+	oldUlimitKey = "ulimits.nri.containerd.io" // Deprecated
 	rlimitPrefix = "RLIMIT_"
 )
 
@@ -138,10 +139,20 @@ type ulimit struct {
 }
 
 func parseUlimits(ctx context.Context, container string, annotations map[string]string) ([]ulimit, error) {
-	key := ulimitKey + "/container." + container
-	val, ok := annotations[key]
-	if !ok {
-		log.G(ctx).Debugf("no annotations found with key %q", key)
+	keys := []string{
+		ulimitKey + "/container." + container,
+		oldUlimitKey + "/container." + container,
+	}
+	var val string
+	var ok bool
+	for _, key := range keys {
+		val, ok = annotations[key]
+		if ok {
+			break
+		}
+	}
+	if val == "" {
+		log.G(ctx).Debugf("no annotations found with keys %v", keys)
 		return nil, nil
 	}
 	ulimits := make([]ulimit, 0)

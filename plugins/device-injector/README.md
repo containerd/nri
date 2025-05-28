@@ -5,14 +5,33 @@ containers using pod annotations.
 
 ### Device Annotations
 
-Devices are annotated using the `devices.nri.io` annotation key prefix.
-The key `devices.nri.io/container.$CONTAINER_NAME` annotates devices to
-be injected into `$CONTAINER_NAME`. The keys `devices.nri.io` and
-`devices.nri.io/pod` annotate devices to be injected into containers
-without any other, container-specific device annotations. Only one of
-these latter two annotations will be ever taken into account. If both are
-present, `devices.nri.io/pod` is used and `devices.nri.io` is silently
-ignored, otherwise `devices.nri.io`, in the absence of additional suffix text,  is processed as shorthand for the `devices.nri.io/pod` annotation. The order of precedence is `devices.nri.io/container.$CONTAINER_NAME` is used, unless not present, then `devices.nri.io/pod` followed by the `devices.nri.io` shorthand annotation.
+Devices are annotated using the `devices.noderesource.dev` annotation key
+prefix. The key `devices.noderesource.dev/container.$CONTAINER_NAME` annotates
+devices to be injected into `$CONTAINER_NAME`. The keys
+`devices.noderesource.dev` and `devices.noderesource.dev/pod` annotate devices
+to be injected into containers without any other, container-specific device
+annotations. Only one of these latter two annotations will be ever taken into
+account. If both are present, `devices.noderesource.dev/pod` is used and
+`devices.noderesource.dev` is silently ignored, otherwise
+`devices.noderesource.dev`, in the absence of additional suffix text, is
+processed as shorthand for the `devices.noderesource.dev/pod` annotation.
+
+For compatibility with older versions of this plugin, the prefix
+`devices.nri.io` is also supported and follows identical rules. When
+equivalently-specific annotations are present with both the
+`devices.noderesource.dev` prefix and the `devices.nri.io` prefix, the
+annotation with the `devices.noderesource.dev` prefix is used and
+`devices.nri.io` is silently ignored. In all cases, the most-specific
+annotation is preferred regardless of prefix.
+
+The order of precedence is as follows:
+
+1. `devices.noderesource.dev/container.$CONTAINER_NAME`
+2. `devices.nri.io/container.$CONTAINER_NAME`
+3. `devices.noderesource.dev/pod`
+4. `devices.nri.io/pod`
+5. `devices.noderesource.dev`
+6. `devices.nri.io`
 
 The annotation value syntax for device injection is
 
@@ -33,8 +52,10 @@ The annotation value syntax for device injection is
 ### CDI Device Annotations
 
 CDI devices are annotated in a similar manner to devices, but using the
-`cdi-devices.nri.io` annotation key prefix. The annotation value for CDI
-devices is the list of CDI device names to inject.
+`cdi-devices.noderesource.dev` annotation key prefix. As with devices, the
+`cdi-devices.nri.io` annotation key prefix is also supported.
+
+The annotation value for CDI devices is the list of CDI device names to inject.
 
 For instance, the following annotation
 
@@ -42,29 +63,31 @@ For instance, the following annotation
 metadata:
   name: bash
   annotations:
-    cdi-devices.nri.io/container.c0: |
+    cdi-devices.noderesource.dev/container.c0: |
       - vendor0.com/device=null
-    cdi-devices.nri.io/container.c1: |
+    cdi-devices.noderesource.dev/container.c1: |
       - vendor0.com/device=zero
-    cdi-devices.nri.io/container.c2: |
+    cdi-devices.noderesource.dev/container.c2: |
       - vendor0.com/device=dev0
       - vendor1.com/device=dev0
       - vendor1.com/device=dev1
-    cdi-devices.nri.io/container.mgmt: |
+    cdi-devices.noderesource.dev/container.mgmt: |
       - vendor0.com/device=all
 ```
 
-requests the injection of the CDI device vendor0.com/device=null to container
-c0, the injection of the CDI device vendor0.com/device=zero to container c1,
-the injection of the CDI devices vendor0.com/device=dev0, vendor1.com/device=dev0
-and vendor1.com/device=dev1 to container c2, and the injection of the CDI device
-vendor0.com/device=all to container mgmt.
+requests the injection of the CDI device `vendor0.com/device=null` to container
+c0, the injection of the CDI device `vendor0.com/device=zero` to container c1,
+the injection of the CDI devices `vendor0.com/device=dev0`,
+`vendor1.com/device=dev0` and `vendor1.com/device=dev1` to container c2, and
+the injection of the CDI device `vendor0.com/device=all` to container mgmt.
 
 ### Mount Annotations
 
 Mounts are annotated in a similar manner to devices, but using the
-`mounts.nri.io` annotation key prefix. The annotation value syntax for mount
-injection is
+`mounts.noderesource.dev` annotation key prefix. As with devices, the
+`mounts.nri.io` annotation key prefix is also supported.
+
+The annotation value syntax for mount injection is
 
 ```
   - source: <mount source0>

@@ -31,12 +31,18 @@ import (
 )
 
 const (
-	// Prefix of the key used for device annotations.
-	deviceKey = "devices.nri.io"
-	// Prefix of the key used for mount annotations.
-	mountKey = "mounts.nri.io"
-	// Prefix of the key used for CDI device annotations.
-	cdiDeviceKey = "cdi-devices.nri.io"
+	// deviceKey is the prefix of the key used for device annotations.
+	deviceKey = "devices.noderesource.dev"
+	// Deprecated: Prefix of the key used for device annotations.
+	oldDeviceKey = "devices.nri.io"
+	// mountKey is the prefix of the key used for mount annotations.
+	mountKey = "mounts.noderesource.dev"
+	// Deprecated: Prefix of the key used for mount annotations.
+	oldMountKey = "mounts.nri.io"
+	// cdiDeviceKey is the prefix of the key used for CDI device annotations.
+	cdiDeviceKey = "cdi-devices.noderesource.dev"
+	// Deprecated: Prefix of the key used for CDI device annotations.
+	oldCDIDeviceKey = "cdi-devices.nri.io"
 )
 
 var (
@@ -125,8 +131,8 @@ func parseDevices(ctr string, annotations map[string]string) ([]device, error) {
 		devices []device
 	)
 
-	annotation := getAnnotation(annotations, deviceKey, ctr)
-	if annotation == nil {
+	annotation := getAnnotation(annotations, deviceKey, oldDeviceKey, ctr)
+	if len(annotation) == 0 {
 		return nil, nil
 	}
 
@@ -171,8 +177,8 @@ func parseCDIDevices(ctr string, annotations map[string]string) ([]string, error
 		cdiDevices []string
 	)
 
-	annotation := getAnnotation(annotations, cdiDeviceKey, ctr)
-	if annotation == nil {
+	annotation := getAnnotation(annotations, cdiDeviceKey, oldCDIDeviceKey, ctr)
+	if len(annotation) == 0 {
 		return nil, nil
 	}
 
@@ -214,8 +220,8 @@ func parseMounts(ctr string, annotations map[string]string) ([]mount, error) {
 		mounts []mount
 	)
 
-	annotation := getAnnotation(annotations, mountKey, ctr)
-	if annotation == nil {
+	annotation := getAnnotation(annotations, mountKey, oldMountKey, ctr)
+	if len(annotation) == 0 {
 		return nil, nil
 	}
 
@@ -226,11 +232,14 @@ func parseMounts(ctr string, annotations map[string]string) ([]mount, error) {
 	return mounts, nil
 }
 
-func getAnnotation(annotations map[string]string, mainKey, ctr string) []byte {
+func getAnnotation(annotations map[string]string, mainKey, oldKey, ctr string) []byte {
 	for _, key := range []string{
 		mainKey + "/container." + ctr,
+		oldKey + "/container." + ctr,
 		mainKey + "/pod",
+		oldKey + "/pod",
 		mainKey,
+		oldKey,
 	} {
 		if value, ok := annotations[key]; ok {
 			return []byte(value)

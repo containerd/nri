@@ -38,266 +38,274 @@ func NewOwningPlugins() *OwningPlugins {
 }
 
 func (o *OwningPlugins) ClaimAnnotation(id, key, plugin string) error {
-	return o.OwnersFor(id).ClaimAnnotation(key, plugin)
+	return o.mustOwnersFor(id).ClaimAnnotation(key, plugin)
 }
 
 func (o *OwningPlugins) ClaimMount(id, destination, plugin string) error {
-	return o.OwnersFor(id).ClaimMount(destination, plugin)
+	return o.mustOwnersFor(id).ClaimMount(destination, plugin)
 }
 
 func (o *OwningPlugins) ClaimHooks(id, plugin string) error {
-	return o.OwnersFor(id).ClaimHooks(plugin)
+	return o.mustOwnersFor(id).ClaimHooks(plugin)
 }
 
 func (o *OwningPlugins) ClaimDevice(id, path, plugin string) error {
-	return o.OwnersFor(id).ClaimDevice(path, plugin)
+	return o.mustOwnersFor(id).ClaimDevice(path, plugin)
 }
 
 func (o *OwningPlugins) ClaimCdiDevice(id, name, plugin string) error {
-	return o.OwnersFor(id).ClaimCdiDevice(name, plugin)
+	return o.mustOwnersFor(id).ClaimCdiDevice(name, plugin)
 }
 
 func (o *OwningPlugins) ClaimEnv(id, name, plugin string) error {
-	return o.OwnersFor(id).ClaimEnv(name, plugin)
+	return o.mustOwnersFor(id).ClaimEnv(name, plugin)
 }
 
 func (o *OwningPlugins) ClaimArgs(id, plugin string) error {
-	return o.OwnersFor(id).ClaimArgs(plugin)
+	return o.mustOwnersFor(id).ClaimArgs(plugin)
 }
 
 func (o *OwningPlugins) ClaimMemLimit(id, plugin string) error {
-	return o.OwnersFor(id).ClaimMemLimit(plugin)
+	return o.mustOwnersFor(id).ClaimMemLimit(plugin)
 }
 
 func (o *OwningPlugins) ClaimMemReservation(id, plugin string) error {
-	return o.OwnersFor(id).ClaimMemReservation(plugin)
+	return o.mustOwnersFor(id).ClaimMemReservation(plugin)
 }
 
 func (o *OwningPlugins) ClaimMemSwapLimit(id, plugin string) error {
-	return o.OwnersFor(id).ClaimMemSwapLimit(plugin)
+	return o.mustOwnersFor(id).ClaimMemSwapLimit(plugin)
 }
 
 func (o *OwningPlugins) ClaimMemKernelLimit(id, plugin string) error {
-	return o.OwnersFor(id).ClaimMemKernelLimit(plugin)
+	return o.mustOwnersFor(id).ClaimMemKernelLimit(plugin)
 }
 
 func (o *OwningPlugins) ClaimMemTCPLimit(id, plugin string) error {
-	return o.OwnersFor(id).ClaimMemTCPLimit(plugin)
+	return o.mustOwnersFor(id).ClaimMemTCPLimit(plugin)
 }
 
 func (o *OwningPlugins) ClaimMemSwappiness(id, plugin string) error {
-	return o.OwnersFor(id).ClaimMemSwappiness(plugin)
+	return o.mustOwnersFor(id).ClaimMemSwappiness(plugin)
 }
 
 func (o *OwningPlugins) ClaimMemDisableOomKiller(id, plugin string) error {
-	return o.OwnersFor(id).ClaimMemDisableOomKiller(plugin)
+	return o.mustOwnersFor(id).ClaimMemDisableOomKiller(plugin)
 }
 
 func (o *OwningPlugins) ClaimMemUseHierarchy(id, plugin string) error {
-	return o.OwnersFor(id).ClaimMemUseHierarchy(plugin)
+	return o.mustOwnersFor(id).ClaimMemUseHierarchy(plugin)
 }
 
 func (o *OwningPlugins) ClaimCPUShares(id, plugin string) error {
-	return o.OwnersFor(id).ClaimCPUShares(plugin)
+	return o.mustOwnersFor(id).ClaimCPUShares(plugin)
 }
 
 func (o *OwningPlugins) ClaimCPUQuota(id, plugin string) error {
-	return o.OwnersFor(id).ClaimCPUQuota(plugin)
+	return o.mustOwnersFor(id).ClaimCPUQuota(plugin)
 }
 
 func (o *OwningPlugins) ClaimCPUPeriod(id, plugin string) error {
-	return o.OwnersFor(id).ClaimCPUPeriod(plugin)
+	return o.mustOwnersFor(id).ClaimCPUPeriod(plugin)
 }
 
 func (o *OwningPlugins) ClaimCPURealtimeRuntime(id, plugin string) error {
-	return o.OwnersFor(id).ClaimCPURealtimeRuntime(plugin)
+	return o.mustOwnersFor(id).ClaimCPURealtimeRuntime(plugin)
 }
 
 func (o *OwningPlugins) ClaimCPURealtimePeriod(id, plugin string) error {
-	return o.OwnersFor(id).ClaimCPURealtimePeriod(plugin)
+	return o.mustOwnersFor(id).ClaimCPURealtimePeriod(plugin)
 }
 
 func (o *OwningPlugins) ClaimCPUSetCPUs(id, plugin string) error {
-	return o.OwnersFor(id).ClaimCPUSetCPUs(plugin)
+	return o.mustOwnersFor(id).ClaimCPUSetCPUs(plugin)
 }
 
 func (o *OwningPlugins) ClaimCPUSetMems(id, plugin string) error {
-	return o.OwnersFor(id).ClaimCPUSetMems(plugin)
+	return o.mustOwnersFor(id).ClaimCPUSetMems(plugin)
 }
 
 func (o *OwningPlugins) ClaimPidsLimit(id, plugin string) error {
-	return o.OwnersFor(id).ClaimPidsLimit(plugin)
+	return o.mustOwnersFor(id).ClaimPidsLimit(plugin)
 }
 
 func (o *OwningPlugins) ClaimHugepageLimit(id, size, plugin string) error {
-	return o.OwnersFor(id).ClaimHugepageLimit(size, plugin)
+	return o.mustOwnersFor(id).ClaimHugepageLimit(size, plugin)
 }
 
 func (o *OwningPlugins) ClaimBlockioClass(id, plugin string) error {
-	return o.OwnersFor(id).ClaimBlockioClass(plugin)
+	return o.mustOwnersFor(id).ClaimBlockioClass(plugin)
 }
 
 func (o *OwningPlugins) ClaimRdtClass(id, plugin string) error {
-	return o.OwnersFor(id).ClaimRdtClass(plugin)
+	return o.mustOwnersFor(id).ClaimRdtClass(plugin)
 }
 
 func (o *OwningPlugins) ClaimCgroupsUnified(id, key, plugin string) error {
-	return o.OwnersFor(id).ClaimCgroupsUnified(key, plugin)
+	return o.mustOwnersFor(id).ClaimCgroupsUnified(key, plugin)
 }
 
 func (o *OwningPlugins) ClaimCgroupsPath(id, plugin string) error {
-	return o.OwnersFor(id).ClaimCgroupsPath(plugin)
+	return o.mustOwnersFor(id).ClaimCgroupsPath(plugin)
 }
 
 func (o *OwningPlugins) ClaimOomScoreAdj(id, plugin string) error {
-	return o.OwnersFor(id).ClaimOomScoreAdj(plugin)
+	return o.mustOwnersFor(id).ClaimOomScoreAdj(plugin)
 }
 
 func (o *OwningPlugins) ClaimRlimit(id, typ, plugin string) error {
-	return o.OwnersFor(id).ClaimRlimit(typ, plugin)
+	return o.mustOwnersFor(id).ClaimRlimit(typ, plugin)
 }
 
 func (o *OwningPlugins) ClearAnnotation(id, key, plugin string) {
-	o.OwnersFor(id).ClearAnnotation(key, plugin)
+	o.mustOwnersFor(id).ClearAnnotation(key, plugin)
 }
 
 func (o *OwningPlugins) ClearMount(id, key, plugin string) {
-	o.OwnersFor(id).ClearMount(key, plugin)
+	o.mustOwnersFor(id).ClearMount(key, plugin)
 }
 
 func (o *OwningPlugins) ClearDevice(id, key, plugin string) {
-	o.OwnersFor(id).ClearDevice(key, plugin)
+	o.mustOwnersFor(id).ClearDevice(key, plugin)
 }
 
 func (o *OwningPlugins) ClearEnv(id, key, plugin string) {
-	o.OwnersFor(id).ClearEnv(key, plugin)
+	o.mustOwnersFor(id).ClearEnv(key, plugin)
 }
 
 func (o *OwningPlugins) ClearArgs(id, plugin string) {
-	o.OwnersFor(id).ClearArgs(plugin)
+	o.mustOwnersFor(id).ClearArgs(plugin)
 }
 
 func (o *OwningPlugins) AnnotationOwner(id, key string) (string, bool) {
-	return o.OwnersFor(id).compoundOwner(Field_Annotations.Key(), key)
+	return o.ownersFor(id).compoundOwner(Field_Annotations.Key(), key)
 }
 
 func (o *OwningPlugins) MountOwner(id, destination string) (string, bool) {
-	return o.OwnersFor(id).compoundOwner(Field_Mounts.Key(), destination)
+	return o.ownersFor(id).compoundOwner(Field_Mounts.Key(), destination)
 }
 
 func (o *OwningPlugins) HooksOwner(id string) (string, bool) {
-	return o.OwnersFor(id).simpleOwner(Field_OciHooks.Key())
+	return o.ownersFor(id).simpleOwner(Field_OciHooks.Key())
 }
 
 func (o *OwningPlugins) DeviceOwner(id, path string) (string, bool) {
-	return o.OwnersFor(id).compoundOwner(Field_Devices.Key(), path)
+	return o.ownersFor(id).compoundOwner(Field_Devices.Key(), path)
 }
 
 func (o *OwningPlugins) EnvOwner(id, name string) (string, bool) {
-	return o.OwnersFor(id).compoundOwner(Field_Env.Key(), name)
+	return o.ownersFor(id).compoundOwner(Field_Env.Key(), name)
 }
 
 func (o *OwningPlugins) ArgsOwner(id string) (string, bool) {
-	return o.OwnersFor(id).simpleOwner(Field_Args.Key())
+	return o.ownersFor(id).simpleOwner(Field_Args.Key())
 }
 
 func (o *OwningPlugins) MemLimitOwner(id string) (string, bool) {
-	return o.OwnersFor(id).simpleOwner(Field_MemLimit.Key())
+	return o.ownersFor(id).simpleOwner(Field_MemLimit.Key())
 }
 
 func (o *OwningPlugins) MemReservationOwner(id string) (string, bool) {
-	return o.OwnersFor(id).simpleOwner(Field_MemReservation.Key())
+	return o.ownersFor(id).simpleOwner(Field_MemReservation.Key())
 }
 
 func (o *OwningPlugins) MemSwapLimitOwner(id string) (string, bool) {
-	return o.OwnersFor(id).simpleOwner(Field_MemSwapLimit.Key())
+	return o.ownersFor(id).simpleOwner(Field_MemSwapLimit.Key())
 }
 
 func (o *OwningPlugins) MemKernelLimitOwner(id string) (string, bool) {
-	return o.OwnersFor(id).simpleOwner(Field_MemKernelLimit.Key())
+	return o.ownersFor(id).simpleOwner(Field_MemKernelLimit.Key())
 }
 
 func (o *OwningPlugins) MemTCPLimitOwner(id string) (string, bool) {
-	return o.OwnersFor(id).simpleOwner(Field_MemTCPLimit.Key())
+	return o.ownersFor(id).simpleOwner(Field_MemTCPLimit.Key())
 }
 
 func (o *OwningPlugins) MemSwappinessOwner(id string) (string, bool) {
-	return o.OwnersFor(id).simpleOwner(Field_MemSwappiness.Key())
+	return o.ownersFor(id).simpleOwner(Field_MemSwappiness.Key())
 }
 
 func (o *OwningPlugins) MemDisableOomKillerOwner(id string) (string, bool) {
-	return o.OwnersFor(id).simpleOwner(Field_MemDisableOomKiller.Key())
+	return o.ownersFor(id).simpleOwner(Field_MemDisableOomKiller.Key())
 }
 
 func (o *OwningPlugins) MemUseHierarchyOwner(id string) (string, bool) {
-	return o.OwnersFor(id).simpleOwner(Field_MemUseHierarchy.Key())
+	return o.ownersFor(id).simpleOwner(Field_MemUseHierarchy.Key())
 }
 
 func (o *OwningPlugins) CPUSharesOwner(id string) (string, bool) {
-	return o.OwnersFor(id).simpleOwner(Field_CPUShares.Key())
+	return o.ownersFor(id).simpleOwner(Field_CPUShares.Key())
 }
 
 func (o *OwningPlugins) CPUQuotaOwner(id string) (string, bool) {
-	return o.OwnersFor(id).simpleOwner(Field_CPUQuota.Key())
+	return o.ownersFor(id).simpleOwner(Field_CPUQuota.Key())
 }
 
 func (o *OwningPlugins) CPUPeriodOwner(id string) (string, bool) {
-	return o.OwnersFor(id).simpleOwner(Field_CPUPeriod.Key())
+	return o.ownersFor(id).simpleOwner(Field_CPUPeriod.Key())
 }
 
 func (o *OwningPlugins) CPURealtimeRuntimeOwner(id string) (string, bool) {
-	return o.OwnersFor(id).simpleOwner(Field_CPURealtimeRuntime.Key())
+	return o.ownersFor(id).simpleOwner(Field_CPURealtimeRuntime.Key())
 }
 
 func (o *OwningPlugins) CPURealtimePeriodOwner(id string) (string, bool) {
-	return o.OwnersFor(id).simpleOwner(Field_CPURealtimePeriod.Key())
+	return o.ownersFor(id).simpleOwner(Field_CPURealtimePeriod.Key())
 }
 
 func (o *OwningPlugins) CPUSetCPUsOwner(id string) (string, bool) {
-	return o.OwnersFor(id).simpleOwner(Field_CPUSetCPUs.Key())
+	return o.ownersFor(id).simpleOwner(Field_CPUSetCPUs.Key())
 }
 
 func (o *OwningPlugins) CPUSetMemsOwner(id string) (string, bool) {
-	return o.OwnersFor(id).simpleOwner(Field_CPUSetMems.Key())
+	return o.ownersFor(id).simpleOwner(Field_CPUSetMems.Key())
 }
 
 func (o *OwningPlugins) PidsLimitOwner(id string) (string, bool) {
-	return o.OwnersFor(id).simpleOwner(Field_PidsLimit.Key())
+	return o.ownersFor(id).simpleOwner(Field_PidsLimit.Key())
 }
 
 func (o *OwningPlugins) HugepageLimitOwner(id, size string) (string, bool) {
-	return o.OwnersFor(id).compoundOwner(Field_HugepageLimits.Key(), size)
+	return o.ownersFor(id).compoundOwner(Field_HugepageLimits.Key(), size)
 }
 
 func (o *OwningPlugins) BlockioClassOwner(id string) (string, bool) {
-	return o.OwnersFor(id).simpleOwner(Field_BlockioClass.Key())
+	return o.ownersFor(id).simpleOwner(Field_BlockioClass.Key())
 }
 
 func (o *OwningPlugins) RdtClassOwner(id string) (string, bool) {
-	return o.OwnersFor(id).simpleOwner(Field_RdtClass.Key())
+	return o.ownersFor(id).simpleOwner(Field_RdtClass.Key())
 }
 
 func (o *OwningPlugins) CgroupsUnifiedOwner(id, key string) (string, bool) {
-	return o.OwnersFor(id).compoundOwner(Field_CgroupsUnified.Key(), key)
+	return o.ownersFor(id).compoundOwner(Field_CgroupsUnified.Key(), key)
 }
 
 func (o *OwningPlugins) CgroupsPathOwner(id string) (string, bool) {
-	return o.OwnersFor(id).simpleOwner(Field_CgroupsPath.Key())
+	return o.ownersFor(id).simpleOwner(Field_CgroupsPath.Key())
 }
 
 func (o *OwningPlugins) OomScoreAdjOwner(id string) (string, bool) {
-	return o.OwnersFor(id).simpleOwner(Field_OomScoreAdj.Key())
+	return o.ownersFor(id).simpleOwner(Field_OomScoreAdj.Key())
 }
 
 func (o *OwningPlugins) RlimitOwner(id, typ string) (string, bool) {
-	return o.OwnersFor(id).compoundOwner(Field_Rlimits.Key(), typ)
+	return o.ownersFor(id).compoundOwner(Field_Rlimits.Key(), typ)
 }
 
-func (o *OwningPlugins) OwnersFor(id string) *FieldOwners {
+func (o *OwningPlugins) mustOwnersFor(id string) *FieldOwners {
 	f, ok := o.Owners[id]
 	if !ok {
 		f = NewFieldOwners()
 		o.Owners[id] = f
+	}
+	return f
+}
+
+func (o *OwningPlugins) ownersFor(id string) *FieldOwners {
+	f, ok := o.Owners[id]
+	if !ok {
+		return nil
 	}
 	return f
 }

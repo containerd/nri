@@ -25,7 +25,7 @@ import (
 	"os/exec"
 	"sync"
 
-	types "github.com/containerd/nri/plugins/v010-adapter/0.1.0/types/v1"
+	types "github.com/containerd/nri/types/v1"
 
 	oci "github.com/opencontainers/runtime-spec/specs-go"
 )

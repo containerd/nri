@@ -23,10 +23,10 @@ import (
 
 	"github.com/sirupsen/logrus"
 
+	"github.com/containerd/nri"
 	"github.com/containerd/nri/pkg/api"
 	"github.com/containerd/nri/pkg/stub"
-	nri "github.com/containerd/nri/plugins/v010-adapter/0.1.0"
-	nriv1 "github.com/containerd/nri/plugins/v010-adapter/0.1.0/types/v1"
+	nriv1 "github.com/containerd/nri/types/v1"
 	oci "github.com/opencontainers/runtime-spec/specs-go"
 )
 

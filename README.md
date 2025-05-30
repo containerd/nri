@@ -323,7 +323,8 @@ that processed the container to ensure all mandatory plugins were consulted.
 #### Default Validation
 
 The default built-in validator plugin provides configurable minimal validation.
-It is disabled by default. It can be enabled and selectively configured to
+It may be enabled or disabled by configuring the container runtime. It can be
+selectively configured to
 
 1. Reject OCI Hook injection: Reject any adjustment which tries to inject
 OCI Hooks into a container.

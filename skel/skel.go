@@ -30,13 +30,13 @@ type Plugin interface {
 	// Type or plugin name
 	Type() string
 	// Invoke the plugin
-	Invoke(context.Context, *types.Request) (*types.Result, error)
+	Invoke(context.Context, *types.Request) (*types.Result, error) //nolint:staticcheck
 }
 
 // Run the plugin from a main() function
 func Run(ctx context.Context, plugin Plugin) error {
 	enc := json.NewEncoder(os.Stdout)
-	var request types.Request
+	var request types.Request //nolint:staticcheck
 	if err := json.NewDecoder(os.Stdin).Decode(&request); err != nil {
 		return err
 	}
@@ -45,14 +45,14 @@ func Run(ctx context.Context, plugin Plugin) error {
 		result, err := plugin.Invoke(ctx, &request)
 		if err != nil {
 			// if the plugin sets ErrorMessage we ignore it
-			result = request.NewResult(plugin.Type())
+			result = request.NewResult(plugin.Type()) //nolint:staticcheck
 			result.Error = err.Error()
 		}
 		if err := enc.Encode(result); err != nil {
 			return fmt.Errorf("unable to encode plugin error to stdout: %w", err)
 		}
 	default:
-		result := request.NewResult(plugin.Type())
+		result := request.NewResult(plugin.Type()) //nolint:staticcheck
 		result.Error = fmt.Sprintf("invalid arg %s", os.Args[1])
 		if err := enc.Encode(result); err != nil {
 			return fmt.Errorf("unable to encode invalid parameter error to stdout: %w", err)

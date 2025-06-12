@@ -205,6 +205,14 @@ func (o *OwningPlugins) DeviceOwner(id, path string) (string, bool) {
 	return o.ownersFor(id).compoundOwner(Field_Devices.Key(), path)
 }
 
+func (o *OwningPlugins) NamespaceOwner(id, path string) (string, bool) {
+	return o.ownersFor(id).compoundOwner(Field_Namespace.Key(), path)
+}
+
+func (o *OwningPlugins) NamespaceOwners(id string) (map[string]string, bool) {
+	return o.ownersFor(id).compoundOwnerMap(Field_Namespace.Key())
+}
+
 func (o *OwningPlugins) EnvOwner(id, name string) (string, bool) {
 	return o.ownersFor(id).compoundOwner(Field_Env.Key(), name)
 }
@@ -574,6 +582,19 @@ func (f *FieldOwners) Conflict(field int32, plugin, other string, qualifiers ...
 		plugin, other, qualify(field, qualifiers...))
 }
 
+func (f *FieldOwners) compoundOwnerMap(field int32) (map[string]string, bool) {
+	if f == nil {
+		return nil, false
+	}
+
+	m, ok := f.Compound[field]
+	if !ok {
+		return nil, false
+	}
+
+	return m.Owners, true
+}
+
 func (f *FieldOwners) compoundOwner(field int32, key string) (string, bool) {
 	if f == nil {
 		return "", false
@@ -607,6 +628,10 @@ func (f *FieldOwners) MountOwner(destination string) (string, bool) {
 
 func (f *FieldOwners) DeviceOwner(path string) (string, bool) {
 	return f.compoundOwner(Field_Devices.Key(), path)
+}
+
+func (f *FieldOwners) NamespaceOwner(typ string) (string, bool) {
+	return f.compoundOwner(Field_Devices.Key(), typ)
 }
 
 func (f *FieldOwners) EnvOwner(name string) (string, bool) {

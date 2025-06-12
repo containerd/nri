@@ -221,6 +221,9 @@ func (r *result) adjust(rpl *ContainerAdjustment, plugin string) error {
 		if err := r.adjustOomScoreAdj(rpl.Linux.OomScoreAdj, plugin); err != nil {
 			return err
 		}
+		if err := r.adjustSeccompPolicy(rpl.Linux.SeccompPolicy, plugin); err != nil {
+			return err
+		}
 	}
 	if err := r.adjustRlimits(rpl.Rlimits, plugin); err != nil {
 		return err
@@ -769,6 +772,22 @@ func (r *result) adjustOomScoreAdj(OomScoreAdj *OptionalInt, plugin string) erro
 
 	create.Container.Linux.OomScoreAdj = OomScoreAdj
 	r.reply.adjust.Linux.OomScoreAdj = OomScoreAdj
+
+	return nil
+}
+
+func (r *result) adjustSeccompPolicy(adjustment *LinuxSeccomp, plugin string) error {
+	if adjustment == nil {
+		return nil
+	}
+	create, id := r.request.create, r.request.create.Container.Id
+
+	if err := r.owners.ClaimSeccompPolicy(id, plugin); err != nil {
+		return err
+	}
+
+	create.Container.Linux.SeccompPolicy = adjustment
+	r.reply.adjust.Linux.SeccompPolicy = adjustment
 
 	return nil
 }

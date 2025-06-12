@@ -38,6 +38,7 @@ import (
 	"github.com/containerd/nri/pkg/api"
 	"github.com/containerd/nri/pkg/plugin"
 	validator "github.com/containerd/nri/plugins/default-validator/builtin"
+	rspec "github.com/opencontainers/runtime-spec/specs-go"
 )
 
 var _ = Describe("Configuration", func() {
@@ -558,6 +559,24 @@ var _ = Describe("Plugin container creation adjustments", func() {
 
 		case "cgroupspath":
 			a.SetLinuxCgroupsPath("/" + plugin)
+
+		case "seccomp":
+			a.SetLinuxSeccompPolicy(
+				func() *api.LinuxSeccomp {
+					seccomp := rspec.LinuxSeccomp{
+						DefaultAction: rspec.ActAllow,
+						ListenerPath:  "/run/meshuggah-rocks.sock",
+						Architectures: []rspec.Arch{},
+						Flags:         []rspec.LinuxSeccompFlag{},
+						Syscalls: []rspec.LinuxSyscall{{
+							Names:  []string{"sched_getaffinity"},
+							Action: rspec.ActNotify,
+							Args:   []rspec.LinuxSeccompArg{},
+						}},
+					}
+					return api.FromOCILinuxSeccomp(&seccomp)
+				}(),
+			)
 		}
 
 		return a, nil, nil
@@ -809,6 +828,26 @@ var _ = Describe("Plugin container creation adjustments", func() {
 				&api.ContainerAdjustment{
 					Linux: &api.LinuxContainerAdjustment{
 						CgroupsPath: "/00-test",
+					},
+				},
+			),
+			Entry("adjust seccomp policy", "seccomp",
+				&api.ContainerAdjustment{
+					Linux: &api.LinuxContainerAdjustment{
+						SeccompPolicy: func() *api.LinuxSeccomp {
+							seccomp := rspec.LinuxSeccomp{
+								DefaultAction: rspec.ActAllow,
+								ListenerPath:  "/run/meshuggah-rocks.sock",
+								Architectures: []rspec.Arch{},
+								Flags:         []rspec.LinuxSeccompFlag{},
+								Syscalls: []rspec.LinuxSyscall{{
+									Names:  []string{"sched_getaffinity"},
+									Action: rspec.ActNotify,
+									Args:   []rspec.LinuxSeccompArg{},
+								}},
+							}
+							return api.FromOCILinuxSeccomp(&seccomp)
+						}(),
 					},
 				},
 			),
@@ -1084,6 +1123,104 @@ var _ = Describe("Plugin container creation adjustments", func() {
 						)
 					}
 
+					return a, nil, nil
+				}
+
+				validate = func(_ *mockPlugin, _ *api.ValidateContainerAdjustmentRequest) error {
+					return nil
+				}
+
+				runtime = s.runtime
+				plugins = s.plugins
+				ctx     = context.Background()
+
+				pod = &api.PodSandbox{
+					Id:        "pod0",
+					Name:      "pod0",
+					Uid:       "uid0",
+					Namespace: "default",
+				}
+				ctr0 = &api.Container{
+					Id:           "ctr0",
+					PodSandboxId: "pod0",
+					Name:         "ctr0",
+					State:        api.ContainerState_CONTAINER_CREATED,
+				}
+				ctr1 = &api.Container{
+					Id:           "ctr1",
+					PodSandboxId: "pod0",
+					Name:         "ctr1",
+					State:        api.ContainerState_CONTAINER_CREATED,
+				}
+			)
+
+			plugins[0].createContainer = create
+			plugins[1].validateAdjustment = validate
+			plugins[2].validateAdjustment = validate
+
+			s.Startup()
+			podReq := &api.RunPodSandboxRequest{Pod: pod}
+			Expect(runtime.RunPodSandbox(ctx, podReq)).To(Succeed())
+
+			ctrReq := &api.CreateContainerRequest{
+				Pod:       pod,
+				Container: ctr0,
+			}
+			reply, err := runtime.CreateContainer(ctx, ctrReq)
+			Expect(reply).ToNot(BeNil())
+			Expect(err).To(BeNil())
+
+			ctrReq = &api.CreateContainerRequest{
+				Pod:       pod,
+				Container: ctr1,
+			}
+			reply, err = runtime.CreateContainer(ctx, ctrReq)
+			Expect(err).ToNot(BeNil())
+			Expect(reply).To(BeNil())
+		})
+	})
+
+	When("the default validator is enabled and seccomp policy adjustment is disabled", func() {
+		BeforeEach(func() {
+			s.Prepare(
+				&mockRuntime{
+					options: []nri.Option{
+						nri.WithDefaultValidator(
+							&validator.DefaultValidatorConfig{
+								Enable:              true,
+								RejectSeccompPolicy: true,
+							},
+						),
+					},
+				},
+				&mockPlugin{idx: "00", name: "foo"},
+				&mockPlugin{idx: "10", name: "validator1"},
+				&mockPlugin{idx: "20", name: "validator2"},
+			)
+		})
+
+		It("should reject OCI Hook injection", func() {
+			var (
+				create = func(_ *mockPlugin, _ *api.PodSandbox, ctr *api.Container) (*api.ContainerAdjustment, []*api.ContainerUpdate, error) {
+					a := &api.ContainerAdjustment{}
+					if ctr.GetName() == "ctr1" {
+						a.SetLinuxSeccompPolicy(
+							func() *api.LinuxSeccomp {
+								seccomp := rspec.LinuxSeccomp{
+									DefaultAction: rspec.ActAllow,
+									ListenerPath:  "/run/meshuggah-rocks.sock",
+									Architectures: []rspec.Arch{},
+									Flags:         []rspec.LinuxSeccompFlag{},
+									Syscalls: []rspec.LinuxSyscall{{
+										Names:  []string{"sched_getaffinity"},
+										Action: rspec.ActNotify,
+										Args:   []rspec.LinuxSeccompArg{},
+									}},
+								}
+								return api.FromOCILinuxSeccomp(&seccomp)
+							}(),
+						)
+					}
 					return a, nil, nil
 				}
 

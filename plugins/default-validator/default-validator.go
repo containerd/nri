@@ -33,8 +33,17 @@ import (
 type DefaultValidatorConfig struct {
 	// Enable the default validator plugin.
 	Enable bool `yaml:"enable" toml:"enable"`
-	// RejectOCIHooks fails validation if any plugin injects OCI hooks.
-	RejectOCIHooks bool `yaml:"rejectOCIHooks" toml:"reject_oci_hooks"`
+	// RejectOCIHookAdjustment fails validation if OCI hooks are adjusted.
+	RejectOCIHookAdjustment bool `yaml:"rejectOCIHookAdjustment" toml:"reject_oci_hook_adjustment"`
+	// RejectRuntimeDefaultSeccompAdjustment fails validation if a runtime default seccomp
+	// policy is adjusted.
+	RejectRuntimeDefaultSeccompAdjustment bool `yaml:"rejectRuntimeDefaultSeccompAdjustment" toml:"reject_runtime_default_seccomp_adjustment"`
+	// RejectUnconfinedSeccompAdjustment fails validation if an unconfined seccomp policy is
+	// adjusted.
+	RejectUnconfinedSeccompAdjustment bool `yaml:"rejectUnconfinedSeccompAdjustment" toml:"reject_unconfined_seccomp_adjustment"`
+	// RejectCustomSeccompAdjustment fails validation if a custom seccomp policy (aka LOCALHOST)
+	// is adjusted.
+	RejectCustomSeccompAdjustment bool `yaml:"rejectCustomSeccompAdjustment" toml:"reject_custom_seccomp_adjustment"`
 	// RequiredPlugins list globally required plugins. These must be present
 	// or otherwise validation will fail.
 	// WARNING: This is a global setting and will affect all containers. In
@@ -88,6 +97,11 @@ func (v *DefaultValidator) ValidateContainerAdjustment(ctx context.Context, req 
 		return err
 	}
 
+	if err := v.validateSeccompPolicy(req); err != nil {
+		log.Errorf(ctx, "rejecting adjustment: %v", err)
+		return err
+	}
+
 	if err := v.validateRequiredPlugins(req); err != nil {
 		log.Errorf(ctx, "rejecting adjustment: %v", err)
 		return err
@@ -101,7 +115,7 @@ func (v *DefaultValidator) validateOCIHooks(req *api.ValidateContainerAdjustment
 		return nil
 	}
 
-	if !v.cfg.RejectOCIHooks {
+	if !v.cfg.RejectOCIHookAdjustment {
 		return nil
 	}
 
@@ -119,6 +133,40 @@ func (v *DefaultValidator) validateOCIHooks(req *api.ValidateContainerAdjustment
 	}
 
 	return fmt.Errorf("%w: %s attempted restricted OCI hook injection", ErrValidation, offender)
+}
+
+func (v *DefaultValidator) validateSeccompPolicy(req *api.ValidateContainerAdjustmentRequest) error {
+	if req.Adjust == nil {
+		return nil
+	}
+
+	owner, claimed := req.Owners.SeccompPolicyOwner(req.Container.Id)
+	if !claimed {
+		return nil
+	}
+
+	profile := req.Container.GetLinux().GetSeccompProfile()
+	switch {
+	case profile == nil || profile.GetProfileType() == api.SecurityProfile_UNCONFINED:
+		if v.cfg.RejectUnconfinedSeccompAdjustment {
+			return fmt.Errorf("%w: plugin %s attempted restricted "+
+				" unconfined seccomp policy adjustment", ErrValidation, owner)
+		}
+
+	case profile.GetProfileType() == api.SecurityProfile_RUNTIME_DEFAULT:
+		if v.cfg.RejectRuntimeDefaultSeccompAdjustment {
+			return fmt.Errorf("%w: plugin %s attempted restricted "+
+				"runtime default seccomp policy adjustment", ErrValidation, owner)
+		}
+
+	case profile.GetProfileType() == api.SecurityProfile_LOCALHOST:
+		if v.cfg.RejectCustomSeccompAdjustment {
+			return fmt.Errorf("%w: plugin %s attempted restricted "+
+				" custom seccomp policy adjustment", ErrValidation, owner)
+		}
+	}
+
+	return nil
 }
 
 func (v *DefaultValidator) validateRequiredPlugins(req *api.ValidateContainerAdjustmentRequest) error {

@@ -44,6 +44,8 @@ type DefaultValidatorConfig struct {
 	// RejectCustomSeccompAdjustment fails validation if a custom seccomp policy (aka LOCALHOST)
 	// is adjusted.
 	RejectCustomSeccompAdjustment bool `yaml:"rejectCustomSeccompAdjustment" toml:"reject_custom_seccomp_adjustment"`
+	// RejectNamespaceAdjustment fails validation if any plugin adjusts Linux namespaces.
+	RejectNamespaceAdjustment bool `yaml:"rejectNamespaceAdjustment" toml:"reject_namespace_adjustment"`
 	// RequiredPlugins list globally required plugins. These must be present
 	// or otherwise validation will fail.
 	// WARNING: This is a global setting and will affect all containers. In
@@ -98,6 +100,11 @@ func (v *DefaultValidator) ValidateContainerAdjustment(ctx context.Context, req 
 	}
 
 	if err := v.validateSeccompPolicy(req); err != nil {
+		log.Errorf(ctx, "rejecting adjustment: %v", err)
+		return err
+	}
+
+	if err := v.validateNamespaces(req); err != nil {
 		log.Errorf(ctx, "rejecting adjustment: %v", err)
 		return err
 	}
@@ -167,6 +174,32 @@ func (v *DefaultValidator) validateSeccompPolicy(req *api.ValidateContainerAdjus
 	}
 
 	return nil
+}
+
+func (v *DefaultValidator) validateNamespaces(req *api.ValidateContainerAdjustmentRequest) error {
+	if req.Adjust == nil {
+		return nil
+	}
+
+	if !v.cfg.RejectNamespaceAdjustment {
+		return nil
+	}
+
+	owners, claimed := req.Owners.NamespaceOwners(req.Container.Id)
+	if !claimed {
+		return nil
+	}
+
+	offenders := "plugin(s) "
+	sep := ""
+
+	for ns, plugin := range owners {
+		offenders += sep + fmt.Sprintf("%q (namespace %q)", plugin, ns)
+		sep = ", "
+	}
+
+	return fmt.Errorf("%w: attempted restricted namespace adjustment by %s",
+		ErrValidation, offenders)
 }
 
 func (v *DefaultValidator) validateRequiredPlugins(req *api.ValidateContainerAdjustmentRequest) error {

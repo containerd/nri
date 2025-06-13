@@ -118,6 +118,7 @@ func (g *Generator) Adjust(adjust *nri.ContainerAdjustment) error {
 	g.AdjustDevices(adjust.GetLinux().GetDevices())
 	g.AdjustCgroupsPath(adjust.GetLinux().GetCgroupsPath())
 	g.AdjustOomScoreAdj(adjust.GetLinux().GetOomScoreAdj())
+	g.AdjustIOPriority(adjust.GetLinux().GetIoPriority())
 
 	resources := adjust.GetLinux().GetResources()
 	if err := g.AdjustResources(resources); err != nil {
@@ -340,6 +341,13 @@ func (g *Generator) AdjustOomScoreAdj(score *nri.OptionalInt) {
 	}
 }
 
+// AdjustIOPriority adjusts the IO priority of the container.
+func (g *Generator) AdjustIOPriority(ioprio *nri.LinuxIOPriority) {
+	if ioprio != nil {
+		g.SetProcessIOPriority(ioprio.ToOCI())
+	}
+}
+
 // AdjustDevices adjusts the (Linux) devices in the OCI Spec.
 func (g *Generator) AdjustDevices(devices []*nri.LinuxDevice) {
 	for _, d := range devices {
@@ -527,9 +535,24 @@ func (g *Generator) SetLinuxResourcesBlockIO(blockIO *rspec.LinuxBlockIO) {
 	g.Config.Linux.Resources.BlockIO = blockIO
 }
 
+func (g *Generator) SetProcessIOPriority(ioprio *rspec.LinuxIOPriority) {
+	g.initConfigProcess()
+	if ioprio != nil && ioprio.Class == "" {
+		ioprio = nil
+	}
+	g.Config.Process.IOPriority = ioprio
+}
+
 func (g *Generator) initConfig() {
 	if g.Config == nil {
 		g.Config = &rspec.Spec{}
+	}
+}
+
+func (g *Generator) initConfigProcess() {
+	g.initConfig()
+	if g.Config.Process == nil {
+		g.Config.Process = &rspec.Process{}
 	}
 }
 

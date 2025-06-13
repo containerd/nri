@@ -42,9 +42,9 @@ jobs:
       - uses: ./.github/actions/install-go
 
       # needed for wasm plugins
-      - uses: acifani/setup-tinygo@v2
+      - uses: actions/setup-go@v5
         with:
-          tinygo-version: "0.34.0"
+          go-version-file: go.mod
 
       - name: Set env
         shell: bash

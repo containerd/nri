@@ -1,11 +1,11 @@
 module github.com/containerd/nri
 
-go 1.22.0
+go 1.24.3
 
 require (
 	github.com/containerd/ttrpc v1.2.7
 	github.com/google/go-cmp v0.7.0
-	github.com/knqyf263/go-plugin v0.8.1-0.20240827022226-114c6257e441
+	github.com/knqyf263/go-plugin v0.9.0
 	github.com/moby/sys/mountinfo v0.6.2
 	github.com/onsi/ginkgo/v2 v2.19.1
 	github.com/onsi/gomega v1.34.0

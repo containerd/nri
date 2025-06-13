@@ -1,6 +1,6 @@
 module github.com/containerd/nri/plugins/wasm
 
-go 1.22.0
+go 1.24.3
 
 require github.com/containerd/nri v0.6.1
 
@@ -8,7 +8,7 @@ require (
 	github.com/containerd/log v0.1.0 // indirect
 	github.com/containerd/ttrpc v1.2.7 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
-	github.com/knqyf263/go-plugin v0.8.1-0.20240827022226-114c6257e441 // indirect
+	github.com/knqyf263/go-plugin v0.9.0 // indirect
 	github.com/opencontainers/runtime-spec v1.1.0 // indirect
 	github.com/sirupsen/logrus v1.9.4-0.20230606125235-dd1b4c2e81af // indirect
 	github.com/tetratelabs/wazero v1.9.0 // indirect

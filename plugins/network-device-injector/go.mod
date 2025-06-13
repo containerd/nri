@@ -1,6 +1,6 @@
 module github.com/containerd/nri/plugins/network-device-injector
 
-go 1.22.0
+go 1.24.3
 
 require (
 	github.com/containerd/nri v0.6.1
@@ -13,7 +13,7 @@ require (
 require (
 	github.com/containerd/log v0.1.0 // indirect
 	github.com/containerd/ttrpc v1.2.7 // indirect
-	github.com/knqyf263/go-plugin v0.8.1-0.20240827022226-114c6257e441 // indirect
+	github.com/knqyf263/go-plugin v0.9.0 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/opencontainers/runtime-spec v1.2.0 // indirect
 	github.com/tetratelabs/wazero v1.9.0 // indirect

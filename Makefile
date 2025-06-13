@@ -34,15 +34,6 @@ GO_MODULES := $(shell $(GO_CMD) list ./...)
 GOLANG_CILINT := golangci-lint
 GINKGO        := ginkgo
 
-TINYGO_CMD   := tinygo
-TINYGO_BUILD := $(TINYGO_CMD) build -scheduler=none -target=wasi -no-debug
-TINYGO_DOCKER ?= 0
-# Keep the tinygo version in sync with .github/workflows/ci.yml
-tinygo-docker-build = \
-    echo "Docker-tinygo-building $(1)..."; \
-    docker run --rm -v $(RESOLVED_PWD):$(RESOLVED_PWD) tinygo/tinygo:0.34.0 \
-        /bin/bash -c "cd $(RESOLVED_PWD); make TINYGO_DOCKER=0 $(1)"
-
 RESOLVED_PWD  := $(shell realpath $(shell pwd))
 BUILD_PATH    := $(RESOLVED_PWD)/build
 BIN_PATH      := $(BUILD_PATH)/bin
@@ -134,17 +125,10 @@ $(BIN_PATH)/template: $(wildcard plugins/template/*.go)
 	$(Q)echo "Building $@..."; \
 	cd $(dir $<) && $(GO_BUILD) -o $@ .
 
-ifneq ($(TINYGO_DOCKER),1)
 $(BIN_PATH)/wasm: $(wildcard plugins/wasm/*.go)
 	$(Q)echo "Building $@..."; \
 	mkdir -p $(BIN_PATH) && \
-	cd $(dir $<) && $(TINYGO_BUILD) -o $@ .
-else
-$(BIN_PATH)/wasm: $(wildcard plugins/wasm/*.go)
-	$(Q)echo "Building $@..."; \
-	mkdir -p $(BIN_PATH) && \
-	$(call tinygo-docker-build,$@)
-endif
+	cd $(dir $<) && GOOS=wasip1 GOARCH=wasm $(GO_BUILD) -o $@ -buildmode=c-shared .
 
 #
 # test targets
@@ -208,7 +192,7 @@ validate-repo-no-changes:
 %.pb.go: %.proto
 	$(Q)echo "Generating $@..."; \
 	$(PROTO_COMPILE) $<
-	sed -i '1s;^;//go:build !tinygo.wasm\n\n;' pkg/api/api_ttrpc.pb.go
+	sed -i '1s;^;//go:build !wasip1\n\n;' pkg/api/api_ttrpc.pb.go
 
 #
 # targets for installing dependencies
@@ -221,7 +205,7 @@ install-ttrpc-plugin:
 	$(Q)$(GO_INSTALL) -mod=mod github.com/containerd/ttrpc/cmd/protoc-gen-go-ttrpc@74421d10189e8c118870d294c9f7f62db2d33ec1
 
 install-wasm-plugin:
-	$(Q)$(GO_INSTALL) -mod=mod github.com/knqyf263/go-plugin/cmd/protoc-gen-go-plugin@d8d42059d8f1b52968cff7226b7094e5c6a0c342
+	$(Q)$(GO_INSTALL) -mod=mod github.com/knqyf263/go-plugin/cmd/protoc-gen-go-plugin@$(shell go list -m -f {{.Version}} github.com/knqyf263/go-plugin)
 
 install-protoc-dependencies:
 	$(Q)$(GO_INSTALL) -mod=mod google.golang.org/protobuf/cmd/protoc-gen-go@v1.28.0

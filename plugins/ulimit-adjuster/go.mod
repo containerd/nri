@@ -1,6 +1,6 @@
 module github.com/containerd/nri/plugins/ulimit-adjuster
 
-go 1.22.0
+go 1.24.3
 
 replace github.com/containerd/nri => ../..
 
@@ -16,7 +16,7 @@ require (
 	github.com/containerd/ttrpc v1.2.7 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
-	github.com/knqyf263/go-plugin v0.8.1-0.20240827022226-114c6257e441 // indirect
+	github.com/knqyf263/go-plugin v0.9.0 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/opencontainers/runtime-spec v1.1.0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect

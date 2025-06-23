@@ -374,6 +374,7 @@ message LinuxContainer {
   OptionalInt oom_score_adj = 4;
   string cgroups_path = 5;
   LinuxIOPriority io_priority = 6;
+  SecurityProfile seccomp_profile = 7;
 }
 
 // A linux namespace.
@@ -446,6 +447,17 @@ message LinuxCPU {
 message HugepageLimit {
   string page_size = 1;
   uint64 limit = 2;
+}
+
+// SecurityProfile for container.
+message SecurityProfile {
+  enum ProfileType {
+    RUNTIME_DEFAULT = 0;
+    UNCONFINED = 1;
+    LOCALHOST = 2;
+  }
+  ProfileType profile_type = 1;
+  string localhost_ref = 2;
 }
 
 // Container rlimits

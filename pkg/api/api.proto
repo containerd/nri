@@ -373,6 +373,7 @@ message LinuxContainer {
   LinuxResources resources = 3;
   OptionalInt oom_score_adj = 4;
   string cgroups_path = 5;
+  map<string, LinuxNetDevice> net_devices = 6;
 }
 
 // A linux namespace.
@@ -459,6 +460,11 @@ message LinuxPids {
   int64 limit = 1;
 }
 
+// A linux network device.
+message LinuxNetDevice {
+  string name = 1;
+}
+
 // Requested adjustments to a container being created.
 message ContainerAdjustment {
   map<string, string> annotations = 2;
@@ -477,6 +483,7 @@ message LinuxContainerAdjustment {
   LinuxResources resources = 2;
   string cgroups_path = 3;
   OptionalInt oom_score_adj = 4;
+  map<string,LinuxNetDevice> net_devices = 5;
 }
 
 // Requested update to an already created container.
@@ -607,4 +614,5 @@ enum Field {
     CgroupsPath = 28;
     OomScoreAdj = 29;
     Rlimits = 30;
+    LinuxNetDevices = 31;
 }

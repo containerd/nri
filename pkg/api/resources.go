@@ -33,7 +33,6 @@ func FromOCILinuxResources(o *rspec.LinuxResources, _ map[string]string) *LinuxR
 			Limit:            Int64(m.Limit),
 			Reservation:      Int64(m.Reservation),
 			Swap:             Int64(m.Swap),
-			Kernel:           Int64(m.Kernel),
 			KernelTcp:        Int64(m.KernelTCP),
 			Swappiness:       UInt64(m.Swappiness),
 			DisableOomKiller: Bool(m.DisableOOMKiller),

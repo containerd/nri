@@ -35,6 +35,8 @@ type DefaultValidatorConfig struct {
 	Enable bool `yaml:"enable" toml:"enable"`
 	// RejectOCIHooks fails validation if any plugin injects OCI hooks.
 	RejectOCIHooks bool `yaml:"rejectOCIHooks" toml:"reject_oci_hooks"`
+	// RejectSeccompPolicy fails validation if any plugin modifies seccomp policy.
+	RejectSeccompPolicy bool `yaml:"rejectSeccompPolicy" toml:"reject_seccomp_policy"`
 	// RequiredPlugins list globally required plugins. These must be present
 	// or otherwise validation will fail.
 	// WARNING: This is a global setting and will affect all containers. In
@@ -88,6 +90,11 @@ func (v *DefaultValidator) ValidateContainerAdjustment(ctx context.Context, req 
 		return err
 	}
 
+	if err := v.validateSeccompPolicy(req); err != nil {
+		log.Errorf(ctx, "rejecting adjustment: %v", err)
+		return err
+	}
+
 	if err := v.validateRequiredPlugins(req); err != nil {
 		log.Errorf(ctx, "rejecting adjustment: %v", err)
 		return err
@@ -119,6 +126,24 @@ func (v *DefaultValidator) validateOCIHooks(req *api.ValidateContainerAdjustment
 	}
 
 	return fmt.Errorf("%w: %s attempted restricted OCI hook injection", ErrValidation, offender)
+}
+
+func (v *DefaultValidator) validateSeccompPolicy(req *api.ValidateContainerAdjustmentRequest) error {
+	if req.Adjust == nil {
+		return nil
+	}
+
+	if !v.cfg.RejectSeccompPolicy {
+		return nil
+	}
+
+	owner, claimed := req.Owners.SeccompPolicyOwner(req.Container.Id)
+	if !claimed {
+		return nil
+	}
+
+	return fmt.Errorf("%w: plugin %s attempted restricted seccomp policy adjustment",
+		ErrValidation, owner)
 }
 
 func (v *DefaultValidator) validateRequiredPlugins(req *api.ValidateContainerAdjustmentRequest) error {

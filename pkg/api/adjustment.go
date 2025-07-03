@@ -283,6 +283,12 @@ func (a *ContainerAdjustment) SetLinuxOomScoreAdj(value *int) {
 	a.Linux.OomScoreAdj = Int(value) // using Int(value) from ./options.go to optionally allocate a pointer to normalized copy of value
 }
 
+// SetLinuxSeccompPolicy overrides the container seccomp policy with the given arguments.
+func (a *ContainerAdjustment) SetLinuxSeccompPolicy(seccomp *LinuxSeccomp) {
+	a.initLinux()
+	a.Linux.SeccompPolicy = seccomp
+}
+
 //
 // Initializing a container adjustment and container update.
 //

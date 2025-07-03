@@ -205,6 +205,7 @@ The following pieces of container metadata are available to plugins in NRI:
         - cpuset memory
       - Block I/O class
       - RDT class
+    - Linux seccomp policy
   - container (init) process ID
   - container (init process) exit status
   - timestamp of container creation
@@ -250,6 +251,7 @@ container parameters:
         - cpuset memory
       - Block I/O class
       - RDT class
+      - Linux seccomp policy
 
 ### Container Updates
 
@@ -339,11 +341,14 @@ selectively configured to
 1. Reject OCI Hook injection: Reject any adjustment which tries to inject
 OCI Hooks into a container.
 
-2. Verify global mandatory plugins: Verify that all configured mandatory
+2. Reject Linux seccomp policy adjustment: Reject any adjustment which tries
+to set/override Linux seccomp policy of a container.
+
+3. Verify global mandatory plugins: Verify that all configured mandatory
 plugins are present and have processed a container. Otherwise reject the
 creation of the container.
 
-3. Verify annotated mandatory plugins: Verify that an annotated set of
+4. Verify annotated mandatory plugins: Verify that an annotated set of
 container-specific mandatory plugins are present and have processed a
 container. Otherwise reject the creation of the container.
 
@@ -352,10 +357,10 @@ allows one to deploy mandatory plugins as containers themselves.
 
 #### Default Validation Scope
 
-Currently only OCI hook injection can be restricted using the default
-validator. However, this probably will change in the future. Especially
-when NRI is extended with control over new container parameters. If such
-parameters will have security implications, corresponding configurable
+Currently only OCI hook injection and Linux seccomp policy can be restricted
+using the default validator. However, this probably will change in the future.
+Especially when NRI is extended with control over new container parameters.
+If such parameters will have security implications, corresponding configurable
 restrictions will be introduced to the default validator.
 
 ## Runtime Adaptation

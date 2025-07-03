@@ -404,6 +404,19 @@ The following sample plugins exist for NRI:
 Please see the documentation of these plugins for further details
 about what and how each of these plugins can be used for.
 
+### WebAssembly support
+
+The NRI supports WebAssembly plugins through a SDK provided by
+[knqyf263/go-plugin](https://github.com/knqyf263/go-plugin). This method works
+natively from go version 1.24 and works like any other binary plugin by
+supporting the same [protocol definition](pkg/api/api.proto). An example plugin
+outlining the most basic functionality can be found in
+[plugins/wasm](./plugins/wasm/plugin.go). There is no middle layer (stub)
+implemented like for the ttRPC plugins for simplicity reasons. If logging from
+the WebAssembly plugin is required, then the NRI provides a host function helper
+[`Log`](https://github.com/containerd/nri/blob/8ebdb076ea6aa524094a7f1c2c9ca31c30852328/plugins/wasm/plugin.go#L31-L36)
+for that.
+
 ## Security Considerations
 
 From a security perspective NRI plugins should be considered part of the

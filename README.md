@@ -181,6 +181,7 @@ The following pieces of container metadata are available to plugins in NRI:
   - mounts
   - OCI hooks
   - rlimits
+  - I/O priority
   - linux
     - namespace IDs
     - devices
@@ -227,6 +228,7 @@ container parameters:
   - environment variables
   - OCI hooks
   - rlimits
+  - I/O priority
   - linux
     - devices
     - resources

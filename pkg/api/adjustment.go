@@ -283,6 +283,12 @@ func (a *ContainerAdjustment) SetLinuxOomScoreAdj(value *int) {
 	a.Linux.OomScoreAdj = Int(value) // using Int(value) from ./options.go to optionally allocate a pointer to normalized copy of value
 }
 
+// SetLinuxIOPriority records setting the I/O priority for a container.
+func (a *ContainerAdjustment) SetLinuxIOPriority(ioprio *LinuxIOPriority) {
+	a.initLinux()
+	a.Linux.IoPriority = ioprio
+}
+
 //
 // Initializing a container adjustment and container update.
 //

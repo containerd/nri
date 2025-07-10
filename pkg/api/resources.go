@@ -189,6 +189,15 @@ func (r *LinuxResources) Copy() *LinuxResources {
 	}
 	o.BlockioClass = String(r.BlockioClass)
 	o.RdtClass = String(r.RdtClass)
+	for _, d := range r.Devices {
+		o.Devices = append(o.Devices, &LinuxDeviceCgroup{
+			Allow:  d.Allow,
+			Type:   d.Type,
+			Access: d.Access,
+			Major:  Int64(d.Major),
+			Minor:  Int64(d.Minor),
+		})
+	}
 
 	return o
 }

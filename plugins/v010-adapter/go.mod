@@ -5,7 +5,7 @@ go 1.24.3
 require (
 	github.com/containerd/containerd v1.6.9
 	github.com/containerd/nri v0.6.1
-	github.com/opencontainers/runtime-spec v1.1.0
+	github.com/opencontainers/runtime-spec v1.2.2-0.20250401095657-e935f995dd67
 	github.com/sirupsen/logrus v1.9.3
 )
 

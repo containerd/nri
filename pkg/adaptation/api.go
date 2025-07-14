@@ -90,11 +90,13 @@ type (
 	LinuxDevice              = api.LinuxDevice
 	LinuxDeviceCgroup        = api.LinuxDeviceCgroup
 	LinuxIOPriority          = api.LinuxIOPriority
+	LinuxSeccomp             = api.LinuxSeccomp
 	CDIDevice                = api.CDIDevice
 	HugepageLimit            = api.HugepageLimit
 	Hooks                    = api.Hooks
 	Hook                     = api.Hook
 	POSIXRlimit              = api.POSIXRlimit
+	SecurityProfile          = api.SecurityProfile
 
 	EventMask = api.EventMask
 )
@@ -125,6 +127,10 @@ const (
 	ContainerState_CONTAINER_RUNNING = api.ContainerState_CONTAINER_RUNNING
 	ContainerState_CONTAINER_STOPPED = api.ContainerState_CONTAINER_STOPPED
 	ContainerState_CONTAINER_EXITED  = api.ContainerState_CONTAINER_STOPPED
+
+	SecurityProfile_RUNTIME_DEFAULT = api.SecurityProfile_RUNTIME_DEFAULT
+	SecurityProfile_UNCONFINED      = api.SecurityProfile_UNCONFINED
+	SecurityProfile_LOCALHOST       = api.SecurityProfile_LOCALHOST
 )
 
 // Aliased types for api/optional.go.

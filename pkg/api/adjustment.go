@@ -289,6 +289,12 @@ func (a *ContainerAdjustment) SetLinuxIOPriority(ioprio *LinuxIOPriority) {
 	a.Linux.IoPriority = ioprio
 }
 
+// SetLinuxSeccompPolicy overrides the container seccomp policy with the given arguments.
+func (a *ContainerAdjustment) SetLinuxSeccompPolicy(seccomp *LinuxSeccomp) {
+	a.initLinux()
+	a.Linux.SeccompPolicy = seccomp
+}
+
 //
 // Initializing a container adjustment and container update.
 //

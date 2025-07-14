@@ -157,6 +157,10 @@ func (o *OwningPlugins) ClaimRlimit(id, typ, plugin string) error {
 	return o.mustOwnersFor(id).ClaimRlimit(typ, plugin)
 }
 
+func (o *OwningPlugins) ClaimIOPriority(id, plugin string) error {
+	return o.mustOwnersFor(id).ClaimIOPriority(plugin)
+}
+
 func (o *OwningPlugins) ClearAnnotation(id, key, plugin string) {
 	o.mustOwnersFor(id).ClearAnnotation(key, plugin)
 }
@@ -291,6 +295,10 @@ func (o *OwningPlugins) OomScoreAdjOwner(id string) (string, bool) {
 
 func (o *OwningPlugins) RlimitOwner(id, typ string) (string, bool) {
 	return o.ownersFor(id).compoundOwner(Field_Rlimits.Key(), typ)
+}
+
+func (o *OwningPlugins) IOPriorityOwner(id string) (string, bool) {
+	return o.ownersFor(id).simpleOwner(Field_IoPriority.Key())
 }
 
 func (o *OwningPlugins) mustOwnersFor(id string) *FieldOwners {
@@ -501,6 +509,10 @@ func (f *FieldOwners) ClaimOomScoreAdj(plugin string) error {
 
 func (f *FieldOwners) ClaimRlimit(typ, plugin string) error {
 	return f.claimCompound(Field_Rlimits.Key(), typ, plugin)
+}
+
+func (f *FieldOwners) ClaimIOPriority(plugin string) error {
+	return f.claimSimple(Field_IoPriority.Key(), plugin)
 }
 
 func (f *FieldOwners) clearCompound(field int32, key, plugin string) {

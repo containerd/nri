@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"github.com/containerd/nri/pkg/api"
+	"github.com/containerd/nri/pkg/auth"
 	nrilog "github.com/containerd/nri/pkg/log"
 	"github.com/containerd/nri/pkg/net"
 	"github.com/containerd/nri/pkg/net/multiplex"
@@ -197,6 +198,9 @@ var (
 	// ErrNoService indicates that the stub has no runtime service/connection,
 	// for instance by UpdateContainers on a stub which has not been started.
 	ErrNoService = errors.New("stub: no service/connection")
+
+	// ErrAuth indicates failure to authentication with the runtime.
+	ErrAuth = errors.New("stub: failed to authenticate")
 )
 
 // EventMask holds a mask of events for plugin subscription.
@@ -268,6 +272,22 @@ func WithTTRPCOptions(clientOpts []ttrpc.ClientOpts, serverOpts []ttrpc.ServerOp
 	}
 }
 
+// WithAuthentication sets authentication keys for the plugin. The stub will
+// use these keys to authenticate itself with the runtime before registration.
+func WithAuthentication(fetchKeys AuthKeyFetcher) Option {
+	return func(s *stub) error {
+		s.fetchKeys = fetchKeys
+		return nil
+	}
+}
+
+// AuthKeyFetcher is the interface the plugin uses to acquire keys for
+// authenticating itself with the runtime.
+type AuthKeyFetcher interface {
+	FetchKeys() (*auth.PrivateKey, *auth.PublicKey, error)
+	ClearKeys()
+}
+
 // stub implements Stub.
 type stub struct {
 	sync.Mutex
@@ -286,6 +306,7 @@ type stub struct {
 	rpcl       stdnet.Listener
 	rpcs       *ttrpc.Server
 	rpcc       *ttrpc.Client
+	fetchKeys  AuthKeyFetcher
 	runtime    api.RuntimeService
 	started    bool
 	doneC      chan struct{}
@@ -337,11 +358,17 @@ func New(p interface{}, opts ...Option) (Stub, error) {
 		}
 	}
 
+	if stub.fetchKeys == nil {
+		if file := os.Getenv(api.PluginAuthFileEnvVar); file != "" {
+			stub.fetchKeys = auth.NewFileFetcher(file)
+		}
+	}
+
 	if err := stub.setupHandlers(); err != nil {
 		return nil, err
 	}
 
-	if err := stub.ensureIdentity(); err != nil {
+	if err := stub.ensureNameAndIndex(); err != nil {
 		return nil, err
 	}
 
@@ -430,6 +457,11 @@ func (stub *stub) Start(ctx context.Context) (retErr error) {
 	stub.rpcc = rpcc
 
 	stub.runtime = api.NewRuntimeClient(rpcc)
+
+	if err = stub.authenticate(ctx); err != nil {
+		stub.close()
+		return err
+	}
 
 	if err = stub.register(ctx); err != nil {
 		stub.close()
@@ -560,6 +592,59 @@ func (stub *stub) connect() error {
 	}
 
 	stub.conn = conn
+
+	return nil
+}
+
+// Authenticate the plugin with NRI, if we have been set up with keys.
+func (stub *stub) authenticate(ctx context.Context) error {
+	if stub.fetchKeys == nil {
+		log.Infof(ctx, "No authentication keys set...")
+		return nil
+	}
+
+	log.Infof(ctx, "Authenticating with runtime...")
+
+	private, public, err := stub.fetchKeys.FetchKeys()
+	if err != nil {
+		return fmt.Errorf("failed to fetch keys: %w", err)
+	}
+	defer private.Clear()
+
+	client := auth.NewAuthenticationClient(stub.rpcc)
+	ctx, cancel := context.WithTimeout(ctx, stub.requestTimeout)
+	defer cancel()
+
+	rpl, err := client.RequestChallenge(ctx,
+		&auth.RequestChallengeRequest{
+			PublicKey: public.Encode(),
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("failed to authenticate: %w", err)
+	}
+
+	peer, err := auth.DecodePublicKey(rpl.PublicKey)
+	if err != nil {
+		return fmt.Errorf("failed to authenticate: %w", err)
+	}
+
+	response, err := private.GenerateResponse(peer, rpl.Challenge)
+	if err != nil {
+		return fmt.Errorf("failed to authenticate: %w", err)
+	}
+
+	result, err := client.VerifyChallenge(ctx,
+		&auth.VerifyChallengeRequest{
+			Response: response,
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("failed to authenticate: %w", err)
+	}
+
+	log.Infof(ctx, "Authenticated with identity %q, role %s (tags: %v)...",
+		result.Identity, result.Role, result.Tags)
 
 	return nil
 }
@@ -829,8 +914,8 @@ func (stub *stub) ValidateContainerAdjustment(ctx context.Context, req *api.Vali
 	return &api.ValidateContainerAdjustmentResponse{}, nil
 }
 
-// ensureIdentity sets plugin index and name from the binary if those are unset.
-func (stub *stub) ensureIdentity() error {
+// ensureNameAndIndex sets plugin index and name from the binary if those are unset.
+func (stub *stub) ensureNameAndIndex() error {
 	if stub.idx != "" && stub.name != "" {
 		return nil
 	}

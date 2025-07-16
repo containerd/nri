@@ -253,6 +253,9 @@ message ValidateContainerAdjustmentRequest {
 message PluginInstance {
     string name = 1;
     string index = 2;
+    string identity = 3;
+    string role = 4;
+    map<string, string> tags = 5;
 }
 
 message ValidateContainerAdjustmentResponse {

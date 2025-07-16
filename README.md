@@ -207,6 +207,7 @@ The following pieces of container metadata are available to plugins in NRI:
       - Block I/O class
       - RDT class
     - Linux seccomp profile and policy
+    - scheduling policy parameters
   - container (init) process ID
   - container (init process) exit status
   - timestamp of container creation
@@ -255,6 +256,7 @@ container parameters:
       - RDT class
       - Linux seccomp policy
     - Linux namespaces
+    - scheduling policy parameters
 
 ### Container Updates
 

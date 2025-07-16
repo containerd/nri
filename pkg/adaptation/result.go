@@ -18,6 +18,7 @@ package adaptation
 
 import (
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
 
@@ -78,6 +79,9 @@ func collectCreateContainerResult(request *CreateContainerRequest) *result {
 	if request.Container.Linux.Resources.Unified == nil {
 		request.Container.Linux.Resources.Unified = map[string]string{}
 	}
+	if request.Container.Linux.Namespaces == nil {
+		request.Container.Linux.Namespaces = []*LinuxNamespace{}
+	}
 
 	return &result{
 		request: resultRequest{
@@ -99,6 +103,7 @@ func collectCreateContainerResult(request *CreateContainerRequest) *result {
 						HugepageLimits: []*HugepageLimit{},
 						Unified:        map[string]string{},
 					},
+					Namespaces: []*LinuxNamespace{},
 				},
 			},
 		},
@@ -225,6 +230,9 @@ func (r *result) adjust(rpl *ContainerAdjustment, plugin string) error {
 			return err
 		}
 		if err := r.adjustSeccompPolicy(rpl.Linux.SeccompPolicy, plugin); err != nil {
+			return err
+		}
+		if err := r.adjustNamespaces(rpl.Linux.Namespaces, plugin); err != nil {
 			return err
 		}
 	}
@@ -406,6 +414,39 @@ func (r *result) adjustDevices(devices []*LinuxDevice, plugin string) error {
 
 	// finally, apply additions/modifications to plugin container creation request
 	create.Container.Linux.Devices = append(create.Container.Linux.Devices, add...)
+
+	return nil
+}
+
+func (r *result) adjustNamespaces(namespaces []*LinuxNamespace, plugin string) error {
+	if len(namespaces) == 0 {
+		return nil
+	}
+
+	create, id := r.request.create, r.request.create.Container.Id
+
+	creatensmap := map[string]*LinuxNamespace{}
+	for _, n := range create.Container.Linux.Namespaces {
+		creatensmap[n.Type] = n
+	}
+
+	for _, n := range namespaces {
+		if n == nil {
+			continue
+		}
+		key, marked := n.IsMarkedForRemoval()
+		if err := r.owners.ClaimNamespace(id, key, plugin); err != nil {
+			return err
+		}
+		if marked {
+			delete(creatensmap, key)
+		} else {
+			creatensmap[key] = n
+		}
+		r.reply.adjust.Linux.Namespaces = append(r.reply.adjust.Linux.Namespaces, n)
+	}
+
+	create.Container.Linux.Namespaces = slices.Collect(maps.Values(creatensmap))
 
 	return nil
 }

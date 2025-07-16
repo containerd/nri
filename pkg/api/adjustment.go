@@ -147,6 +147,20 @@ func (a *ContainerAdjustment) AddCDIDevice(d *CDIDevice) {
 	a.CDIDevices = append(a.CDIDevices, d) // TODO: should we dup d here ?
 }
 
+// AddOrReplaceNamespace records the addition or replacement of the given namespace to a container.
+func (a *ContainerAdjustment) AddOrReplaceNamespace(n *LinuxNamespace) {
+	a.initLinuxNamespaces()
+	a.Linux.Namespaces = append(a.Linux.Namespaces, n) // TODO: should we dup n here ?
+}
+
+// RemoveNamespace records the removal of the given namespace from a container.
+func (a *ContainerAdjustment) RemoveNamespace(n *LinuxNamespace) {
+	a.initLinuxNamespaces()
+	a.Linux.Namespaces = append(a.Linux.Namespaces, &LinuxNamespace{
+		Type: MarkForRemoval(n.Type),
+	})
+}
+
 // SetLinuxMemoryLimit records setting the memory limit for a container.
 func (a *ContainerAdjustment) SetLinuxMemoryLimit(value int64) {
 	a.initLinuxResourcesMemory()
@@ -320,6 +334,13 @@ func (a *ContainerAdjustment) initRlimits() {
 func (a *ContainerAdjustment) initLinux() {
 	if a.Linux == nil {
 		a.Linux = &LinuxContainerAdjustment{}
+	}
+}
+
+func (a *ContainerAdjustment) initLinuxNamespaces() {
+	a.initLinux()
+	if a.Linux.Namespaces == nil {
+		a.Linux.Namespaces = []*LinuxNamespace{}
 	}
 }
 

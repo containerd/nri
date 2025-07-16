@@ -507,6 +507,7 @@ message LinuxContainerAdjustment {
   OptionalInt oom_score_adj = 4;
   LinuxIOPriority io_priority = 5;
   LinuxSeccomp seccomp_policy = 6;
+  repeated LinuxNamespace namespaces = 7;
 }
 
 message LinuxSeccomp {
@@ -663,4 +664,5 @@ enum Field {
     Rlimits = 30;
     IoPriority = 31;
     SeccompPolicy = 32;
+    Namespace = 33;
 }

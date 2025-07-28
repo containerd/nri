@@ -206,6 +206,7 @@ The following pieces of container metadata are available to plugins in NRI:
         - cpuset memory
       - Block I/O class
       - RDT class
+      - Unified cgroup v2 parameter map
     - Linux seccomp profile and policy
   - container (init) process ID
   - container (init process) exit status
@@ -216,7 +217,7 @@ The following pieces of container metadata are available to plugins in NRI:
   - container exit status message (human readable)
 
 Apart from data identifying the container, these pieces of information
-represent the corresponding data in the container's OCI Spec.
+represent the corresponding data in the container's [OCI Spec](https://github.com/opencontainers/runtime-spec/blob/main/spec.md).
 
 ### Container Adjustment
 
@@ -253,6 +254,7 @@ container parameters:
         - cpuset memory
       - Block I/O class
       - RDT class
+      - Unified cgroup v2 parameter map
       - Linux seccomp policy
     - Linux namespaces
 
@@ -286,6 +288,7 @@ can be updated this way:
       - cpuset memory
     - Block I/O class
     - RDT class
+    - Unified cgroup v2 parameter map
 
 ### Container Adjustment Validation
 

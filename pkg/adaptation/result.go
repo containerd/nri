@@ -25,7 +25,9 @@ import (
 	"github.com/containerd/nri/pkg/api"
 )
 
-type result struct {
+// Result is a helper for collecting and merging container creation,
+// update and stop responses from multiple plugins.
+type Result struct {
 	request resultRequest
 	reply   resultReply
 	updates map[string]*ContainerUpdate
@@ -42,7 +44,8 @@ type resultReply struct {
 	update []*ContainerUpdate
 }
 
-func collectCreateContainerResult(request *CreateContainerRequest) *result {
+// NewCreateContainerResult creates a new Result for a CreateContainer request.
+func NewCreateContainerResult(request *CreateContainerRequest) *Result {
 	if request.Container.Labels == nil {
 		request.Container.Labels = map[string]string{}
 	}
@@ -83,7 +86,7 @@ func collectCreateContainerResult(request *CreateContainerRequest) *result {
 		request.Container.Linux.Namespaces = []*LinuxNamespace{}
 	}
 
-	return &result{
+	return &Result{
 		request: resultRequest{
 			create: request,
 		},
@@ -112,7 +115,8 @@ func collectCreateContainerResult(request *CreateContainerRequest) *result {
 	}
 }
 
-func collectUpdateContainerResult(request *UpdateContainerRequest) *result {
+// NewUpdateContainerResult creates a new Result for an UpdateContainer request.
+func NewUpdateContainerResult(request *UpdateContainerRequest) *Result {
 	if request != nil {
 		if request.LinuxResources == nil {
 			request.LinuxResources = &LinuxResources{}
@@ -125,7 +129,7 @@ func collectUpdateContainerResult(request *UpdateContainerRequest) *result {
 		}
 	}
 
-	return &result{
+	return &Result{
 		request: resultRequest{
 			update: request,
 		},
@@ -137,31 +141,36 @@ func collectUpdateContainerResult(request *UpdateContainerRequest) *result {
 	}
 }
 
-func collectStopContainerResult() *result {
-	return collectUpdateContainerResult(nil)
+// NewStopContainerResult creates a new Result for a StopContainer request.
+func NewStopContainerResult() *Result {
+	return NewUpdateContainerResult(nil)
 }
 
-func (r *result) createContainerResponse() *CreateContainerResponse {
+// CreateContainerResponse returns the final merged CreateContainerResponse.
+func (r *Result) CreateContainerResponse() *CreateContainerResponse {
 	return &CreateContainerResponse{
 		Adjust: r.reply.adjust,
 		Update: r.reply.update,
 	}
 }
 
-func (r *result) updateContainerResponse() *UpdateContainerResponse {
+// UpdateContainerResponse returns the final merged UpdateContainerResponse.
+func (r *Result) UpdateContainerResponse() *UpdateContainerResponse {
 	requested := r.updates[r.request.update.Container.Id]
 	return &UpdateContainerResponse{
 		Update: append(r.reply.update, requested),
 	}
 }
 
-func (r *result) stopContainerResponse() *StopContainerResponse {
+// StopContainerResponse returns the final merged StopContainerResponse.
+func (r *Result) StopContainerResponse() *StopContainerResponse {
 	return &StopContainerResponse{
 		Update: r.reply.update,
 	}
 }
 
-func (r *result) apply(response interface{}, plugin string) error {
+// Apply merges a plugin response into the result.
+func (r *Result) Apply(response interface{}, plugin string) error {
 	switch rpl := response.(type) {
 	case *CreateContainerResponse:
 		if rpl == nil {
@@ -194,7 +203,7 @@ func (r *result) apply(response interface{}, plugin string) error {
 	return nil
 }
 
-func (r *result) adjust(rpl *ContainerAdjustment, plugin string) error {
+func (r *Result) adjust(rpl *ContainerAdjustment, plugin string) error {
 	if rpl == nil {
 		return nil
 	}
@@ -246,7 +255,7 @@ func (r *result) adjust(rpl *ContainerAdjustment, plugin string) error {
 	return nil
 }
 
-func (r *result) update(updates []*ContainerUpdate, plugin string) error {
+func (r *Result) update(updates []*ContainerUpdate, plugin string) error {
 	for _, u := range updates {
 		reply, err := r.getContainerUpdate(u, plugin)
 		if err != nil {
@@ -260,7 +269,7 @@ func (r *result) update(updates []*ContainerUpdate, plugin string) error {
 	return nil
 }
 
-func (r *result) adjustAnnotations(annotations map[string]string, plugin string) error {
+func (r *Result) adjustAnnotations(annotations map[string]string, plugin string) error {
 	if len(annotations) == 0 {
 		return nil
 	}
@@ -295,7 +304,7 @@ func (r *result) adjustAnnotations(annotations map[string]string, plugin string)
 	return nil
 }
 
-func (r *result) adjustMounts(mounts []*Mount, plugin string) error {
+func (r *Result) adjustMounts(mounts []*Mount, plugin string) error {
 	if len(mounts) == 0 {
 		return nil
 	}
@@ -360,7 +369,7 @@ func (r *result) adjustMounts(mounts []*Mount, plugin string) error {
 	return nil
 }
 
-func (r *result) adjustDevices(devices []*LinuxDevice, plugin string) error {
+func (r *Result) adjustDevices(devices []*LinuxDevice, plugin string) error {
 	if len(devices) == 0 {
 		return nil
 	}
@@ -418,7 +427,7 @@ func (r *result) adjustDevices(devices []*LinuxDevice, plugin string) error {
 	return nil
 }
 
-func (r *result) adjustNamespaces(namespaces []*LinuxNamespace, plugin string) error {
+func (r *Result) adjustNamespaces(namespaces []*LinuxNamespace, plugin string) error {
 	if len(namespaces) == 0 {
 		return nil
 	}
@@ -451,7 +460,7 @@ func (r *result) adjustNamespaces(namespaces []*LinuxNamespace, plugin string) e
 	return nil
 }
 
-func (r *result) adjustCDIDevices(devices []*CDIDevice, plugin string) error {
+func (r *Result) adjustCDIDevices(devices []*CDIDevice, plugin string) error {
 	if len(devices) == 0 {
 		return nil
 	}
@@ -481,7 +490,7 @@ func (r *result) adjustCDIDevices(devices []*CDIDevice, plugin string) error {
 	return nil
 }
 
-func (r *result) adjustEnv(env []*KeyValue, plugin string) error {
+func (r *Result) adjustEnv(env []*KeyValue, plugin string) error {
 	if len(env) == 0 {
 		return nil
 	}
@@ -553,7 +562,7 @@ func splitEnvVar(s string) (string, string) {
 	return split[0], split[1]
 }
 
-func (r *result) adjustArgs(args []string, plugin string) error {
+func (r *Result) adjustArgs(args []string, plugin string) error {
 	if len(args) == 0 {
 		return nil
 	}
@@ -575,7 +584,7 @@ func (r *result) adjustArgs(args []string, plugin string) error {
 	return nil
 }
 
-func (r *result) adjustHooks(hooks *Hooks, plugin string) error {
+func (r *Result) adjustHooks(hooks *Hooks, plugin string) error {
 	if hooks == nil {
 		return nil
 	}
@@ -622,7 +631,7 @@ func (r *result) adjustHooks(hooks *Hooks, plugin string) error {
 	return nil
 }
 
-func (r *result) adjustResources(resources *LinuxResources, plugin string) error {
+func (r *Result) adjustResources(resources *LinuxResources, plugin string) error {
 	if resources == nil {
 		return nil
 	}
@@ -786,7 +795,7 @@ func (r *result) adjustResources(resources *LinuxResources, plugin string) error
 	return nil
 }
 
-func (r *result) adjustCgroupsPath(path, plugin string) error {
+func (r *Result) adjustCgroupsPath(path, plugin string) error {
 	if path == "" {
 		return nil
 	}
@@ -803,7 +812,7 @@ func (r *result) adjustCgroupsPath(path, plugin string) error {
 	return nil
 }
 
-func (r *result) adjustOomScoreAdj(OomScoreAdj *OptionalInt, plugin string) error {
+func (r *Result) adjustOomScoreAdj(OomScoreAdj *OptionalInt, plugin string) error {
 	if OomScoreAdj == nil {
 		return nil
 	}
@@ -820,7 +829,7 @@ func (r *result) adjustOomScoreAdj(OomScoreAdj *OptionalInt, plugin string) erro
 	return nil
 }
 
-func (r *result) adjustIOPriority(priority *LinuxIOPriority, plugin string) error {
+func (r *Result) adjustIOPriority(priority *LinuxIOPriority, plugin string) error {
 	if priority == nil {
 		return nil
 	}
@@ -837,7 +846,7 @@ func (r *result) adjustIOPriority(priority *LinuxIOPriority, plugin string) erro
 	return nil
 }
 
-func (r *result) adjustSeccompPolicy(adjustment *LinuxSeccomp, plugin string) error {
+func (r *Result) adjustSeccompPolicy(adjustment *LinuxSeccomp, plugin string) error {
 	if adjustment == nil {
 		return nil
 	}
@@ -853,7 +862,7 @@ func (r *result) adjustSeccompPolicy(adjustment *LinuxSeccomp, plugin string) er
 	return nil
 }
 
-func (r *result) adjustRlimits(rlimits []*POSIXRlimit, plugin string) error {
+func (r *Result) adjustRlimits(rlimits []*POSIXRlimit, plugin string) error {
 	create, id, adjust := r.request.create, r.request.create.Container.Id, r.reply.adjust
 	for _, l := range rlimits {
 		if err := r.owners.ClaimRlimit(id, l.Type, plugin); err != nil {
@@ -866,7 +875,7 @@ func (r *result) adjustRlimits(rlimits []*POSIXRlimit, plugin string) error {
 	return nil
 }
 
-func (r *result) updateResources(reply, u *ContainerUpdate, plugin string) error {
+func (r *Result) updateResources(reply, u *ContainerUpdate, plugin string) error {
 	if u.Linux == nil || u.Linux.Resources == nil {
 		return nil
 	}
@@ -1026,7 +1035,7 @@ func (r *result) updateResources(reply, u *ContainerUpdate, plugin string) error
 	return nil
 }
 
-func (r *result) getContainerUpdate(u *ContainerUpdate, plugin string) (*ContainerUpdate, error) {
+func (r *Result) getContainerUpdate(u *ContainerUpdate, plugin string) (*ContainerUpdate, error) {
 	id := u.ContainerId
 	if r.request.create != nil && r.request.create.Container != nil {
 		if r.request.create.Container.Id == id {

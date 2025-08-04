@@ -119,6 +119,7 @@ func (g *Generator) Adjust(adjust *nri.ContainerAdjustment) error {
 	g.AdjustCgroupsPath(adjust.GetLinux().GetCgroupsPath())
 	g.AdjustOomScoreAdj(adjust.GetLinux().GetOomScoreAdj())
 	g.AdjustIOPriority(adjust.GetLinux().GetIoPriority())
+	g.AdjustLinuxScheduler(adjust.GetLinux().GetScheduler())
 
 	if err := g.AdjustSeccompPolicy(adjust.GetLinux().GetSeccompPolicy()); err != nil {
 		return err
@@ -412,6 +413,15 @@ func (g *Generator) AdjustNamespaces(namespaces []*nri.LinuxNamespace) error {
 		}
 	}
 	return nil
+}
+
+// AdjustLinuxScheduler adjusts linux scheduling policy parameters.
+func (g *Generator) AdjustLinuxScheduler(sch *nri.LinuxScheduler) {
+	if sch == nil {
+		return
+	}
+	g.initConfigProcess()
+	g.Config.Process.Scheduler = sch.ToOCI()
 }
 
 // AdjustDevices adjusts the (Linux) devices in the OCI Spec.

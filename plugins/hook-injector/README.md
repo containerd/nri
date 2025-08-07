@@ -2,6 +2,30 @@
 
 The [OCI runtime configuration](https://github.com/opencontainers/runtime-spec/blob/main/spec.md) supports [hooks](https://github.com/opencontainers/runtime-spec/blob/main/config.md#posix-platform-hooks), which are custom actions related to the lifecycle of a container. This plugin performs OCI hook injection into containers using the [Hook Manager](https://github.com/containers/podman/tree/8bcc086b1b9d8aa0ef3bb08d37542adf9de26ac5/pkg/hooks) package of [podman](https://github.com/containers/podman). [CRI-O](https://github.com/cri-o/cri-o) has native hook injection support using the same package. This plugin essentially achieves CRI-O compatible OCI hook injection for other runtimes using NRI.
 
+## Deployment
+
+The NRI repository contains minimal kustomize overlays for this plugin at
+[contrib/kustomize/hook-injector](../../contrib/kustomize/hook-injector).
+
+Deploy the latest release with:
+
+```bash
+kubectl apply -k https://github.com/containerd/nri/contrib/kustomize/hook-injector
+```
+
+Deploy a specific release with:
+
+```bash
+RELEASE_TAG=v0.10.0
+kubectl apply -k "github.com/containerd/nri/contrib/kustomize/hook-injector?ref=${RELEASE_TAG}"
+```
+
+Deploy the latest development build from tip of the main branch with:
+
+```bash
+kubectl apply -k https://github.com/containerd/nri/contrib/kustomize/hook-injector/unstable
+```
+
 ## Testing
 
 You can test this plugin using a Kubernetes cluster/node with a container runtime that has NRI support enabled ([Enabling NRI in Containerd](https://github.com/containerd/containerd/blob/main/docs/NRI.md#enabling-nri-support-in-containerd)). Once you've enabled NRI on your runtime, you can use the sample hook configuration, placing it at `/etc/containers/oci/hooks.d`, and the [sample hook](usr/local/sbin/demo-hook.sh), placing it at `/usr/local/sbin/`.

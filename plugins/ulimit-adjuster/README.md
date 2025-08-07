@@ -28,6 +28,30 @@ missing). The `type` field accepts names in uppercase letters
 ("RLIMIT_NOFILE"), lowercase letters ("rlimit_memlock"), and omitting the
 "RLIMIT_" prefix ("nproc").
 
+## Deployment
+
+The NRI repository contains minimal kustomize overlays for this plugin at
+[contrib/kustomize/ulimit-adjuster](../../contrib/kustomize/ulimit-adjuster).
+
+Deploy the latest release with:
+
+```bash
+kubectl apply -k https://github.com/containerd/nri/contrib/kustomize/ulimit-adjuster
+```
+
+Deploy a specific release with:
+
+```bash
+RELEASE_TAG=v0.10.0
+kubectl apply -k "github.com/containerd/nri/contrib/kustomize/ulimit-adjuster?ref=${RELEASE_TAG}"
+```
+
+Deploy the latest development build from tip of the main branch with:
+
+```bash
+kubectl apply -k https://github.com/containerd/nri/contrib/kustomize/ulimit-adjuster/unstable
+```
+
 ## Testing
 
 You can test this plugin using a kubernetes cluster/node with a container

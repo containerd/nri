@@ -30,9 +30,10 @@ func FromOCILinuxResources(o *rspec.LinuxResources, _ map[string]string) *LinuxR
 	l := &LinuxResources{}
 	if m := o.Memory; m != nil {
 		l.Memory = &LinuxMemory{
-			Limit:            Int64(m.Limit),
-			Reservation:      Int64(m.Reservation),
-			Swap:             Int64(m.Swap),
+			Limit:       Int64(m.Limit),
+			Reservation: Int64(m.Reservation),
+			Swap:        Int64(m.Swap),
+			//nolint:staticcheck // m.Kernel is deprecated
 			Kernel:           Int64(m.Kernel),
 			KernelTcp:        Int64(m.KernelTCP),
 			Swappiness:       UInt64(m.Swappiness),

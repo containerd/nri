@@ -93,6 +93,16 @@ func (p *plugin) RunPodSandbox(_ context.Context, pod *api.PodSandbox) error {
 	return nil
 }
 
+func (p *plugin) UpdatePodSandbox(_ context.Context, pod *api.PodSandbox, overHeadResources, resources *api.LinuxResources) error {
+	dump("UpdatePodSandbox", "pod", pod, "overHeadResources", overHeadResources, "resources", resources)
+	return nil
+}
+
+func (p *plugin) PostUpdatePodSandbox(_ context.Context, pod *api.PodSandbox) error {
+	dump("PostUpdatePodSandbox", "pod", pod)
+	return nil
+}
+
 func (p *plugin) StopPodSandbox(_ context.Context, pod *api.PodSandbox) error {
 	dump("StopPodSandbox", "pod", pod)
 	return nil
@@ -158,6 +168,11 @@ func (p *plugin) StopContainer(_ context.Context, pod *api.PodSandbox, container
 
 func (p *plugin) RemoveContainer(_ context.Context, pod *api.PodSandbox, container *api.Container) error {
 	dump("RemoveContainer", "pod", pod, "container", container)
+	return nil
+}
+
+func (p *plugin) ValidateContainerAdjustment(_ context.Context, req *api.ValidateContainerAdjustmentRequest) error {
+	dump("ValidateContainerAdjustment", "request", req)
 	return nil
 }
 

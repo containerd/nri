@@ -1,0 +1,24 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: nri-plugin-logger
+spec:
+  template:
+    spec:
+      containers:
+        - name: plugin
+          image: "ghcr.io/containerd/nri/plugins/logger:unstable"
+          imagePullPolicy: Always
+          args:
+            - "-idx"
+            - "10"
+            - "-name"
+            - "logger"
+          volumeMounts:
+            - name: nri-socket
+              mountPath: /var/run/nri/nri.sock
+      volumes:
+      - name: nri-socket
+        hostPath:
+          path: /var/run/nri/nri.sock
+          type: Socket

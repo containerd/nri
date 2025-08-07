@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: nri-plugin-differ
+spec:
+  template:
+    spec:
+      containers:
+        - name: plugin
+          image: "ghcr.io/containerd/nri/plugins/differ:unstable"
+          imagePullPolicy: Always
+          args: []
+          volumeMounts:
+            - name: nri-socket
+              mountPath: /var/run/nri/nri.sock
+      volumes:
+      - name: nri-socket
+        hostPath:
+          path: /var/run/nri/nri.sock
+          type: Socket

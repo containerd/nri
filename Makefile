@@ -47,8 +47,9 @@ PLUGINS := \
 	$(BIN_PATH)/ulimit-adjuster \
 	$(BIN_PATH)/v010-adapter \
 	$(BIN_PATH)/template \
-	$(BIN_PATH)/wasm
-
+	$(BIN_PATH)/wasm \
+	$(BIN_PATH)/network-device-injector \
+	$(BIN_PATH)/network-logger
 
 ifneq ($(V),1)
   Q := @
@@ -129,6 +130,14 @@ $(BIN_PATH)/wasm: $(wildcard plugins/wasm/*.go)
 	$(Q)echo "Building $@..."; \
 	mkdir -p $(BIN_PATH) && \
 	cd $(dir $<) && GOOS=wasip1 GOARCH=wasm $(GO_BUILD) -o $@ -buildmode=c-shared .
+
+$(BIN_PATH)/network-device-injector: $(wildcard plugins/network-device-injector/*.go)
+	$(Q)echo "Building $@..."; \
+	cd $(dir $<) && $(GO_BUILD) -o $@ .
+
+$(BIN_PATH)/network-logger: $(wildcard plugins/network-logger/*.go)
+	$(Q)echo "Building $@..."; \
+	cd $(dir $<) && $(GO_BUILD) -o $@ .
 
 #
 # test targets

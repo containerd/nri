@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: nri-plugin-hook-injector
+spec:
+  template:
+    spec:
+      priorityClassName: system-node-critical
+      containers:
+        - name: plugin
+          image: plugin:latest
+          imagePullPolicy: Always
+          args:
+            - "-idx"
+            - "10"
+          resources:
+            requests:
+              cpu: "2m"
+              memory: "5Mi"
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: nri-socket
+              mountPath: /var/run/nri/nri.sock
+            - name: etc-hooks-d
+              mountPath: /etc/containers/oci/hooks.d
+              readOnly: true
+            - name: usr-share-hooks-d
+              mountPath: /usr/share/containers/oci/hooks.d
+              readOnly: true
+            - name: libexec-hooks-d
+              mountPath: /usr/libexec/oci/hooks.d
+              readOnly: true
+      volumes:
+        - name: nri-socket
+          hostPath:
+            path: /var/run/nri/nri.sock
+            type: Socket
+        - name: etc-hooks-d
+          hostPath:
+            path: /etc/containers/oci/hooks.d
+            type: DirectoryOrCreate
+        - name: usr-share-hooks-d
+          hostPath:
+            path: /usr/share/containers/oci/hooks.d
+            type: DirectoryOrCreate
+        - name: libexec-hooks-d
+          hostPath:
+            path: /usr/libexec/oci/hooks.d
+            type: DirectoryOrCreate

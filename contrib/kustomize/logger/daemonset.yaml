@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: nri-plugin-logger
+spec:
+  template:
+    spec:
+      containers:
+        - name: plugin
+          image: plugin:latest
+          imagePullPolicy: Always
+          args:
+            - "-idx"
+            - "10"
+            - "-events"
+            - "RunPodSandbox,StopPodSandbox,RemovePodSandbox,CreateContainer,PostCreateContainer,StartContainer,PostStartContainer,UpdateContainer,PostUpdateContainer,StopContainer,RemoveContainer"
+          resources:
+            requests:
+              cpu: "2m"
+              memory: "5Mi"
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: nri-socket
+              mountPath: /var/run/nri/nri.sock
+      volumes:
+        - name: nri-socket
+          hostPath:
+            path: /var/run/nri/nri.sock
+            type: Socket

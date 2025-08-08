@@ -177,7 +177,7 @@ func main() {
 		PadLevelText: true,
 	})
 
-	flag.StringVar(&pluginName, "name", "", "plugin name to register to NRI")
+	flag.StringVar(&pluginName, "name", "template", "plugin name to register to NRI")
 	flag.StringVar(&pluginIdx, "idx", "", "plugin index to register to NRI")
 	flag.Parse()
 

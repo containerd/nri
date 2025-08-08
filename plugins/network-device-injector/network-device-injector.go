@@ -273,10 +273,9 @@ func dump(args ...interface{}) {
 
 func main() {
 	var (
-		pluginName string
-		pluginIdx  string
-		opts       []stub.Option
-		err        error
+		pluginIdx string
+		opts      []stub.Option
+		err       error
 	)
 
 	log = logrus.StandardLogger()
@@ -284,14 +283,11 @@ func main() {
 		PadLevelText: true,
 	})
 
-	flag.StringVar(&pluginName, "name", "", "plugin name to register to NRI")
 	flag.StringVar(&pluginIdx, "idx", "", "plugin index to register to NRI")
 	flag.BoolVar(&verbose, "verbose", false, "enable (more) verbose logging")
 	flag.Parse()
 
-	if pluginName != "" {
-		opts = append(opts, stub.WithPluginName(pluginName))
-	}
+	opts = append(opts, stub.WithPluginName("network-device-injector"))
 	if pluginIdx != "" {
 		opts = append(opts, stub.WithPluginIdx(pluginIdx))
 	}

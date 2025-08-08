@@ -332,7 +332,7 @@ func (p *plugin) printYamlDiff(apifunc string, obj string, origValue interface{}
 	}
 }
 
-func startPlugin(wg *sync.WaitGroup, pluginName string, pluginIdx int) {
+func startPlugin(wg *sync.WaitGroup, pluginIdx int) {
 	var (
 		opts []stub.Option
 		err  error
@@ -342,9 +342,7 @@ func startPlugin(wg *sync.WaitGroup, pluginName string, pluginIdx int) {
 
 	idxStr := fmt.Sprintf("%02d", pluginIdx)
 
-	if pluginName != "" {
-		opts = append(opts, stub.WithPluginName(pluginName))
-	}
+	opts = append(opts, stub.WithPluginName("Differ"))
 	if idxStr != "" {
 		opts = append(opts, stub.WithPluginIdx(idxStr))
 	}
@@ -427,7 +425,7 @@ func main() {
 
 		wg.Add(1)
 
-		go startPlugin(wg, "Differ", idx)
+		go startPlugin(wg, idx)
 	}
 
 	entry := indices[prevIndex]

@@ -59,11 +59,11 @@ var (
 )
 
 func main() {
+	const pluginName = "ulimit-adjuster"
 	var (
-		pluginName string
-		pluginIdx  string
-		verbose    bool
-		opts       []stub.Option
+		pluginIdx string
+		verbose   bool
+		opts      []stub.Option
 	)
 
 	l := logrus.StandardLogger()
@@ -71,7 +71,6 @@ func main() {
 		PadLevelText: true,
 	})
 
-	flag.StringVar(&pluginName, "name", "", "plugin name to register to NRI")
 	flag.StringVar(&pluginIdx, "idx", "", "plugin index to register to NRI")
 	flag.BoolVar(&verbose, "verbose", false, "enable (more) verbose logging")
 	flag.Parse()
@@ -82,9 +81,7 @@ func main() {
 		l.SetLevel(logrus.DebugLevel)
 	}
 
-	if pluginName != "" {
-		opts = append(opts, stub.WithPluginName(pluginName))
-	}
+	opts = append(opts, stub.WithPluginName(pluginName))
 	if pluginIdx != "" {
 		opts = append(opts, stub.WithPluginIdx(pluginIdx))
 	}

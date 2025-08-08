@@ -273,7 +273,7 @@ func (r *Adaptation) CreateContainer(ctx context.Context, req *CreateContainerRe
 	defer r.removeClosedPlugins()
 
 	var (
-		result   = collectCreateContainerResult(req)
+		result   = NewCreateContainerResult(req)
 		validate *ValidateContainerAdjustmentRequest
 	)
 
@@ -292,7 +292,7 @@ func (r *Adaptation) CreateContainer(ctx context.Context, req *CreateContainerRe
 		if err != nil {
 			return nil, err
 		}
-		err = result.apply(rpl, plugin.name())
+		err = result.Apply(rpl, plugin.name())
 		if err != nil {
 			return nil, err
 		}
@@ -325,19 +325,19 @@ func (r *Adaptation) UpdateContainer(ctx context.Context, req *UpdateContainerRe
 	defer r.Unlock()
 	defer r.removeClosedPlugins()
 
-	result := collectUpdateContainerResult(req)
+	result := NewUpdateContainerResult(req)
 	for _, plugin := range r.plugins {
 		rpl, err := plugin.updateContainer(ctx, req)
 		if err != nil {
 			return nil, err
 		}
-		err = result.apply(rpl, plugin.name())
+		err = result.Apply(rpl, plugin.name())
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	return result.updateContainerResponse(), nil
+	return result.UpdateContainerResponse(), nil
 }
 
 // PostUpdateContainer relays the corresponding CRI event to plugins.
@@ -352,19 +352,19 @@ func (r *Adaptation) StopContainer(ctx context.Context, req *StopContainerReques
 	defer r.Unlock()
 	defer r.removeClosedPlugins()
 
-	result := collectStopContainerResult()
+	result := NewStopContainerResult()
 	for _, plugin := range r.plugins {
 		rpl, err := plugin.stopContainer(ctx, req)
 		if err != nil {
 			return nil, err
 		}
-		err = result.apply(rpl, plugin.name())
+		err = result.Apply(rpl, plugin.name())
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	return result.stopContainerResponse(), nil
+	return result.StopContainerResponse(), nil
 }
 
 // RemoveContainer relays the corresponding CRI event to plugins.
@@ -402,8 +402,8 @@ func (r *Adaptation) updateContainers(ctx context.Context, req []*ContainerUpdat
 }
 
 // Validate requested container adjustments.
-func (r *Adaptation) validateContainerAdjustment(ctx context.Context, req *ValidateContainerAdjustmentRequest, result *result) (*CreateContainerResponse, error) {
-	rpl := result.createContainerResponse()
+func (r *Adaptation) validateContainerAdjustment(ctx context.Context, req *ValidateContainerAdjustmentRequest, result *Result) (*CreateContainerResponse, error) {
+	rpl := result.CreateContainerResponse()
 
 	if req == nil || len(r.validators) == 0 {
 		return rpl, nil

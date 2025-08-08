@@ -79,6 +79,7 @@ func FromOCIHooks(o *rspec.Hooks) *Hooks {
 		return nil
 	}
 	return &Hooks{
+		//nolint:staticcheck // keep supporting deprecated Prestart hooks as long as they can be used.
 		Prestart:        FromOCIHookSlice(o.Prestart),
 		CreateRuntime:   FromOCIHookSlice(o.CreateRuntime),
 		CreateContainer: FromOCIHookSlice(o.CreateContainer),

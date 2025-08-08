@@ -161,6 +161,10 @@ func main() {
 		opts = append(opts, stub.WithPluginIdx(pluginIdx))
 	}
 
+	if verbose {
+		logrus.SetLevel(logrus.DebugLevel)
+	}
+
 	p := &plugin{}
 	if p.stub, err = stub.New(p, opts...); err != nil {
 		log.Errorf("failed to create plugin stub: %v", err)

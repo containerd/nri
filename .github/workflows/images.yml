@@ -6,6 +6,7 @@ on:
       - main
     tags:
       - v[0-9]+.[0-9]+.[0-9]+
+  pull_request:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -41,6 +42,7 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Log in to registry
+        if: github.event_name == 'push'
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -53,11 +55,15 @@ jobs:
           if [ "${{ github.ref_type }}" = "tag" ]; then
               tag="${{ github.ref_name }}"
           else
-              case "${{ github.ref_name }}" in
-                  main)
-                      tag="unstable"
-                      ;;
-              esac
+              if [ "${{ github.event_name }}" = "pull_request" ]; then
+                  tag="pr-${{ github.event.pull_request.number }}"
+              else
+                  case "${{ github.ref_name }}" in
+                      main)
+                          tag="unstable"
+                          ;;
+                  esac
+              fi
           fi
           if [ -z "$tag" ]; then
               echo "ERROR: failed to determine image tag"
@@ -72,6 +78,6 @@ jobs:
           file: ./plugins/Dockerfile
           build-args: |
             PLUGIN=${{ matrix.image }}
-          push: true
-          platforms: linux/amd64,linux/arm64
+          push: ${{ github.event_name == 'push' }}
+          platforms: ${{ github.event_name == 'push' && 'linux/amd64,linux/arm64' || 'linux/amd64' }}
           tags: ghcr.io/${{ github.repository }}/plugins/${{ matrix.image }}:${{ env.TAG_NAME }}

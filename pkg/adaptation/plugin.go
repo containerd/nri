@@ -30,6 +30,7 @@ import (
 
 	"github.com/containerd/nri/pkg/adaptation/builtin"
 	"github.com/containerd/nri/pkg/api"
+	"github.com/containerd/nri/pkg/auth"
 	"github.com/containerd/nri/pkg/log"
 	"github.com/containerd/nri/pkg/net"
 	"github.com/containerd/nri/pkg/net/multiplex"
@@ -51,6 +52,20 @@ var (
 	timeoutCfgLock            sync.RWMutex
 )
 
+type identity struct {
+	peer *auth.PublicKey
+	priv *auth.PrivateKey
+	pub  *auth.PublicKey
+	role *auth.Role
+}
+
+func (id *identity) GetRole() *auth.Role {
+	if id == nil {
+		return nil
+	}
+	return id.role
+}
+
 type plugin struct {
 	sync.Mutex
 	idx    string
@@ -62,6 +77,7 @@ type plugin struct {
 	rpcc   *ttrpc.Client
 	rpcl   stdnet.Listener
 	rpcs   *ttrpc.Server
+	id     *identity
 	events EventMask
 	closed bool
 	regC   chan error
@@ -319,6 +335,8 @@ func (p *plugin) start(name, version string) (err error) {
 			timeout = getPluginRegistrationTimeout()
 		)
 
+		auth.RegisterAuthenticationService(p.rpcs, p)
+
 		go func() {
 			err := p.rpcs.Serve(context.Background(), p.rpcl)
 			if err != ttrpc.ErrServerClosed {
@@ -426,6 +444,76 @@ func (p *plugin) qualifiedName() string {
 		base = "plugin"
 	}
 	return kind + ":" + idx + "-" + base + pid
+}
+
+// Authenticate handles the plugin's authentication request.
+func (p *plugin) RequestChallenge(ctx context.Context, req *auth.RequestChallengeRequest) (*auth.RequestChallengeResponse, error) {
+	if p.id != nil {
+		log.Errorf(ctx, "rejecting client, multiple authentication requests")
+		p.close()
+		return nil, fmt.Errorf("multiple authentication requests")
+	}
+
+	log.Infof(ctx, "authenticating client with key %q...", string(req.PublicKey))
+	p.id = &identity{}
+
+	role, peer, err := p.r.auth.GetRoleByKey(req.PublicKey)
+	if err != nil {
+		log.Errorf(ctx, "rejecting client with unknown key")
+		p.close()
+		return nil, err
+	}
+
+	p.id.peer = peer
+	p.id.role = role
+
+	log.Infof(ctx, "key has assigned role %q...", role.GetRole())
+
+	priv, pub, err := auth.GenerateKeyPair()
+	if err != nil {
+		log.Errorf(ctx, "rejecting client, key pair generation failed: %v", err)
+		p.close()
+		return nil, err
+	}
+
+	p.id.priv = priv
+	p.id.pub = pub
+
+	log.Infof(ctx, "challenging client...")
+
+	challenge, err := priv.GenerateChallenge(peer)
+	if err != nil {
+		log.Errorf(ctx, "rejecting client, challenge generation failed: %v", err)
+		p.close()
+		return nil, err
+	}
+
+	return &auth.RequestChallengeResponse{
+		PublicKey: pub.Encode(),
+		Challenge: challenge,
+	}, nil
+}
+
+// Verify challenge response from authenticating plugin.
+func (p *plugin) VerifyChallenge(ctx context.Context, req *auth.VerifyChallengeRequest) (*auth.VerifyChallengeResponse, error) {
+	if p.id == nil || p.id.peer == nil || p.id.priv == nil {
+		log.Errorf(ctx, "rejecting client, response to nonexistent challenge")
+		p.close()
+		return nil, fmt.Errorf("response to nonexistent challenge")
+	}
+
+	defer p.id.priv.Clear()
+
+	if err := p.id.priv.VerifyResponse(p.id.peer, req.Response); err != nil {
+		log.Errorf(ctx, "rejecting client, failed challenge response")
+		p.close()
+		return nil, err
+	}
+
+	return &auth.VerifyChallengeResponse{
+		Role: p.id.GetRole().GetRole(),
+		Tags: p.id.GetRole().GetTags(),
+	}, nil
 }
 
 // RegisterPlugin handles the plugin's registration request.

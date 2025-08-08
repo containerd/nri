@@ -1110,9 +1110,11 @@ var _ = Describe("Plugin container creation adjustments", func() {
 				&mockRuntime{
 					options: []nri.Option{
 						nri.WithDefaultValidator(
-							&validator.DefaultValidatorConfig{
-								Enable:                  true,
-								RejectOCIHookAdjustment: true,
+							&validator.DefaultConfig{
+								Enable: true,
+								Config: &validator.Config{
+									RejectOCIHookAdjustment: boolptr(true),
+								},
 							},
 						),
 					},
@@ -1203,9 +1205,11 @@ var _ = Describe("Plugin container creation adjustments", func() {
 				&mockRuntime{
 					options: []nri.Option{
 						nri.WithDefaultValidator(
-							&validator.DefaultValidatorConfig{
-								Enable:                                true,
-								RejectRuntimeDefaultSeccompAdjustment: true,
+							&validator.DefaultConfig{
+								Enable: true,
+								Config: &validator.Config{
+									RejectRuntimeDefaultSeccompAdjustment: boolptr(true),
+								},
 							},
 						),
 					},
@@ -1306,9 +1310,11 @@ var _ = Describe("Plugin container creation adjustments", func() {
 				&mockRuntime{
 					options: []nri.Option{
 						nri.WithDefaultValidator(
-							&validator.DefaultValidatorConfig{
-								Enable:                                true,
-								RejectRuntimeDefaultSeccompAdjustment: false,
+							&validator.DefaultConfig{
+								Enable: true,
+								Config: &validator.Config{
+									RejectRuntimeDefaultSeccompAdjustment: boolptr(false),
+								},
 							},
 						),
 					},
@@ -1409,9 +1415,11 @@ var _ = Describe("Plugin container creation adjustments", func() {
 				&mockRuntime{
 					options: []nri.Option{
 						nri.WithDefaultValidator(
-							&validator.DefaultValidatorConfig{
-								Enable:                        true,
-								RejectCustomSeccompAdjustment: true,
+							&validator.DefaultConfig{
+								Enable: true,
+								Config: &validator.Config{
+									RejectCustomSeccompAdjustment: boolptr(true),
+								},
 							},
 						),
 					},
@@ -1513,9 +1521,11 @@ var _ = Describe("Plugin container creation adjustments", func() {
 				&mockRuntime{
 					options: []nri.Option{
 						nri.WithDefaultValidator(
-							&validator.DefaultValidatorConfig{
-								Enable:                        true,
-								RejectCustomSeccompAdjustment: false,
+							&validator.DefaultConfig{
+								Enable: true,
+								Config: &validator.Config{
+									RejectCustomSeccompAdjustment: boolptr(false),
+								},
 							},
 						),
 					},
@@ -1617,9 +1627,11 @@ var _ = Describe("Plugin container creation adjustments", func() {
 				&mockRuntime{
 					options: []nri.Option{
 						nri.WithDefaultValidator(
-							&validator.DefaultValidatorConfig{
-								Enable:                            true,
-								RejectUnconfinedSeccompAdjustment: true,
+							&validator.DefaultConfig{
+								Enable: true,
+								Config: &validator.Config{
+									RejectUnconfinedSeccompAdjustment: boolptr(true),
+								},
 							},
 						),
 					},
@@ -1720,9 +1732,11 @@ var _ = Describe("Plugin container creation adjustments", func() {
 				&mockRuntime{
 					options: []nri.Option{
 						nri.WithDefaultValidator(
-							&validator.DefaultValidatorConfig{
-								Enable:                            true,
-								RejectUnconfinedSeccompAdjustment: false,
+							&validator.DefaultConfig{
+								Enable: true,
+								Config: &validator.Config{
+									RejectUnconfinedSeccompAdjustment: boolptr(false),
+								},
 							},
 						),
 					},
@@ -1823,9 +1837,11 @@ var _ = Describe("Plugin container creation adjustments", func() {
 				&mockRuntime{
 					options: []nri.Option{
 						nri.WithDefaultValidator(
-							&validator.DefaultValidatorConfig{
-								Enable:                    true,
-								RejectNamespaceAdjustment: true,
+							&validator.DefaultConfig{
+								Enable: true,
+								Config: &validator.Config{
+									RejectNamespaceAdjustment: boolptr(true),
+								},
 							},
 						),
 					},
@@ -1912,7 +1928,7 @@ var _ = Describe("Plugin container creation adjustments", func() {
 				&mockRuntime{
 					options: []nri.Option{
 						nri.WithDefaultValidator(
-							&validator.DefaultValidatorConfig{
+							&validator.DefaultConfig{
 								Enable: true,
 								RequiredPlugins: []string{
 									"foo",
@@ -3156,4 +3172,8 @@ func protoDiff(a, b proto.Message) string {
 
 func protoEqual(a, b proto.Message) bool {
 	return cmp.Equal(a, b, cmpopts.EquateEmpty(), protocmp.Transform())
+}
+
+func boolptr(v bool) *bool {
+	return &v
 }

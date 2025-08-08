@@ -130,6 +130,13 @@ func (p *plugin) differ(apifunc string, pod *api.PodSandbox, container *api.Cont
 		p.saveValue(pod, container)
 	} else {
 		element := indices[indices[p.idx].prevIndex].prevValues.Front()
+		if element == nil {
+			// This might happen during startup when all indices of the plugin
+			// are not yet started (they are startedasynchronously in
+			// parallel).
+			log.Debugf("[%d] %s: skipping nil element, plugin startup not yet finished", p.idx, apifunc)
+			return
+		}
 		initialValue := element.Value.(*changedValue)
 
 		indices[indices[p.idx].prevIndex].prevValues.Remove(element)

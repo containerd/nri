@@ -98,46 +98,14 @@ clean-cache:
 # plugins build targets
 #
 
-$(BIN_PATH)/logger: $(wildcard plugins/logger/*.go)
+$(BIN_PATH)/%: plugins/%/*
 	$(Q)echo "Building $@..."; \
 	cd $(dir $<) && $(GO_BUILD) -o $@ .
 
-$(BIN_PATH)/device-injector: $(wildcard plugins/device-injector/*.go)
-	$(Q)echo "Building $@..."; \
-	cd $(dir $<) && $(GO_BUILD) -o $@ .
-
-$(BIN_PATH)/hook-injector: $(wildcard plugins/hook-injector/*.go)
-	$(Q)echo "Building $@..."; \
-	cd $(dir $<) && $(GO_BUILD) -o $@ .
-
-$(BIN_PATH)/differ: $(wildcard plugins/differ/*.go)
-	$(Q)echo "Building $@..."; \
-	cd $(dir $<) && $(GO_BUILD) -o $@ .
-
-$(BIN_PATH)/ulimit-adjuster: $(wildcard plugins/ulimit-adjuster/*.go)
-	$(Q)echo "Building $@..."; \
-	cd $(dir $<) && $(GO_BUILD) -o $@ .
-
-$(BIN_PATH)/v010-adapter: $(wildcard plugins/v010-adapter/*.go)
-	$(Q)echo "Building $@..."; \
-	cd $(dir $<) && $(GO_BUILD) -o $@ .
-
-$(BIN_PATH)/template: $(wildcard plugins/template/*.go)
-	$(Q)echo "Building $@..."; \
-	cd $(dir $<) && $(GO_BUILD) -o $@ .
-
-$(BIN_PATH)/wasm: $(wildcard plugins/wasm/*.go)
+$(BIN_PATH)/wasm: plugins/wasm/
 	$(Q)echo "Building $@..."; \
 	mkdir -p $(BIN_PATH) && \
 	cd $(dir $<) && GOOS=wasip1 GOARCH=wasm $(GO_BUILD) -o $@ -buildmode=c-shared .
-
-$(BIN_PATH)/network-device-injector: $(wildcard plugins/network-device-injector/*.go)
-	$(Q)echo "Building $@..."; \
-	cd $(dir $<) && $(GO_BUILD) -o $@ .
-
-$(BIN_PATH)/network-logger: $(wildcard plugins/network-logger/*.go)
-	$(Q)echo "Building $@..."; \
-	cd $(dir $<) && $(GO_BUILD) -o $@ .
 
 #
 # test targets

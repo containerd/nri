@@ -83,9 +83,8 @@ func (p *plugin) onClose() {
 
 func main() {
 	var (
-		pluginName string
-		pluginIdx  string
-		err        error
+		pluginIdx string
+		err       error
 	)
 
 	log = logrus.StandardLogger()
@@ -93,7 +92,6 @@ func main() {
 		PadLevelText: true,
 	})
 
-	flag.StringVar(&pluginName, "network-logger", "", "plugin name to register to NRI")
 	flag.StringVar(&pluginIdx, "idx", "", "plugin index to register to NRI")
 	flag.Parse()
 
@@ -101,9 +99,7 @@ func main() {
 	opts := []stub.Option{
 		stub.WithOnClose(p.onClose),
 	}
-	if pluginName != "" {
-		opts = append(opts, stub.WithPluginName(pluginName))
-	}
+	opts = append(opts, stub.WithPluginName("network-logger"))
 	if pluginIdx != "" {
 		opts = append(opts, stub.WithPluginIdx(pluginIdx))
 	}

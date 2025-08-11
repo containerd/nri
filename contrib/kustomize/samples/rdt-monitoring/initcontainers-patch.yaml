@@ -1,0 +1,119 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: nri-plugin-hook-injector
+spec:
+  template:
+    spec:
+      initContainers:
+      - name: deploy-hook-binary
+        image: busybox:latest
+        command:
+          - sh
+          - -c
+          - |
+            echo "Creating OCI hook binary"
+            cat > "$HOOKS_DIR/hook.sh" <<'EOF'
+            #!/bin/sh
+            fatal() {
+                echo $@ >&2
+                exit 1
+            }
+
+            state=$(</dev/stdin)
+
+            resctrl_root_path="$(awk '$3 == "resctrl" {print $2; exit}' /proc/mounts)"
+            if [ "$resctrl_root_path" = "" ]; then
+                echo "resctrl mount point not found"
+                exit 0
+            fi
+
+            id=$(echo $state | jq -er .id) || fatal "failed to get container id"
+            bundle=$(echo $state | jq -er .bundle) || fatal "failed to get container bundle path"
+
+            clos=""
+            intel_rdt_config=$(jq -r .linux.intelRdt "$bundle/config.json")
+            if [ "$intel_rdt_config" != "null" ]; then
+                # If linux.intelRdt is non-null the container is assigned to a clos by the runtime
+                clos=$(echo "$intel_rdt_config" | jq -er .closID) || clos="$id"
+            fi
+
+            mon_group_path="$resctrl_root_path/$clos/mon_groups/$id"
+
+            create() {
+                pid=$(echo $state | jq -er .pid) || fatal "failed to get container pid"
+
+                echo "creating monintoring group $mon_group_path"
+                mkdir "$mon_group_path" || fatal "failed to create monitoring group for container $id"
+                echo writing $pid to $mon_group_path/tasks
+
+                if ! echo $pid > "$mon_group_path/tasks"; then
+                    rmdir "$mon_group_path" || echo "failed to remove $mon_group_path" >&2
+                    fatal "failed to assign pid $pid to $mon_group_path"
+                fi
+            }
+
+            delete() {
+                # MON group is reaped as part of the CLOS (by the runtime) if it was under
+                # a dedicated CLOS created for this container
+                if [ "$clos" != "$id" ]; then
+                    echo "deleting monintoring group $mon_group_path"
+                    rmdir "$mon_group_path" || fatal "failed to delete monitoring group of container $id"
+                fi
+            }
+
+            case "$1" in
+                create)
+                    create
+                    ;;
+                delete)
+                    delete
+                    ;;
+                auto)
+                    status=$(echo $state | jq -er .status) || fatal "failed to get container status"
+                    case "$status" in
+                        creating)
+                            create
+                            ;;
+                        stopped)
+                            delete
+                            ;;
+                    esac
+                    ;;
+                *) fatal "unknown operation '$1'"
+            esac
+            EOF
+            chmod +x "$HOOKS_DIR/hook.sh"
+        env:
+        - name: HOOKS_DIR
+          value: /hooks
+        volumeMounts:
+        - name: etc-hooks-d
+          mountPath: /hooks
+
+      - name: deploy-hook-config
+        image: busybox:latest
+        command:
+          - sh
+          - -c
+          - |
+            echo "Creating OCI hook config"
+            cat > "$HOOKS_DIR/hook.json" <<'EOF'
+            {
+              "version": "1.0.0",
+              "hook": {
+                  "path": "/etc/containers/nri/rdt-hook/hook.sh",
+                  "args": ["", "auto"]
+              },
+              "when": {
+                  "always": true
+              },
+              "stages": ["createRuntime", "poststop"]
+            }
+            EOF
+        env:
+        - name: HOOKS_DIR
+          value: /hooks
+        volumeMounts:
+        - name: etc-hooks-d
+          mountPath: /hooks

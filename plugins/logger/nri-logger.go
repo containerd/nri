@@ -216,11 +216,10 @@ func dump(args ...interface{}) {
 
 func main() {
 	var (
-		pluginName string
-		pluginIdx  string
-		events     string
-		opts       []stub.Option
-		err        error
+		pluginIdx string
+		events    string
+		opts      []stub.Option
+		err       error
 	)
 
 	log = logrus.StandardLogger()
@@ -228,7 +227,6 @@ func main() {
 		PadLevelText: true,
 	})
 
-	flag.StringVar(&pluginName, "name", "", "plugin name to register to NRI")
 	flag.StringVar(&pluginIdx, "idx", "", "plugin index to register to NRI")
 	flag.StringVar(&events, "events", "all", "comma-separated list of events to subscribe for")
 	flag.StringVar(&cfg.LogFile, "log-file", "", "logfile name, if logging to a file")
@@ -246,9 +244,6 @@ func main() {
 		log.SetOutput(f)
 	}
 
-	if pluginName != "" {
-		opts = append(opts, stub.WithPluginName(pluginName))
-	}
 	if pluginIdx != "" {
 		opts = append(opts, stub.WithPluginIdx(pluginIdx))
 	}

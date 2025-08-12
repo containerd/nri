@@ -78,7 +78,7 @@ func (p *plugin) RemovePodSandbox(_ context.Context, pod *api.PodSandbox) error 
 
 func (p *plugin) onClose() {
 	log.Infof("Connection to the runtime lost, exiting...")
-	os.Exit(0)
+	os.Exit(1)
 }
 
 func main() {

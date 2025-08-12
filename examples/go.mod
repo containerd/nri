@@ -1,11 +1,11 @@
 module github.com/containerd/nri/examples
 
-go 1.22.0
+go 1.24.3
 
 require (
 	github.com/containerd/cgroups v1.0.3
 	github.com/containerd/nri v0.1.0
-	github.com/opencontainers/runtime-spec v1.1.0
+	github.com/opencontainers/runtime-spec v1.2.2-0.20250804081626-bfdffd548aa6
 	github.com/sirupsen/logrus v1.9.3
 )
 

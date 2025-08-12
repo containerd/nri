@@ -127,6 +127,8 @@ func (g *Generator) Adjust(adjust *nri.ContainerAdjustment) error {
 		return err
 	}
 
+	g.AdjustMemoryPolicy(adjust.GetLinux().GetMemoryPolicy())
+
 	resources := adjust.GetLinux().GetResources()
 	if err := g.AdjustResources(resources); err != nil {
 		return err
@@ -414,6 +416,13 @@ func (g *Generator) AdjustNamespaces(namespaces []*nri.LinuxNamespace) error {
 	return nil
 }
 
+// AdjustMemoryPolicy adjusts default memory policy (set_mempolicy) for the container.
+func (g *Generator) AdjustMemoryPolicy(memoryPolicy *nri.LinuxMemoryPolicy) {
+	if memoryPolicy != nil {
+		g.SetLinuxMemoryPolicy(memoryPolicy.ToOCI())
+	}
+}
+
 // AdjustDevices adjusts the (Linux) devices in the OCI Spec.
 func (g *Generator) AdjustDevices(devices []*nri.LinuxDevice) {
 	for _, d := range devices {
@@ -607,6 +616,14 @@ func (g *Generator) SetProcessIOPriority(ioprio *rspec.LinuxIOPriority) {
 		ioprio = nil
 	}
 	g.Config.Process.IOPriority = ioprio
+}
+
+func (g *Generator) SetLinuxMemoryPolicy(mpol *rspec.LinuxMemoryPolicy) {
+	g.initConfigLinux()
+	if mpol != nil && mpol.Mode == "" {
+		mpol = nil
+	}
+	g.Config.Linux.MemoryPolicy = mpol
 }
 
 func (g *Generator) initConfig() {

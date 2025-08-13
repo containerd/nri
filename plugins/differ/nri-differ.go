@@ -257,8 +257,8 @@ func (p *plugin) RemoveContainer(_ context.Context, pod *api.PodSandbox, contain
 }
 
 func (p *plugin) onClose() {
-	log.Infof("stopped")
-	os.Exit(0)
+	log.Infof("Connection to the runtime lost, exiting...")
+	os.Exit(1)
 }
 
 // Dump one or more objects, with an optional global prefix and per-object tags.

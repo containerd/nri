@@ -177,7 +177,8 @@ func (p *plugin) ValidateContainerAdjustment(_ context.Context, req *api.Validat
 }
 
 func (p *plugin) onClose() {
-	os.Exit(0)
+	log.Infof("Connection to the runtime lost, exiting...")
+	os.Exit(1)
 }
 
 // Dump one or more objects, with an optional global prefix and per-object tags.

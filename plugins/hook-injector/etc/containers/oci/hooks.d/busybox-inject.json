@@ -2,7 +2,7 @@
     "version": "1.0.0",
     "hook": {
         "path": "/usr/local/sbin/demo-hook.sh",
-        "args": ["this", "is", "injected", "into", "busybox"],
+        "args": ["demo-hook.sh", "this", "is", "injected", "into", "busybox"],
         "env": [
             "DEMO_HOOK_BUSYBOX_INJECTED=true",
             "DEMO_HOOK_ARGV0=busybox"

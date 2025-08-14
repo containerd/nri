@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: nri-plugin-ulimit-adjuster
+spec:
+  template:
+    spec:
+      priorityClassName: system-node-critical
+      containers:
+        - name: plugin
+          image: plugin:latest
+          args:
+            - "-idx"
+            - "10"
+          resources:
+            requests:
+              cpu: "2m"
+              memory: "5Mi"
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: nri-socket
+              mountPath: /var/run/nri/nri.sock
+      volumes:
+        - name: nri-socket
+          hostPath:
+            path: /var/run/nri/nri.sock
+            type: Socket

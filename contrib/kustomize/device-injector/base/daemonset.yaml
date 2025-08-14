@@ -1,15 +1,17 @@
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
-  name: nri-plugin-differ
+  name: nri-plugin-device-injector
 spec:
   template:
     spec:
+      priorityClassName: system-node-critical
       containers:
         - name: plugin
           image: plugin:latest
-          imagePullPolicy: Always
-          args: []
+          args:
+            - "-idx"
+            - "10"
           resources:
             requests:
               cpu: "2m"

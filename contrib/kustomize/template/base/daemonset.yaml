@@ -1,19 +1,16 @@
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
-  name: nri-plugin-logger
+  name: nri-plugin-template
 spec:
   template:
     spec:
       containers:
         - name: plugin
           image: plugin:latest
-          imagePullPolicy: Always
           args:
             - "-idx"
             - "10"
-            - "-events"
-            - "RunPodSandbox,StopPodSandbox,RemovePodSandbox,CreateContainer,PostCreateContainer,StartContainer,PostStartContainer,UpdateContainer,PostUpdateContainer,StopContainer,RemoveContainer"
           resources:
             requests:
               cpu: "2m"

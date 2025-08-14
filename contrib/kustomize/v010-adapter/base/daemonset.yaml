@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
-  name: nri-plugin-ulimit-adjuster
+  name: nri-plugin-v010-adapter
 spec:
   template:
     spec:
@@ -9,7 +9,6 @@ spec:
       containers:
         - name: plugin
           image: plugin:latest
-          imagePullPolicy: Always
           args:
             - "-idx"
             - "10"
@@ -25,8 +24,22 @@ spec:
           volumeMounts:
             - name: nri-socket
               mountPath: /var/run/nri/nri.sock
+            - name: nri-v010-config
+              mountPath: /etc/nri/conf.json
+              readOnly: true
+            - name: nri-v010-plugins
+              mountPath: /opt/nri/bin
+              readOnly: true
       volumes:
         - name: nri-socket
           hostPath:
             path: /var/run/nri/nri.sock
             type: Socket
+        - name: nri-v010-config
+          hostPath:
+            path: /etc/nri/conf.json
+            type: File
+        - name: nri-v010-plugins
+          hostPath:
+            path: /opt/nri/bin
+            type: DirectoryOrCreate

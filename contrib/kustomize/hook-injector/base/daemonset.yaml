@@ -9,7 +9,6 @@ spec:
       containers:
         - name: plugin
           image: plugin:latest
-          imagePullPolicy: Always
           args:
             - "-idx"
             - "10"

@@ -1,14 +1,14 @@
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
-  name: nri-plugin-network-logger
+  name: nri-plugin-network-device-injector
 spec:
   template:
     spec:
+      priorityClassName: system-node-critical
       containers:
         - name: plugin
           image: plugin:latest
-          imagePullPolicy: Always
           args:
             - "-idx"
             - "10"

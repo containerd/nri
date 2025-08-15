@@ -30,6 +30,30 @@ plugin has created the network interface and allocated the IPs.
 
 - RemovePodSandbox: It happens after all the network resources were released.
 
+## Deployment
+
+The NRI repository contains minimal kustomize overlays for this plugin at
+[contrib/kustomize/network-logger](../../contrib/kustomize/network-logger).
+
+Deploy the latest release with:
+
+```bash
+kubectl apply -k https://github.com/containerd/nri/contrib/kustomize/network-logger
+```
+
+Deploy a specific release with:
+
+```bash
+RELEASE_TAG=v0.10.0
+kubectl apply -k "github.com/containerd/nri/contrib/kustomize/network-logger?ref=${RELEASE_TAG}"
+```
+
+Deploy the latest development build from tip of the main branch with:
+
+```bash
+kubectl apply -k https://github.com/containerd/nri/contrib/kustomize/network-logger/unstable
+```
+
 ## Testing
 
 You can test this plugin using a kubernetes cluster/node with a container

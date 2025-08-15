@@ -102,7 +102,7 @@ $(BIN_PATH)/%: plugins/%/*
 	$(Q)echo "Building $@..."; \
 	cd $(dir $<) && $(GO_BUILD) -o $@ .
 
-$(BIN_PATH)/wasm: plugins/wasm/
+$(BIN_PATH)/wasm: plugins/wasm/*
 	$(Q)echo "Building $@..."; \
 	mkdir -p $(BIN_PATH) && \
 	cd $(dir $<) && GOOS=wasip1 GOARCH=wasm $(GO_BUILD) -o $@ -buildmode=c-shared .

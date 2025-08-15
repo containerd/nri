@@ -29,6 +29,8 @@ GO_LINT    := golint -set_exit_status
 GO_FMT     := gofmt
 GO_VET     := $(GO_CMD) vet
 
+GO_BUILD_FLAGS ?=
+
 GO_MODULES := $(shell $(GO_CMD) list ./...)
 
 GOLANG_CILINT := golangci-lint
@@ -69,6 +71,8 @@ allclean: clean clean-cache
 
 test: test-gopkgs
 
+FORCE:
+
 #
 # build targets
 #
@@ -98,14 +102,14 @@ clean-cache:
 # plugins build targets
 #
 
-$(BIN_PATH)/%: plugins/%/*
+$(BIN_PATH)/% build/bin/%: FORCE
 	$(Q)echo "Building $@..."; \
-	cd $(dir $<) && $(GO_BUILD) -o $@ .
+	$(GO_BUILD) -C plugins/$* -o $(abspath $@) $(GO_BUILD_FLAGS) .
 
-$(BIN_PATH)/wasm: plugins/wasm/
+$(BIN_PATH)/wasm build/bin/wasm: FORCE
 	$(Q)echo "Building $@..."; \
 	mkdir -p $(BIN_PATH) && \
-	cd $(dir $<) && GOOS=wasip1 GOARCH=wasm $(GO_BUILD) -o $@ -buildmode=c-shared .
+	GOOS=wasip1 GOARCH=wasm $(GO_BUILD) -C plugins/wasm -o $(abspath $@) $(GO_BUILD_FLAGS) -buildmode=c-shared .
 
 #
 # test targets

@@ -27,8 +27,9 @@ RUN --mount=type=cache,target=/go/pkg/mod/ go mod download
 COPY . .
 
 RUN --mount=type=cache,target=/go/pkg/mod/ \
-    make /go/src/build/bin/${PLUGIN} \
-    GO_BUILD="CGO_ENABLED=0 go build -ldflags '-extldflags=-static'"
+    make build/bin/${PLUGIN} \
+    GO_BUILD="CGO_ENABLED=0 go build" \
+    GO_BUILD_FLAGS="-ldflags '-extldflags=-static'"
 
 # Construct final image
 FROM scratch

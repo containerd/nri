@@ -26,7 +26,7 @@ import (
 func TestValidateReqiredPlugins(t *testing.T) {
 	type testCase struct {
 		name      string
-		cfg       *DefaultValidatorConfig
+		cfg       *DefaultConfig
 		pod       *api.PodSandbox
 		container *api.Container
 		plugins   []*api.PluginInstance
@@ -36,7 +36,7 @@ func TestValidateReqiredPlugins(t *testing.T) {
 	for _, tc := range []*testCase{
 		{
 			name: "no required plugins",
-			cfg: &DefaultValidatorConfig{
+			cfg: &DefaultConfig{
 				Enable: true,
 			},
 			pod: &api.PodSandbox{
@@ -51,7 +51,7 @@ func TestValidateReqiredPlugins(t *testing.T) {
 		},
 		{
 			name: "missing annotated required plugin",
-			cfg: &DefaultValidatorConfig{
+			cfg: &DefaultConfig{
 				Enable: true,
 			},
 			pod: &api.PodSandbox{
@@ -70,7 +70,7 @@ func TestValidateReqiredPlugins(t *testing.T) {
 		},
 		{
 			name: "present annotated required plugin",
-			cfg: &DefaultValidatorConfig{
+			cfg: &DefaultConfig{
 				Enable: true,
 			},
 			pod: &api.PodSandbox{
@@ -95,7 +95,7 @@ func TestValidateReqiredPlugins(t *testing.T) {
 
 		{
 			name: "missing global required plugin",
-			cfg: &DefaultValidatorConfig{
+			cfg: &DefaultConfig{
 				Enable:          true,
 				RequiredPlugins: []string{"plugin"},
 			},
@@ -112,7 +112,7 @@ func TestValidateReqiredPlugins(t *testing.T) {
 		},
 		{
 			name: "present global required plugin",
-			cfg: &DefaultValidatorConfig{
+			cfg: &DefaultConfig{
 				Enable:          true,
 				RequiredPlugins: []string{"plugin"},
 			},
@@ -134,7 +134,7 @@ func TestValidateReqiredPlugins(t *testing.T) {
 		},
 		{
 			name: "tolerated missing (global required) plugin",
-			cfg: &DefaultValidatorConfig{
+			cfg: &DefaultConfig{
 				Enable:                    true,
 				RequiredPlugins:           []string{"plugin"},
 				TolerateMissingAnnotation: "tolerate-missing-plugins",
@@ -154,7 +154,7 @@ func TestValidateReqiredPlugins(t *testing.T) {
 		},
 		{
 			name: "present annotated and global required plugin",
-			cfg: &DefaultValidatorConfig{
+			cfg: &DefaultConfig{
 				Enable:          true,
 				RequiredPlugins: []string{"plugin1"},
 			},
@@ -183,7 +183,7 @@ func TestValidateReqiredPlugins(t *testing.T) {
 		},
 		{
 			name: "missing annotated with present global required plugin",
-			cfg: &DefaultValidatorConfig{
+			cfg: &DefaultConfig{
 				Enable:          true,
 				RequiredPlugins: []string{"plugin1"},
 			},
@@ -209,7 +209,7 @@ func TestValidateReqiredPlugins(t *testing.T) {
 		},
 		{
 			name: "present annotated with missing global required plugin",
-			cfg: &DefaultValidatorConfig{
+			cfg: &DefaultConfig{
 				Enable:          true,
 				RequiredPlugins: []string{"plugin1"},
 			},
@@ -244,7 +244,7 @@ func TestValidateReqiredPlugins(t *testing.T) {
 				}
 			)
 
-			err := v.validateRequiredPlugins(req)
+			err := v.validateRequiredPlugins(req, req.GetPluginMap())
 			if tc.fail {
 				require.Error(t, err)
 			} else {

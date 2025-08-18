@@ -380,6 +380,7 @@ message LinuxContainer {
   map<string, string> sysctl = 9;
   map<string, LinuxNetDevice> net_devices = 10;
   LinuxScheduler scheduler = 11;
+  LinuxRdt rdt = 12;
 }
 
 // A linux namespace.
@@ -560,6 +561,7 @@ message LinuxContainerAdjustment {
   map<string, string> sysctl = 8;
   map<string,LinuxNetDevice> net_devices = 9;
   LinuxScheduler scheduler = 10;
+  LinuxRdt rdt = 11;
 }
 
 message LinuxSeccomp {
@@ -604,6 +606,12 @@ message ContainerEviction {
   string container_id = 1;
   // Human-readable reason for eviction.
   string reason = 2;
+}
+
+message LinuxRdt {
+  OptionalString clos_id = 1;
+  OptionalRepeatedString schemata = 2;
+  OptionalBool enable_monitoring = 3;
 }
 
 // KeyValue represents an environment variable.
@@ -726,4 +734,7 @@ enum Field {
     LinuxNetDevices = 35;
     // protoc scoping rules: calling this LinuxScheduler would conflict with message.
     LinuxSched = 36;
+    RdtClosID = 37;
+    RdtSchemata = 38;
+    RdtEnableMonitoring = 39;
 }

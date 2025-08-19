@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 
@@ -189,6 +190,7 @@ func (g *Generator) Adjust(adjust *nri.ContainerAdjustment) error {
 	if err := g.AdjustRdtClass(resources.GetRdtClass().Get()); err != nil {
 		return err
 	}
+	g.AdjustRdt(adjust.GetLinux().GetRdt())
 
 	if err := g.AdjustMounts(adjust.GetMounts()); err != nil {
 		return err
@@ -386,6 +388,38 @@ func (g *Generator) AdjustRdtClass(rdtClass *string) error {
 
 	g.SetLinuxIntelRdt(rdt)
 	return nil
+}
+
+// AdjustRdt adjusts the intelRdt object in the OCI Spec.
+func (g *Generator) AdjustRdt(r *nri.LinuxRdt) {
+	if r == nil {
+		return
+	}
+
+	g.AdjustRdtClosID(r.ClosId.Get())
+	g.AdjustRdtSchemata(r.Schemata.Get())
+	g.AdjustRdtEnableMonitoring(r.EnableMonitoring.Get())
+}
+
+// AdjustRdtClosID adjusts the RDT CLOS id in the OCI Spec.
+func (g *Generator) AdjustRdtClosID(value *string) {
+	if value != nil {
+		g.SetLinuxIntelRdtClosID(*value)
+	}
+}
+
+// AdjustRdtSchemata adjusts the RDT schemata in the OCI Spec.
+func (g *Generator) AdjustRdtSchemata(value *[]string) {
+	if value != nil {
+		g.SetLinuxIntelRdtSchemata(*value)
+	}
+}
+
+// AdjustRdtEnableMonitoring adjusts the RDT monitoring in the OCI Spec.
+func (g *Generator) AdjustRdtEnableMonitoring(value *bool) {
+	if value != nil {
+		g.SetLinuxIntelRdtEnableMonitoring(*value)
+	}
 }
 
 // AdjustCgroupsPath adjusts the cgroup pseudofs path in the OCI Spec.
@@ -682,6 +716,24 @@ func (g *Generator) SetLinuxIntelRdt(rdt *rspec.LinuxIntelRdt) {
 	g.Config.Linux.IntelRdt = rdt
 }
 
+// SetLinuxIntelRdtClosID sets g.Config.Linux.IntelRdt.ClosID
+func (g *Generator) SetLinuxIntelRdtClosID(closID string) {
+	g.initConfigLinuxIntelRdt()
+	g.Config.Linux.IntelRdt.ClosID = closID
+}
+
+// SetLinuxIntelRdtEnableMonitoring sets g.Config.Linux.IntelRdt.EnableMonitoring
+func (g *Generator) SetLinuxIntelRdtEnableMonitoring(value bool) {
+	g.initConfigLinuxIntelRdt()
+	g.Config.Linux.IntelRdt.EnableMonitoring = value
+}
+
+// SetLinuxIntelRdtSchemata sets g.Config.Linux.IntelRdt.Schemata
+func (g *Generator) SetLinuxIntelRdtSchemata(schemata []string) {
+	g.initConfigLinuxIntelRdt()
+	g.Config.Linux.IntelRdt.Schemata = slices.Clone(schemata)
+}
+
 // ClearLinuxResourcesBlockIO clears Block I/O settings.
 func (g *Generator) ClearLinuxResourcesBlockIO() {
 	g.initConfigLinuxResources()
@@ -771,5 +823,12 @@ func (g *Generator) initConfigLinuxNetDevices() {
 	g.initConfigLinux()
 	if g.Config.Linux.NetDevices == nil {
 		g.Config.Linux.NetDevices = map[string]rspec.LinuxNetDevice{}
+	}
+}
+
+func (g *Generator) initConfigLinuxIntelRdt() {
+	g.initConfigLinux()
+	if g.Config.Linux.IntelRdt == nil {
+		g.Config.Linux.IntelRdt = &rspec.LinuxIntelRdt{}
 	}
 }

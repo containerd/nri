@@ -248,7 +248,11 @@ func (r *result) adjust(rpl *ContainerAdjustment, plugin string) error {
 		if err := r.adjustLinuxScheduler(rpl.Linux.Scheduler, plugin); err != nil {
 			return err
 		}
+		if err := r.adjustRdt(rpl.Linux.Rdt, plugin); err != nil {
+			return err
+		}
 	}
+
 	if err := r.adjustRlimits(rpl.Rlimits, plugin); err != nil {
 		return err
 	}
@@ -494,6 +498,37 @@ func (r *result) adjustSysctl(sysctl map[string]string, plugin string) error {
 
 	for k := range del {
 		r.reply.adjust.Annotations[MarkForRemoval(k)] = ""
+	}
+
+	return nil
+}
+
+func (r *result) adjustRdt(rdt *LinuxRdt, plugin string) error {
+	if r == nil {
+		return nil
+	}
+
+	r.initAdjustRdt()
+
+	id := r.request.create.Container.Id
+
+	if v := rdt.GetClosId(); v != nil {
+		if err := r.owners.ClaimRdtClosID(id, plugin); err != nil {
+			return err
+		}
+		r.reply.adjust.Linux.Rdt.ClosId = String(v.GetValue())
+	}
+	if v := rdt.GetSchemata(); v != nil {
+		if err := r.owners.ClaimRdtSchemata(id, plugin); err != nil {
+			return err
+		}
+		r.reply.adjust.Linux.Rdt.Schemata = RepeatedString(v.GetValue())
+	}
+	if v := rdt.GetEnableMonitoring(); v != nil {
+		if err := r.owners.ClaimRdtEnableMonitoring(id, plugin); err != nil {
+			return err
+		}
+		r.reply.adjust.Linux.Rdt.EnableMonitoring = Bool(v.GetValue())
 	}
 
 	return nil
@@ -1130,4 +1165,24 @@ func (r *result) getContainerUpdate(u *ContainerUpdate, plugin string) (*Contain
 	}
 
 	return update, nil
+}
+
+func (r *result) initAdjust() {
+	if r.reply.adjust == nil {
+		r.reply.adjust = &ContainerAdjustment{}
+	}
+}
+
+func (r *result) initAdjustLinux() {
+	r.initAdjust()
+	if r.reply.adjust.Linux == nil {
+		r.reply.adjust.Linux = &LinuxContainerAdjustment{}
+	}
+}
+
+func (r *result) initAdjustRdt() {
+	r.initAdjustLinux()
+	if r.reply.adjust.Linux.Rdt == nil {
+		r.reply.adjust.Linux.Rdt = &LinuxRdt{}
+	}
 }

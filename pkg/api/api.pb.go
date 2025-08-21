@@ -4109,6 +4109,54 @@ func (x *OptionalString) GetValue() string {
 	return ""
 }
 
+// An optional collection of strings.
+type OptionalRepeatedString struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Value []string `protobuf:"bytes,1,rep,name=value,proto3" json:"value,omitempty"`
+}
+
+func (x *OptionalRepeatedString) Reset() {
+	*x = OptionalRepeatedString{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_pkg_api_api_proto_msgTypes[51]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *OptionalRepeatedString) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*OptionalRepeatedString) ProtoMessage() {}
+
+func (x *OptionalRepeatedString) ProtoReflect() protoreflect.Message {
+	mi := &file_pkg_api_api_proto_msgTypes[51]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use OptionalRepeatedString.ProtoReflect.Descriptor instead.
+func (*OptionalRepeatedString) Descriptor() ([]byte, []int) {
+	return file_pkg_api_api_proto_rawDescGZIP(), []int{51}
+}
+
+func (x *OptionalRepeatedString) GetValue() []string {
+	if x != nil {
+		return x.Value
+	}
+	return nil
+}
+
 // An optional signed integer value.
 type OptionalInt struct {
 	state         protoimpl.MessageState
@@ -4121,7 +4169,7 @@ type OptionalInt struct {
 func (x *OptionalInt) Reset() {
 	*x = OptionalInt{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_api_api_proto_msgTypes[51]
+		mi := &file_pkg_api_api_proto_msgTypes[52]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -4134,7 +4182,7 @@ func (x *OptionalInt) String() string {
 func (*OptionalInt) ProtoMessage() {}
 
 func (x *OptionalInt) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_api_api_proto_msgTypes[51]
+	mi := &file_pkg_api_api_proto_msgTypes[52]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4147,7 +4195,7 @@ func (x *OptionalInt) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OptionalInt.ProtoReflect.Descriptor instead.
 func (*OptionalInt) Descriptor() ([]byte, []int) {
-	return file_pkg_api_api_proto_rawDescGZIP(), []int{51}
+	return file_pkg_api_api_proto_rawDescGZIP(), []int{52}
 }
 
 func (x *OptionalInt) GetValue() int64 {
@@ -4169,7 +4217,7 @@ type OptionalInt32 struct {
 func (x *OptionalInt32) Reset() {
 	*x = OptionalInt32{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_api_api_proto_msgTypes[52]
+		mi := &file_pkg_api_api_proto_msgTypes[53]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -4182,7 +4230,7 @@ func (x *OptionalInt32) String() string {
 func (*OptionalInt32) ProtoMessage() {}
 
 func (x *OptionalInt32) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_api_api_proto_msgTypes[52]
+	mi := &file_pkg_api_api_proto_msgTypes[53]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4195,7 +4243,7 @@ func (x *OptionalInt32) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OptionalInt32.ProtoReflect.Descriptor instead.
 func (*OptionalInt32) Descriptor() ([]byte, []int) {
-	return file_pkg_api_api_proto_rawDescGZIP(), []int{52}
+	return file_pkg_api_api_proto_rawDescGZIP(), []int{53}
 }
 
 func (x *OptionalInt32) GetValue() int32 {
@@ -4217,7 +4265,7 @@ type OptionalUInt32 struct {
 func (x *OptionalUInt32) Reset() {
 	*x = OptionalUInt32{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_api_api_proto_msgTypes[53]
+		mi := &file_pkg_api_api_proto_msgTypes[54]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -4230,7 +4278,7 @@ func (x *OptionalUInt32) String() string {
 func (*OptionalUInt32) ProtoMessage() {}
 
 func (x *OptionalUInt32) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_api_api_proto_msgTypes[53]
+	mi := &file_pkg_api_api_proto_msgTypes[54]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4243,7 +4291,7 @@ func (x *OptionalUInt32) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OptionalUInt32.ProtoReflect.Descriptor instead.
 func (*OptionalUInt32) Descriptor() ([]byte, []int) {
-	return file_pkg_api_api_proto_rawDescGZIP(), []int{53}
+	return file_pkg_api_api_proto_rawDescGZIP(), []int{54}
 }
 
 func (x *OptionalUInt32) GetValue() uint32 {
@@ -4265,7 +4313,7 @@ type OptionalInt64 struct {
 func (x *OptionalInt64) Reset() {
 	*x = OptionalInt64{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_api_api_proto_msgTypes[54]
+		mi := &file_pkg_api_api_proto_msgTypes[55]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -4278,7 +4326,7 @@ func (x *OptionalInt64) String() string {
 func (*OptionalInt64) ProtoMessage() {}
 
 func (x *OptionalInt64) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_api_api_proto_msgTypes[54]
+	mi := &file_pkg_api_api_proto_msgTypes[55]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4291,7 +4339,7 @@ func (x *OptionalInt64) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OptionalInt64.ProtoReflect.Descriptor instead.
 func (*OptionalInt64) Descriptor() ([]byte, []int) {
-	return file_pkg_api_api_proto_rawDescGZIP(), []int{54}
+	return file_pkg_api_api_proto_rawDescGZIP(), []int{55}
 }
 
 func (x *OptionalInt64) GetValue() int64 {
@@ -4313,7 +4361,7 @@ type OptionalUInt64 struct {
 func (x *OptionalUInt64) Reset() {
 	*x = OptionalUInt64{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_api_api_proto_msgTypes[55]
+		mi := &file_pkg_api_api_proto_msgTypes[56]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -4326,7 +4374,7 @@ func (x *OptionalUInt64) String() string {
 func (*OptionalUInt64) ProtoMessage() {}
 
 func (x *OptionalUInt64) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_api_api_proto_msgTypes[55]
+	mi := &file_pkg_api_api_proto_msgTypes[56]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4339,7 +4387,7 @@ func (x *OptionalUInt64) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OptionalUInt64.ProtoReflect.Descriptor instead.
 func (*OptionalUInt64) Descriptor() ([]byte, []int) {
-	return file_pkg_api_api_proto_rawDescGZIP(), []int{55}
+	return file_pkg_api_api_proto_rawDescGZIP(), []int{56}
 }
 
 func (x *OptionalUInt64) GetValue() uint64 {
@@ -4361,7 +4409,7 @@ type OptionalBool struct {
 func (x *OptionalBool) Reset() {
 	*x = OptionalBool{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_api_api_proto_msgTypes[56]
+		mi := &file_pkg_api_api_proto_msgTypes[57]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -4374,7 +4422,7 @@ func (x *OptionalBool) String() string {
 func (*OptionalBool) ProtoMessage() {}
 
 func (x *OptionalBool) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_api_api_proto_msgTypes[56]
+	mi := &file_pkg_api_api_proto_msgTypes[57]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4387,7 +4435,7 @@ func (x *OptionalBool) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OptionalBool.ProtoReflect.Descriptor instead.
 func (*OptionalBool) Descriptor() ([]byte, []int) {
-	return file_pkg_api_api_proto_rawDescGZIP(), []int{56}
+	return file_pkg_api_api_proto_rawDescGZIP(), []int{57}
 }
 
 func (x *OptionalBool) GetValue() bool {
@@ -4409,7 +4457,7 @@ type OptionalFileMode struct {
 func (x *OptionalFileMode) Reset() {
 	*x = OptionalFileMode{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_api_api_proto_msgTypes[57]
+		mi := &file_pkg_api_api_proto_msgTypes[58]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -4422,7 +4470,7 @@ func (x *OptionalFileMode) String() string {
 func (*OptionalFileMode) ProtoMessage() {}
 
 func (x *OptionalFileMode) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_api_api_proto_msgTypes[57]
+	mi := &file_pkg_api_api_proto_msgTypes[58]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4435,7 +4483,7 @@ func (x *OptionalFileMode) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OptionalFileMode.ProtoReflect.Descriptor instead.
 func (*OptionalFileMode) Descriptor() ([]byte, []int) {
-	return file_pkg_api_api_proto_rawDescGZIP(), []int{57}
+	return file_pkg_api_api_proto_rawDescGZIP(), []int{58}
 }
 
 func (x *OptionalFileMode) GetValue() uint32 {
@@ -4462,7 +4510,7 @@ type CompoundFieldOwners struct {
 func (x *CompoundFieldOwners) Reset() {
 	*x = CompoundFieldOwners{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_api_api_proto_msgTypes[58]
+		mi := &file_pkg_api_api_proto_msgTypes[59]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -4475,7 +4523,7 @@ func (x *CompoundFieldOwners) String() string {
 func (*CompoundFieldOwners) ProtoMessage() {}
 
 func (x *CompoundFieldOwners) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_api_api_proto_msgTypes[58]
+	mi := &file_pkg_api_api_proto_msgTypes[59]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4488,7 +4536,7 @@ func (x *CompoundFieldOwners) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CompoundFieldOwners.ProtoReflect.Descriptor instead.
 func (*CompoundFieldOwners) Descriptor() ([]byte, []int) {
-	return file_pkg_api_api_proto_rawDescGZIP(), []int{58}
+	return file_pkg_api_api_proto_rawDescGZIP(), []int{59}
 }
 
 func (x *CompoundFieldOwners) GetOwners() map[string]string {
@@ -4517,7 +4565,7 @@ type FieldOwners struct {
 func (x *FieldOwners) Reset() {
 	*x = FieldOwners{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_api_api_proto_msgTypes[59]
+		mi := &file_pkg_api_api_proto_msgTypes[60]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -4530,7 +4578,7 @@ func (x *FieldOwners) String() string {
 func (*FieldOwners) ProtoMessage() {}
 
 func (x *FieldOwners) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_api_api_proto_msgTypes[59]
+	mi := &file_pkg_api_api_proto_msgTypes[60]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4543,7 +4591,7 @@ func (x *FieldOwners) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FieldOwners.ProtoReflect.Descriptor instead.
 func (*FieldOwners) Descriptor() ([]byte, []int) {
-	return file_pkg_api_api_proto_rawDescGZIP(), []int{59}
+	return file_pkg_api_api_proto_rawDescGZIP(), []int{60}
 }
 
 func (x *FieldOwners) GetSimple() map[int32]string {
@@ -4574,7 +4622,7 @@ type OwningPlugins struct {
 func (x *OwningPlugins) Reset() {
 	*x = OwningPlugins{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_api_api_proto_msgTypes[60]
+		mi := &file_pkg_api_api_proto_msgTypes[61]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -4587,7 +4635,7 @@ func (x *OwningPlugins) String() string {
 func (*OwningPlugins) ProtoMessage() {}
 
 func (x *OwningPlugins) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_api_api_proto_msgTypes[60]
+	mi := &file_pkg_api_api_proto_msgTypes[61]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4600,7 +4648,7 @@ func (x *OwningPlugins) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OwningPlugins.ProtoReflect.Descriptor instead.
 func (*OwningPlugins) Descriptor() ([]byte, []int) {
-	return file_pkg_api_api_proto_rawDescGZIP(), []int{60}
+	return file_pkg_api_api_proto_rawDescGZIP(), []int{61}
 }
 
 func (x *OwningPlugins) GetOwners() map[string]*FieldOwners {
@@ -5299,7 +5347,10 @@ var file_pkg_api_api_proto_rawDesc = []byte{
 	0x14, 0x0a, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x05,
 	0x76, 0x61, 0x6c, 0x75, 0x65, 0x22, 0x26, 0x0a, 0x0e, 0x4f, 0x70, 0x74, 0x69, 0x6f, 0x6e, 0x61,
 	0x6c, 0x53, 0x74, 0x72, 0x69, 0x6e, 0x67, 0x12, 0x14, 0x0a, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65,
-	0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x22, 0x23, 0x0a,
+	0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x22, 0x2e, 0x0a,
+	0x16, 0x4f, 0x70, 0x74, 0x69, 0x6f, 0x6e, 0x61, 0x6c, 0x52, 0x65, 0x70, 0x65, 0x61, 0x74, 0x65,
+	0x64, 0x53, 0x74, 0x72, 0x69, 0x6e, 0x67, 0x12, 0x14, 0x0a, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65,
+	0x18, 0x01, 0x20, 0x03, 0x28, 0x09, 0x52, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x22, 0x23, 0x0a,
 	0x0b, 0x4f, 0x70, 0x74, 0x69, 0x6f, 0x6e, 0x61, 0x6c, 0x49, 0x6e, 0x74, 0x12, 0x14, 0x0a, 0x05,
 	0x76, 0x61, 0x6c, 0x75, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x03, 0x52, 0x05, 0x76, 0x61, 0x6c,
 	0x75, 0x65, 0x22, 0x25, 0x0a, 0x0d, 0x4f, 0x70, 0x74, 0x69, 0x6f, 0x6e, 0x61, 0x6c, 0x49, 0x6e,
@@ -5530,7 +5581,7 @@ func file_pkg_api_api_proto_rawDescGZIP() []byte {
 }
 
 var file_pkg_api_api_proto_enumTypes = make([]protoimpl.EnumInfo, 6)
-var file_pkg_api_api_proto_msgTypes = make([]protoimpl.MessageInfo, 71)
+var file_pkg_api_api_proto_msgTypes = make([]protoimpl.MessageInfo, 72)
 var file_pkg_api_api_proto_goTypes = []interface{}{
 	(Event)(0),                                  // 0: nri.pkg.api.v1alpha1.Event
 	(ContainerState)(0),                         // 1: nri.pkg.api.v1alpha1.ContainerState
@@ -5589,26 +5640,27 @@ var file_pkg_api_api_proto_goTypes = []interface{}{
 	(*ContainerEviction)(nil),                   // 54: nri.pkg.api.v1alpha1.ContainerEviction
 	(*KeyValue)(nil),                            // 55: nri.pkg.api.v1alpha1.KeyValue
 	(*OptionalString)(nil),                      // 56: nri.pkg.api.v1alpha1.OptionalString
-	(*OptionalInt)(nil),                         // 57: nri.pkg.api.v1alpha1.OptionalInt
-	(*OptionalInt32)(nil),                       // 58: nri.pkg.api.v1alpha1.OptionalInt32
-	(*OptionalUInt32)(nil),                      // 59: nri.pkg.api.v1alpha1.OptionalUInt32
-	(*OptionalInt64)(nil),                       // 60: nri.pkg.api.v1alpha1.OptionalInt64
-	(*OptionalUInt64)(nil),                      // 61: nri.pkg.api.v1alpha1.OptionalUInt64
-	(*OptionalBool)(nil),                        // 62: nri.pkg.api.v1alpha1.OptionalBool
-	(*OptionalFileMode)(nil),                    // 63: nri.pkg.api.v1alpha1.OptionalFileMode
-	(*CompoundFieldOwners)(nil),                 // 64: nri.pkg.api.v1alpha1.CompoundFieldOwners
-	(*FieldOwners)(nil),                         // 65: nri.pkg.api.v1alpha1.FieldOwners
-	(*OwningPlugins)(nil),                       // 66: nri.pkg.api.v1alpha1.OwningPlugins
-	nil,                                         // 67: nri.pkg.api.v1alpha1.PodSandbox.LabelsEntry
-	nil,                                         // 68: nri.pkg.api.v1alpha1.PodSandbox.AnnotationsEntry
-	nil,                                         // 69: nri.pkg.api.v1alpha1.Container.LabelsEntry
-	nil,                                         // 70: nri.pkg.api.v1alpha1.Container.AnnotationsEntry
-	nil,                                         // 71: nri.pkg.api.v1alpha1.LinuxResources.UnifiedEntry
-	nil,                                         // 72: nri.pkg.api.v1alpha1.ContainerAdjustment.AnnotationsEntry
-	nil,                                         // 73: nri.pkg.api.v1alpha1.CompoundFieldOwners.OwnersEntry
-	nil,                                         // 74: nri.pkg.api.v1alpha1.FieldOwners.SimpleEntry
-	nil,                                         // 75: nri.pkg.api.v1alpha1.FieldOwners.CompoundEntry
-	nil,                                         // 76: nri.pkg.api.v1alpha1.OwningPlugins.OwnersEntry
+	(*OptionalRepeatedString)(nil),              // 57: nri.pkg.api.v1alpha1.OptionalRepeatedString
+	(*OptionalInt)(nil),                         // 58: nri.pkg.api.v1alpha1.OptionalInt
+	(*OptionalInt32)(nil),                       // 59: nri.pkg.api.v1alpha1.OptionalInt32
+	(*OptionalUInt32)(nil),                      // 60: nri.pkg.api.v1alpha1.OptionalUInt32
+	(*OptionalInt64)(nil),                       // 61: nri.pkg.api.v1alpha1.OptionalInt64
+	(*OptionalUInt64)(nil),                      // 62: nri.pkg.api.v1alpha1.OptionalUInt64
+	(*OptionalBool)(nil),                        // 63: nri.pkg.api.v1alpha1.OptionalBool
+	(*OptionalFileMode)(nil),                    // 64: nri.pkg.api.v1alpha1.OptionalFileMode
+	(*CompoundFieldOwners)(nil),                 // 65: nri.pkg.api.v1alpha1.CompoundFieldOwners
+	(*FieldOwners)(nil),                         // 66: nri.pkg.api.v1alpha1.FieldOwners
+	(*OwningPlugins)(nil),                       // 67: nri.pkg.api.v1alpha1.OwningPlugins
+	nil,                                         // 68: nri.pkg.api.v1alpha1.PodSandbox.LabelsEntry
+	nil,                                         // 69: nri.pkg.api.v1alpha1.PodSandbox.AnnotationsEntry
+	nil,                                         // 70: nri.pkg.api.v1alpha1.Container.LabelsEntry
+	nil,                                         // 71: nri.pkg.api.v1alpha1.Container.AnnotationsEntry
+	nil,                                         // 72: nri.pkg.api.v1alpha1.LinuxResources.UnifiedEntry
+	nil,                                         // 73: nri.pkg.api.v1alpha1.ContainerAdjustment.AnnotationsEntry
+	nil,                                         // 74: nri.pkg.api.v1alpha1.CompoundFieldOwners.OwnersEntry
+	nil,                                         // 75: nri.pkg.api.v1alpha1.FieldOwners.SimpleEntry
+	nil,                                         // 76: nri.pkg.api.v1alpha1.FieldOwners.CompoundEntry
+	nil,                                         // 77: nri.pkg.api.v1alpha1.OwningPlugins.OwnersEntry
 }
 var file_pkg_api_api_proto_depIdxs = []int32{
 	52,  // 0: nri.pkg.api.v1alpha1.UpdateContainersRequest.update:type_name -> nri.pkg.api.v1alpha1.ContainerUpdate
@@ -5641,18 +5693,18 @@ var file_pkg_api_api_proto_depIdxs = []int32{
 	29,  // 27: nri.pkg.api.v1alpha1.ValidateContainerAdjustmentRequest.container:type_name -> nri.pkg.api.v1alpha1.Container
 	47,  // 28: nri.pkg.api.v1alpha1.ValidateContainerAdjustmentRequest.adjust:type_name -> nri.pkg.api.v1alpha1.ContainerAdjustment
 	52,  // 29: nri.pkg.api.v1alpha1.ValidateContainerAdjustmentRequest.update:type_name -> nri.pkg.api.v1alpha1.ContainerUpdate
-	66,  // 30: nri.pkg.api.v1alpha1.ValidateContainerAdjustmentRequest.owners:type_name -> nri.pkg.api.v1alpha1.OwningPlugins
+	67,  // 30: nri.pkg.api.v1alpha1.ValidateContainerAdjustmentRequest.owners:type_name -> nri.pkg.api.v1alpha1.OwningPlugins
 	24,  // 31: nri.pkg.api.v1alpha1.ValidateContainerAdjustmentRequest.plugins:type_name -> nri.pkg.api.v1alpha1.PluginInstance
-	67,  // 32: nri.pkg.api.v1alpha1.PodSandbox.labels:type_name -> nri.pkg.api.v1alpha1.PodSandbox.LabelsEntry
-	68,  // 33: nri.pkg.api.v1alpha1.PodSandbox.annotations:type_name -> nri.pkg.api.v1alpha1.PodSandbox.AnnotationsEntry
+	68,  // 32: nri.pkg.api.v1alpha1.PodSandbox.labels:type_name -> nri.pkg.api.v1alpha1.PodSandbox.LabelsEntry
+	69,  // 33: nri.pkg.api.v1alpha1.PodSandbox.annotations:type_name -> nri.pkg.api.v1alpha1.PodSandbox.AnnotationsEntry
 	28,  // 34: nri.pkg.api.v1alpha1.PodSandbox.linux:type_name -> nri.pkg.api.v1alpha1.LinuxPodSandbox
 	39,  // 35: nri.pkg.api.v1alpha1.LinuxPodSandbox.pod_overhead:type_name -> nri.pkg.api.v1alpha1.LinuxResources
 	39,  // 36: nri.pkg.api.v1alpha1.LinuxPodSandbox.pod_resources:type_name -> nri.pkg.api.v1alpha1.LinuxResources
 	34,  // 37: nri.pkg.api.v1alpha1.LinuxPodSandbox.namespaces:type_name -> nri.pkg.api.v1alpha1.LinuxNamespace
 	39,  // 38: nri.pkg.api.v1alpha1.LinuxPodSandbox.resources:type_name -> nri.pkg.api.v1alpha1.LinuxResources
 	1,   // 39: nri.pkg.api.v1alpha1.Container.state:type_name -> nri.pkg.api.v1alpha1.ContainerState
-	69,  // 40: nri.pkg.api.v1alpha1.Container.labels:type_name -> nri.pkg.api.v1alpha1.Container.LabelsEntry
-	70,  // 41: nri.pkg.api.v1alpha1.Container.annotations:type_name -> nri.pkg.api.v1alpha1.Container.AnnotationsEntry
+	70,  // 40: nri.pkg.api.v1alpha1.Container.labels:type_name -> nri.pkg.api.v1alpha1.Container.LabelsEntry
+	71,  // 41: nri.pkg.api.v1alpha1.Container.annotations:type_name -> nri.pkg.api.v1alpha1.Container.AnnotationsEntry
 	30,  // 42: nri.pkg.api.v1alpha1.Container.mounts:type_name -> nri.pkg.api.v1alpha1.Mount
 	31,  // 43: nri.pkg.api.v1alpha1.Container.hooks:type_name -> nri.pkg.api.v1alpha1.Hooks
 	33,  // 44: nri.pkg.api.v1alpha1.Container.linux:type_name -> nri.pkg.api.v1alpha1.LinuxContainer
@@ -5665,43 +5717,43 @@ var file_pkg_api_api_proto_depIdxs = []int32{
 	32,  // 51: nri.pkg.api.v1alpha1.Hooks.start_container:type_name -> nri.pkg.api.v1alpha1.Hook
 	32,  // 52: nri.pkg.api.v1alpha1.Hooks.poststart:type_name -> nri.pkg.api.v1alpha1.Hook
 	32,  // 53: nri.pkg.api.v1alpha1.Hooks.poststop:type_name -> nri.pkg.api.v1alpha1.Hook
-	57,  // 54: nri.pkg.api.v1alpha1.Hook.timeout:type_name -> nri.pkg.api.v1alpha1.OptionalInt
+	58,  // 54: nri.pkg.api.v1alpha1.Hook.timeout:type_name -> nri.pkg.api.v1alpha1.OptionalInt
 	34,  // 55: nri.pkg.api.v1alpha1.LinuxContainer.namespaces:type_name -> nri.pkg.api.v1alpha1.LinuxNamespace
 	35,  // 56: nri.pkg.api.v1alpha1.LinuxContainer.devices:type_name -> nri.pkg.api.v1alpha1.LinuxDevice
 	39,  // 57: nri.pkg.api.v1alpha1.LinuxContainer.resources:type_name -> nri.pkg.api.v1alpha1.LinuxResources
-	57,  // 58: nri.pkg.api.v1alpha1.LinuxContainer.oom_score_adj:type_name -> nri.pkg.api.v1alpha1.OptionalInt
+	58,  // 58: nri.pkg.api.v1alpha1.LinuxContainer.oom_score_adj:type_name -> nri.pkg.api.v1alpha1.OptionalInt
 	46,  // 59: nri.pkg.api.v1alpha1.LinuxContainer.io_priority:type_name -> nri.pkg.api.v1alpha1.LinuxIOPriority
 	43,  // 60: nri.pkg.api.v1alpha1.LinuxContainer.seccomp_profile:type_name -> nri.pkg.api.v1alpha1.SecurityProfile
 	49,  // 61: nri.pkg.api.v1alpha1.LinuxContainer.seccomp_policy:type_name -> nri.pkg.api.v1alpha1.LinuxSeccomp
-	63,  // 62: nri.pkg.api.v1alpha1.LinuxDevice.file_mode:type_name -> nri.pkg.api.v1alpha1.OptionalFileMode
-	59,  // 63: nri.pkg.api.v1alpha1.LinuxDevice.uid:type_name -> nri.pkg.api.v1alpha1.OptionalUInt32
-	59,  // 64: nri.pkg.api.v1alpha1.LinuxDevice.gid:type_name -> nri.pkg.api.v1alpha1.OptionalUInt32
-	60,  // 65: nri.pkg.api.v1alpha1.LinuxDeviceCgroup.major:type_name -> nri.pkg.api.v1alpha1.OptionalInt64
-	60,  // 66: nri.pkg.api.v1alpha1.LinuxDeviceCgroup.minor:type_name -> nri.pkg.api.v1alpha1.OptionalInt64
+	64,  // 62: nri.pkg.api.v1alpha1.LinuxDevice.file_mode:type_name -> nri.pkg.api.v1alpha1.OptionalFileMode
+	60,  // 63: nri.pkg.api.v1alpha1.LinuxDevice.uid:type_name -> nri.pkg.api.v1alpha1.OptionalUInt32
+	60,  // 64: nri.pkg.api.v1alpha1.LinuxDevice.gid:type_name -> nri.pkg.api.v1alpha1.OptionalUInt32
+	61,  // 65: nri.pkg.api.v1alpha1.LinuxDeviceCgroup.major:type_name -> nri.pkg.api.v1alpha1.OptionalInt64
+	61,  // 66: nri.pkg.api.v1alpha1.LinuxDeviceCgroup.minor:type_name -> nri.pkg.api.v1alpha1.OptionalInt64
 	40,  // 67: nri.pkg.api.v1alpha1.LinuxResources.memory:type_name -> nri.pkg.api.v1alpha1.LinuxMemory
 	41,  // 68: nri.pkg.api.v1alpha1.LinuxResources.cpu:type_name -> nri.pkg.api.v1alpha1.LinuxCPU
 	42,  // 69: nri.pkg.api.v1alpha1.LinuxResources.hugepage_limits:type_name -> nri.pkg.api.v1alpha1.HugepageLimit
 	56,  // 70: nri.pkg.api.v1alpha1.LinuxResources.blockio_class:type_name -> nri.pkg.api.v1alpha1.OptionalString
 	56,  // 71: nri.pkg.api.v1alpha1.LinuxResources.rdt_class:type_name -> nri.pkg.api.v1alpha1.OptionalString
-	71,  // 72: nri.pkg.api.v1alpha1.LinuxResources.unified:type_name -> nri.pkg.api.v1alpha1.LinuxResources.UnifiedEntry
+	72,  // 72: nri.pkg.api.v1alpha1.LinuxResources.unified:type_name -> nri.pkg.api.v1alpha1.LinuxResources.UnifiedEntry
 	36,  // 73: nri.pkg.api.v1alpha1.LinuxResources.devices:type_name -> nri.pkg.api.v1alpha1.LinuxDeviceCgroup
 	45,  // 74: nri.pkg.api.v1alpha1.LinuxResources.pids:type_name -> nri.pkg.api.v1alpha1.LinuxPids
-	60,  // 75: nri.pkg.api.v1alpha1.LinuxMemory.limit:type_name -> nri.pkg.api.v1alpha1.OptionalInt64
-	60,  // 76: nri.pkg.api.v1alpha1.LinuxMemory.reservation:type_name -> nri.pkg.api.v1alpha1.OptionalInt64
-	60,  // 77: nri.pkg.api.v1alpha1.LinuxMemory.swap:type_name -> nri.pkg.api.v1alpha1.OptionalInt64
-	60,  // 78: nri.pkg.api.v1alpha1.LinuxMemory.kernel:type_name -> nri.pkg.api.v1alpha1.OptionalInt64
-	60,  // 79: nri.pkg.api.v1alpha1.LinuxMemory.kernel_tcp:type_name -> nri.pkg.api.v1alpha1.OptionalInt64
-	61,  // 80: nri.pkg.api.v1alpha1.LinuxMemory.swappiness:type_name -> nri.pkg.api.v1alpha1.OptionalUInt64
-	62,  // 81: nri.pkg.api.v1alpha1.LinuxMemory.disable_oom_killer:type_name -> nri.pkg.api.v1alpha1.OptionalBool
-	62,  // 82: nri.pkg.api.v1alpha1.LinuxMemory.use_hierarchy:type_name -> nri.pkg.api.v1alpha1.OptionalBool
-	61,  // 83: nri.pkg.api.v1alpha1.LinuxCPU.shares:type_name -> nri.pkg.api.v1alpha1.OptionalUInt64
-	60,  // 84: nri.pkg.api.v1alpha1.LinuxCPU.quota:type_name -> nri.pkg.api.v1alpha1.OptionalInt64
-	61,  // 85: nri.pkg.api.v1alpha1.LinuxCPU.period:type_name -> nri.pkg.api.v1alpha1.OptionalUInt64
-	60,  // 86: nri.pkg.api.v1alpha1.LinuxCPU.realtime_runtime:type_name -> nri.pkg.api.v1alpha1.OptionalInt64
-	61,  // 87: nri.pkg.api.v1alpha1.LinuxCPU.realtime_period:type_name -> nri.pkg.api.v1alpha1.OptionalUInt64
+	61,  // 75: nri.pkg.api.v1alpha1.LinuxMemory.limit:type_name -> nri.pkg.api.v1alpha1.OptionalInt64
+	61,  // 76: nri.pkg.api.v1alpha1.LinuxMemory.reservation:type_name -> nri.pkg.api.v1alpha1.OptionalInt64
+	61,  // 77: nri.pkg.api.v1alpha1.LinuxMemory.swap:type_name -> nri.pkg.api.v1alpha1.OptionalInt64
+	61,  // 78: nri.pkg.api.v1alpha1.LinuxMemory.kernel:type_name -> nri.pkg.api.v1alpha1.OptionalInt64
+	61,  // 79: nri.pkg.api.v1alpha1.LinuxMemory.kernel_tcp:type_name -> nri.pkg.api.v1alpha1.OptionalInt64
+	62,  // 80: nri.pkg.api.v1alpha1.LinuxMemory.swappiness:type_name -> nri.pkg.api.v1alpha1.OptionalUInt64
+	63,  // 81: nri.pkg.api.v1alpha1.LinuxMemory.disable_oom_killer:type_name -> nri.pkg.api.v1alpha1.OptionalBool
+	63,  // 82: nri.pkg.api.v1alpha1.LinuxMemory.use_hierarchy:type_name -> nri.pkg.api.v1alpha1.OptionalBool
+	62,  // 83: nri.pkg.api.v1alpha1.LinuxCPU.shares:type_name -> nri.pkg.api.v1alpha1.OptionalUInt64
+	61,  // 84: nri.pkg.api.v1alpha1.LinuxCPU.quota:type_name -> nri.pkg.api.v1alpha1.OptionalInt64
+	62,  // 85: nri.pkg.api.v1alpha1.LinuxCPU.period:type_name -> nri.pkg.api.v1alpha1.OptionalUInt64
+	61,  // 86: nri.pkg.api.v1alpha1.LinuxCPU.realtime_runtime:type_name -> nri.pkg.api.v1alpha1.OptionalInt64
+	62,  // 87: nri.pkg.api.v1alpha1.LinuxCPU.realtime_period:type_name -> nri.pkg.api.v1alpha1.OptionalUInt64
 	5,   // 88: nri.pkg.api.v1alpha1.SecurityProfile.profile_type:type_name -> nri.pkg.api.v1alpha1.SecurityProfile.ProfileType
 	2,   // 89: nri.pkg.api.v1alpha1.LinuxIOPriority.class:type_name -> nri.pkg.api.v1alpha1.IOPrioClass
-	72,  // 90: nri.pkg.api.v1alpha1.ContainerAdjustment.annotations:type_name -> nri.pkg.api.v1alpha1.ContainerAdjustment.AnnotationsEntry
+	73,  // 90: nri.pkg.api.v1alpha1.ContainerAdjustment.annotations:type_name -> nri.pkg.api.v1alpha1.ContainerAdjustment.AnnotationsEntry
 	30,  // 91: nri.pkg.api.v1alpha1.ContainerAdjustment.mounts:type_name -> nri.pkg.api.v1alpha1.Mount
 	55,  // 92: nri.pkg.api.v1alpha1.ContainerAdjustment.env:type_name -> nri.pkg.api.v1alpha1.KeyValue
 	31,  // 93: nri.pkg.api.v1alpha1.ContainerAdjustment.hooks:type_name -> nri.pkg.api.v1alpha1.Hooks
@@ -5710,22 +5762,22 @@ var file_pkg_api_api_proto_depIdxs = []int32{
 	37,  // 96: nri.pkg.api.v1alpha1.ContainerAdjustment.CDI_devices:type_name -> nri.pkg.api.v1alpha1.CDIDevice
 	35,  // 97: nri.pkg.api.v1alpha1.LinuxContainerAdjustment.devices:type_name -> nri.pkg.api.v1alpha1.LinuxDevice
 	39,  // 98: nri.pkg.api.v1alpha1.LinuxContainerAdjustment.resources:type_name -> nri.pkg.api.v1alpha1.LinuxResources
-	57,  // 99: nri.pkg.api.v1alpha1.LinuxContainerAdjustment.oom_score_adj:type_name -> nri.pkg.api.v1alpha1.OptionalInt
+	58,  // 99: nri.pkg.api.v1alpha1.LinuxContainerAdjustment.oom_score_adj:type_name -> nri.pkg.api.v1alpha1.OptionalInt
 	46,  // 100: nri.pkg.api.v1alpha1.LinuxContainerAdjustment.io_priority:type_name -> nri.pkg.api.v1alpha1.LinuxIOPriority
 	49,  // 101: nri.pkg.api.v1alpha1.LinuxContainerAdjustment.seccomp_policy:type_name -> nri.pkg.api.v1alpha1.LinuxSeccomp
 	34,  // 102: nri.pkg.api.v1alpha1.LinuxContainerAdjustment.namespaces:type_name -> nri.pkg.api.v1alpha1.LinuxNamespace
-	59,  // 103: nri.pkg.api.v1alpha1.LinuxSeccomp.default_errno:type_name -> nri.pkg.api.v1alpha1.OptionalUInt32
+	60,  // 103: nri.pkg.api.v1alpha1.LinuxSeccomp.default_errno:type_name -> nri.pkg.api.v1alpha1.OptionalUInt32
 	50,  // 104: nri.pkg.api.v1alpha1.LinuxSeccomp.syscalls:type_name -> nri.pkg.api.v1alpha1.LinuxSyscall
-	59,  // 105: nri.pkg.api.v1alpha1.LinuxSyscall.errno_ret:type_name -> nri.pkg.api.v1alpha1.OptionalUInt32
+	60,  // 105: nri.pkg.api.v1alpha1.LinuxSyscall.errno_ret:type_name -> nri.pkg.api.v1alpha1.OptionalUInt32
 	51,  // 106: nri.pkg.api.v1alpha1.LinuxSyscall.args:type_name -> nri.pkg.api.v1alpha1.LinuxSeccompArg
 	53,  // 107: nri.pkg.api.v1alpha1.ContainerUpdate.linux:type_name -> nri.pkg.api.v1alpha1.LinuxContainerUpdate
 	39,  // 108: nri.pkg.api.v1alpha1.LinuxContainerUpdate.resources:type_name -> nri.pkg.api.v1alpha1.LinuxResources
-	73,  // 109: nri.pkg.api.v1alpha1.CompoundFieldOwners.owners:type_name -> nri.pkg.api.v1alpha1.CompoundFieldOwners.OwnersEntry
-	74,  // 110: nri.pkg.api.v1alpha1.FieldOwners.simple:type_name -> nri.pkg.api.v1alpha1.FieldOwners.SimpleEntry
-	75,  // 111: nri.pkg.api.v1alpha1.FieldOwners.compound:type_name -> nri.pkg.api.v1alpha1.FieldOwners.CompoundEntry
-	76,  // 112: nri.pkg.api.v1alpha1.OwningPlugins.owners:type_name -> nri.pkg.api.v1alpha1.OwningPlugins.OwnersEntry
-	64,  // 113: nri.pkg.api.v1alpha1.FieldOwners.CompoundEntry.value:type_name -> nri.pkg.api.v1alpha1.CompoundFieldOwners
-	65,  // 114: nri.pkg.api.v1alpha1.OwningPlugins.OwnersEntry.value:type_name -> nri.pkg.api.v1alpha1.FieldOwners
+	74,  // 109: nri.pkg.api.v1alpha1.CompoundFieldOwners.owners:type_name -> nri.pkg.api.v1alpha1.CompoundFieldOwners.OwnersEntry
+	75,  // 110: nri.pkg.api.v1alpha1.FieldOwners.simple:type_name -> nri.pkg.api.v1alpha1.FieldOwners.SimpleEntry
+	76,  // 111: nri.pkg.api.v1alpha1.FieldOwners.compound:type_name -> nri.pkg.api.v1alpha1.FieldOwners.CompoundEntry
+	77,  // 112: nri.pkg.api.v1alpha1.OwningPlugins.owners:type_name -> nri.pkg.api.v1alpha1.OwningPlugins.OwnersEntry
+	65,  // 113: nri.pkg.api.v1alpha1.FieldOwners.CompoundEntry.value:type_name -> nri.pkg.api.v1alpha1.CompoundFieldOwners
+	66,  // 114: nri.pkg.api.v1alpha1.OwningPlugins.OwnersEntry.value:type_name -> nri.pkg.api.v1alpha1.FieldOwners
 	6,   // 115: nri.pkg.api.v1alpha1.Runtime.RegisterPlugin:input_type -> nri.pkg.api.v1alpha1.RegisterPluginRequest
 	7,   // 116: nri.pkg.api.v1alpha1.Runtime.UpdateContainers:input_type -> nri.pkg.api.v1alpha1.UpdateContainersRequest
 	10,  // 117: nri.pkg.api.v1alpha1.Plugin.Configure:input_type -> nri.pkg.api.v1alpha1.ConfigureRequest
@@ -6376,7 +6428,7 @@ func file_pkg_api_api_proto_init() {
 			}
 		}
 		file_pkg_api_api_proto_msgTypes[51].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*OptionalInt); i {
+			switch v := v.(*OptionalRepeatedString); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -6388,7 +6440,7 @@ func file_pkg_api_api_proto_init() {
 			}
 		}
 		file_pkg_api_api_proto_msgTypes[52].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*OptionalInt32); i {
+			switch v := v.(*OptionalInt); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -6400,7 +6452,7 @@ func file_pkg_api_api_proto_init() {
 			}
 		}
 		file_pkg_api_api_proto_msgTypes[53].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*OptionalUInt32); i {
+			switch v := v.(*OptionalInt32); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -6412,7 +6464,7 @@ func file_pkg_api_api_proto_init() {
 			}
 		}
 		file_pkg_api_api_proto_msgTypes[54].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*OptionalInt64); i {
+			switch v := v.(*OptionalUInt32); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -6424,7 +6476,7 @@ func file_pkg_api_api_proto_init() {
 			}
 		}
 		file_pkg_api_api_proto_msgTypes[55].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*OptionalUInt64); i {
+			switch v := v.(*OptionalInt64); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -6436,7 +6488,7 @@ func file_pkg_api_api_proto_init() {
 			}
 		}
 		file_pkg_api_api_proto_msgTypes[56].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*OptionalBool); i {
+			switch v := v.(*OptionalUInt64); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -6448,7 +6500,7 @@ func file_pkg_api_api_proto_init() {
 			}
 		}
 		file_pkg_api_api_proto_msgTypes[57].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*OptionalFileMode); i {
+			switch v := v.(*OptionalBool); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -6460,7 +6512,7 @@ func file_pkg_api_api_proto_init() {
 			}
 		}
 		file_pkg_api_api_proto_msgTypes[58].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*CompoundFieldOwners); i {
+			switch v := v.(*OptionalFileMode); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -6472,7 +6524,7 @@ func file_pkg_api_api_proto_init() {
 			}
 		}
 		file_pkg_api_api_proto_msgTypes[59].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*FieldOwners); i {
+			switch v := v.(*CompoundFieldOwners); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -6484,6 +6536,18 @@ func file_pkg_api_api_proto_init() {
 			}
 		}
 		file_pkg_api_api_proto_msgTypes[60].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*FieldOwners); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_pkg_api_api_proto_msgTypes[61].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*OwningPlugins); i {
 			case 0:
 				return &v.state
@@ -6502,7 +6566,7 @@ func file_pkg_api_api_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_pkg_api_api_proto_rawDesc,
 			NumEnums:      6,
-			NumMessages:   71,
+			NumMessages:   72,
 			NumExtensions: 0,
 			NumServices:   3,
 		},

@@ -1,6 +1,6 @@
 module github.com/containerd/nri
 
-go 1.24.3
+go 1.24.0
 
 require (
 	github.com/containerd/ttrpc v1.2.7

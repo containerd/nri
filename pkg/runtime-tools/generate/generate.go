@@ -396,6 +396,10 @@ func (g *Generator) AdjustRdt(r *nri.LinuxRdt) {
 		return
 	}
 
+	if r.Remove {
+		g.ClearLinuxIntelRdt()
+	}
+
 	g.AdjustRdtClosID(r.ClosId.Get())
 	g.AdjustRdtSchemata(r.Schemata.Get())
 	g.AdjustRdtEnableMonitoring(r.EnableMonitoring.Get())

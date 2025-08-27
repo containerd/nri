@@ -482,6 +482,26 @@ var _ = Describe("Adjustment", func() {
 			}))
 		})
 	})
+	When("has a RDT remove adjustment", func() {
+		It("removes the IntelRdt config", func() {
+			spec := makeSpec()
+			spec.Linux.IntelRdt = &rspec.LinuxIntelRdt{ClosID: "bar"}
+			adjust := &api.ContainerAdjustment{
+				Linux: &api.LinuxContainerAdjustment{
+					Rdt: &api.LinuxRdt{
+						Remove: true,
+					},
+				},
+			}
+
+			rg := &rgen.Generator{Config: spec}
+			xg := xgen.SpecGenerator(rg)
+
+			Expect(xg).ToNot(BeNil())
+			Expect(xg.Adjust(adjust)).To(Succeed())
+			Expect(spec.Linux.IntelRdt).To(BeNil())
+		})
+	})
 })
 
 type specOption func(*rspec.Spec)

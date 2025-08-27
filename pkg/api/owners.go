@@ -224,6 +224,10 @@ func (o *OwningPlugins) ClearLinuxNetDevice(id, path, plugin string) {
 	o.mustOwnersFor(id).ClearLinuxNetDevice(path, plugin)
 }
 
+func (o *OwningPlugins) ClearRdt(id, plugin string) {
+	o.mustOwnersFor(id).ClearRdt(plugin)
+}
+
 func (o *OwningPlugins) AnnotationOwner(id, key string) (string, bool) {
 	return o.ownersFor(id).compoundOwner(Field_Annotations.Key(), key)
 }
@@ -666,6 +670,12 @@ func (f *FieldOwners) ClearSysctl(key, plugin string) {
 
 func (f *FieldOwners) ClearLinuxNetDevice(key, plugin string) {
 	f.clearCompound(Field_LinuxNetDevices.Key(), key, plugin)
+}
+
+func (f *FieldOwners) ClearRdt(plugin string) {
+	f.clearSimple(Field_RdtClosID.Key(), plugin)
+	f.clearSimple(Field_RdtSchemata.Key(), plugin)
+	f.clearSimple(Field_RdtEnableMonitoring.Key(), plugin)
 }
 
 func (f *FieldOwners) Conflict(field int32, plugin, other string, qualifiers ...string) error {

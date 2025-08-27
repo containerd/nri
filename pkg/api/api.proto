@@ -612,6 +612,8 @@ message LinuxRdt {
   OptionalString clos_id = 1;
   OptionalRepeatedString schemata = 2;
   OptionalBool enable_monitoring = 3;
+  // NRI specific field to mark the RDT config for removal.
+  bool remove = 4;
 }
 
 // KeyValue represents an environment variable.

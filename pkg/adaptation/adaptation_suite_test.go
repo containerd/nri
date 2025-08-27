@@ -610,11 +610,11 @@ var _ = Describe("Plugin container creation adjustments", func() {
 			)
 		case "rdt":
 			if overwrite {
-				a.SetLinuxRDTClosID(p.name)
-			} else {
-				a.SetLinuxRDTSchemata([]string{"L3:0=ff", "MB:0=50"})
-				a.SetLinuxRDTEnableMonitoring(true)
+				a.RemoveLinuxRDT()
 			}
+			a.SetLinuxRDTClosID(p.name)
+			a.SetLinuxRDTSchemata([]string{"L3:0=ff", "MB:0=50"})
+			a.SetLinuxRDTEnableMonitoring(true)
 		}
 
 		return a, nil, nil
@@ -959,6 +959,7 @@ var _ = Describe("Plugin container creation adjustments", func() {
 				&api.ContainerAdjustment{
 					Linux: &api.LinuxContainerAdjustment{
 						Rdt: &api.LinuxRdt{
+							ClosId:           api.String("test"),
 							Schemata:         api.RepeatedString([]string{"L3:0=ff", "MB:0=50"}),
 							EnableMonitoring: api.Bool(true),
 						},

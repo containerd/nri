@@ -464,6 +464,11 @@ func (r *result) adjustRdt(rdt *LinuxRdt, plugin string) error {
 
 	id := r.request.create.Container.Id
 
+	if rdt.GetRemove() {
+		r.owners.ClearRdt(id, plugin)
+		r.reply.adjust.Linux.Rdt = &LinuxRdt{}
+	}
+
 	if v := rdt.GetClosId(); v != nil {
 		if err := r.owners.ClaimRdtClosID(id, plugin); err != nil {
 			return err

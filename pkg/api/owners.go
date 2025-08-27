@@ -204,6 +204,10 @@ func (o *OwningPlugins) ClearArgs(id, plugin string) {
 	o.mustOwnersFor(id).ClearArgs(plugin)
 }
 
+func (o *OwningPlugins) ClearRdt(id, plugin string) {
+	o.mustOwnersFor(id).ClearRdt(plugin)
+}
+
 func (o *OwningPlugins) AnnotationOwner(id, key string) (string, bool) {
 	return o.ownersFor(id).compoundOwner(Field_Annotations.Key(), key)
 }
@@ -614,6 +618,12 @@ func (f *FieldOwners) ClearEnv(name, plugin string) {
 
 func (f *FieldOwners) ClearArgs(plugin string) {
 	f.clearSimple(Field_Args.Key(), plugin)
+}
+
+func (f *FieldOwners) ClearRdt(plugin string) {
+	f.clearSimple(Field_RdtClosID.Key(), plugin)
+	f.clearSimple(Field_RdtSchemata.Key(), plugin)
+	f.clearSimple(Field_RdtEnableMonitoring.Key(), plugin)
 }
 
 func (f *FieldOwners) Conflict(field int32, plugin, other string, qualifiers ...string) error {

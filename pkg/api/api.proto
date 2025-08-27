@@ -565,6 +565,11 @@ message OptionalString {
   string value = 1;
 }
 
+// An optional collection of strings.
+message OptionalRepeatedString {
+  repeated string value = 1;
+}
+
 // An optional signed integer value.
 message OptionalInt {
   int64 value = 1;

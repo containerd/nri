@@ -25,7 +25,6 @@ import (
 //
 
 // Aliased request/response/event types for api/api.proto.
-// nolint
 type (
 	RegisterPluginRequest    = api.RegisterPluginRequest
 	RegisterPluginResponse   = api.Empty
@@ -102,7 +101,8 @@ type (
 )
 
 // Aliased consts for api/api.proto.
-// nolint
+//
+//nolint:revive // ignore const naming from auto-generated code
 const (
 	Event_UNKNOWN                       = api.Event_UNKNOWN
 	Event_RUN_POD_SANDBOX               = api.Event_RUN_POD_SANDBOX
@@ -134,7 +134,6 @@ const (
 )
 
 // Aliased types for api/optional.go.
-// nolint
 type (
 	OptionalString   = api.OptionalString
 	OptionalInt      = api.OptionalInt
@@ -147,7 +146,6 @@ type (
 )
 
 // Aliased functions for api/optional.go.
-// nolint
 var (
 	String   = api.String
 	Int      = api.Int
@@ -160,7 +158,6 @@ var (
 )
 
 // Aliased functions for api/types.go.
-// nolint
 var (
 	FromOCIMounts          = api.FromOCIMounts
 	FromOCIHooks           = api.FromOCIHooks

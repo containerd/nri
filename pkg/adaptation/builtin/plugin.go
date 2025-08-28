@@ -24,6 +24,8 @@ import (
 
 // BuiltinPlugin implements the NRI API and runs in-process
 // within the container runtime.
+//
+//nolint:revive // tautology builtin.Builtin*
 type BuiltinPlugin struct {
 	Base     string
 	Index    string
@@ -31,6 +33,8 @@ type BuiltinPlugin struct {
 }
 
 // BuiltinHandlers contains request handlers for the builtin plugin.
+//
+//nolint:revive // tautology builtin.Builtin*
 type BuiltinHandlers struct {
 	Configure            func(context.Context, *api.ConfigureRequest) (*api.ConfigureResponse, error)
 	Synchronize          func(context.Context, *api.SynchronizeRequest) (*api.SynchronizeResponse, error)

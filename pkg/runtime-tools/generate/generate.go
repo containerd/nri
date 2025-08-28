@@ -504,15 +504,15 @@ func (g *Generator) AdjustMounts(mounts []*nri.Mount) error {
 
 // sortMounts sorts the mounts in the generated OCI Spec.
 func (g *Generator) sortMounts() {
-	mounts := g.Generator.Mounts()
-	g.Generator.ClearMounts()
+	mounts := g.Mounts()
+	g.ClearMounts()
 	sort.Sort(orderedMounts(mounts))
 
 	// TODO(klihub): This is now a bit ugly maybe we should introduce a
 	// SetMounts([]rspec.Mount) to runtime-tools/generate.Generator. That
 	// could also take care of properly sorting the mount slice.
 
-	g.Generator.Config.Mounts = mounts
+	g.Config.Mounts = mounts
 }
 
 // orderedMounts defines how to sort an OCI Spec Mount slice.

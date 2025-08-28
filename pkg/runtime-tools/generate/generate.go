@@ -445,6 +445,7 @@ func (g *Generator) InjectCDIDevices(devices []*nri.CDIDevice) error {
 	return g.injectCDIDevices(g.Config, names)
 }
 
+// AdjustRlimits adjusts the (Linux) POSIX resource limits in the OCI Spec.
 func (g *Generator) AdjustRlimits(rlimits []*nri.POSIXRlimit) error {
 	for _, l := range rlimits {
 		if l == nil {
@@ -601,6 +602,7 @@ func (g *Generator) SetLinuxResourcesBlockIO(blockIO *rspec.LinuxBlockIO) {
 	g.Config.Linux.Resources.BlockIO = blockIO
 }
 
+// SetProcessIOPriority sets the (Linux) IO priority of the container.
 func (g *Generator) SetProcessIOPriority(ioprio *rspec.LinuxIOPriority) {
 	g.initConfigProcess()
 	if ioprio != nil && ioprio.Class == "" {

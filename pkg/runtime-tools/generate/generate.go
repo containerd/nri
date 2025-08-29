@@ -445,6 +445,7 @@ func (g *Generator) InjectCDIDevices(devices []*nri.CDIDevice) error {
 	return g.injectCDIDevices(g.Config, names)
 }
 
+// AdjustRlimits adjusts the (Linux) POSIX resource limits in the OCI Spec.
 func (g *Generator) AdjustRlimits(rlimits []*nri.POSIXRlimit) error {
 	for _, l := range rlimits {
 		if l == nil {
@@ -504,15 +505,15 @@ func (g *Generator) AdjustMounts(mounts []*nri.Mount) error {
 
 // sortMounts sorts the mounts in the generated OCI Spec.
 func (g *Generator) sortMounts() {
-	mounts := g.Generator.Mounts()
-	g.Generator.ClearMounts()
+	mounts := g.Mounts()
+	g.ClearMounts()
 	sort.Sort(orderedMounts(mounts))
 
 	// TODO(klihub): This is now a bit ugly maybe we should introduce a
 	// SetMounts([]rspec.Mount) to runtime-tools/generate.Generator. That
 	// could also take care of properly sorting the mount slice.
 
-	g.Generator.Config.Mounts = mounts
+	g.Config.Mounts = mounts
 }
 
 // orderedMounts defines how to sort an OCI Spec Mount slice.
@@ -601,6 +602,7 @@ func (g *Generator) SetLinuxResourcesBlockIO(blockIO *rspec.LinuxBlockIO) {
 	g.Config.Linux.Resources.BlockIO = blockIO
 }
 
+// SetProcessIOPriority sets the (Linux) IO priority of the container.
 func (g *Generator) SetProcessIOPriority(ioprio *rspec.LinuxIOPriority) {
 	g.initConfigProcess()
 	if ioprio != nil && ioprio.Class == "" {

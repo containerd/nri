@@ -25,6 +25,8 @@ import (
 //
 
 // Aliased request/response/event types for api/api.proto.
+//
+//nolint:revive // revive thinks the comment is for the exported type below
 type (
 	RegisterPluginRequest    = api.RegisterPluginRequest
 	RegisterPluginResponse   = api.Empty
@@ -134,6 +136,8 @@ const (
 )
 
 // Aliased types for api/optional.go.
+//
+//nolint:revive // revive thinks the comment is for the exported type below
 type (
 	OptionalString   = api.OptionalString
 	OptionalInt      = api.OptionalInt

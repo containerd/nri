@@ -14,12 +14,14 @@ concurrency:
 
 permissions:
   contents: read
-  packages: write
 
 jobs:
   build-and-push:
     name: Build and Push (${{ matrix.image }})
     runs-on: ubuntu-latest
+    permissions:
+      packages: write
+      id-token: write
     strategy:
       matrix:
         image: [
@@ -37,6 +39,12 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Install cosign
+        if: github.event_name != 'pull_request'
+        uses: sigstore/cosign-installer@v3
+        with:
+          cosign-release: 'v2.5.3'
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -69,9 +77,10 @@ jobs:
               echo "ERROR: failed to determine image tag"
               exit 1
           fi
-          echo "TAG_NAME=$tag" >> $GITHUB_ENV
+          echo "TAG=ghcr.io/${{ github.repository }}/plugins/${{ matrix.image }}:$tag" >> $GITHUB_ENV
 
       - name: Build and push image
+        id: build-and-push
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -80,4 +89,10 @@ jobs:
             PLUGIN=${{ matrix.image }}
           push: ${{ github.event_name == 'push' }}
           platforms: ${{ github.event_name == 'push' && 'linux/amd64,linux/arm64' || 'linux/amd64' }}
-          tags: ghcr.io/${{ github.repository }}/plugins/${{ matrix.image }}:${{ env.TAG_NAME }}
+          tags: ${{ env.TAG }}
+
+      - name: Sign image
+        if: ${{ github.event_name != 'pull_request' }}
+        env:
+          DIGEST: ${{ steps.build-and-push.outputs.digest }}
+        run: cosign sign --yes ${{ env.TAG }}@${DIGEST}

@@ -35,6 +35,9 @@ linters:
       - linters:
           - revive
         text: "package-comments:"
+      - linters:
+          - staticcheck
+        text: "QF1008:"
 
 formatters:
   enable:

@@ -419,6 +419,7 @@ The following sample plugins exist for NRI:
   - [ulimit adjuster](plugins/ulimit-adjuster)
   - [NRI v0.1.0 plugin adapter](plugins/v010-adapter)
   - [WebAssembly plugin](plugins/wasm)
+  - [RDT](plugins/rdt)
   - [template](plugins/template)
 
 Please see the documentation of these plugins for further details

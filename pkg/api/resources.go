@@ -33,7 +33,7 @@ func FromOCILinuxResources(o *rspec.LinuxResources, _ map[string]string) *LinuxR
 			Limit:            Int64(m.Limit),
 			Reservation:      Int64(m.Reservation),
 			Swap:             Int64(m.Swap),
-			Kernel:           Int64(m.Kernel),
+			Kernel:           Int64(m.Kernel), //nolint:staticcheck
 			KernelTcp:        Int64(m.KernelTCP),
 			Swappiness:       UInt64(m.Swappiness),
 			DisableOomKiller: Bool(m.DisableOOMKiller),
@@ -189,6 +189,7 @@ func (r *LinuxResources) Copy() *LinuxResources {
 	}
 	o.BlockioClass = String(r.BlockioClass)
 	o.RdtClass = String(r.RdtClass)
+
 	for _, d := range r.Devices {
 		o.Devices = append(o.Devices, &LinuxDeviceCgroup{
 			Allow:  d.Allow,
@@ -200,4 +201,16 @@ func (r *LinuxResources) Copy() *LinuxResources {
 	}
 
 	return o
+}
+
+// Copy creates a copy of the RDT configuration.
+func (r *LinuxRdt) Copy() *LinuxRdt {
+	if r == nil {
+		return nil
+	}
+	return &LinuxRdt{
+		ClosId:           String(r.ClosId),
+		Schemata:         RepeatedString(r.Schemata),
+		EnableMonitoring: Bool(r.EnableMonitoring),
+	}
 }

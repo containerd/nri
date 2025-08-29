@@ -20,7 +20,7 @@ require (
 	github.com/knqyf263/go-plugin v0.9.0 // indirect
 	github.com/mattn/go-colorable v0.1.8 // indirect
 	github.com/mattn/go-isatty v0.0.14 // indirect
-	github.com/opencontainers/runtime-spec v1.1.0 // indirect
+	github.com/opencontainers/runtime-spec v1.2.2-0.20250818071321-383cadbf08c0 // indirect
 	github.com/tetratelabs/wazero v1.9.0 // indirect
 	github.com/vmihailenco/msgpack v4.0.4+incompatible // indirect
 	golang.org/x/net v0.43.0 // indirect

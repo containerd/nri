@@ -429,6 +429,31 @@ var _ = Describe("Adjustment", func() {
 		})
 	})
 
+	When("has a RDT adjustment", func() {
+		It("adjusts Spec correctly", func() {
+			spec := makeSpec()
+			adjust := &api.ContainerAdjustment{
+				Linux: &api.LinuxContainerAdjustment{
+					Rdt: &api.LinuxRdt{
+						ClosId:           api.String("foo"),
+						Schemata:         api.RepeatedString([]string{"L2:0=ff", "L3:0=f"}),
+						EnableMonitoring: api.Bool(true),
+					},
+				},
+			}
+
+			rg := &rgen.Generator{Config: spec}
+			xg := xgen.SpecGenerator(rg)
+
+			Expect(xg).ToNot(BeNil())
+			Expect(xg.Adjust(adjust)).To(Succeed())
+			Expect(spec.Linux.IntelRdt).To(Equal(&rspec.LinuxIntelRdt{
+				ClosID:           "foo",
+				Schemata:         []string{"L2:0=ff", "L3:0=f"},
+				EnableMonitoring: true,
+			}))
+		})
+	})
 })
 
 type specOption func(*rspec.Spec)

@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	"github.com/containerd/nri/pkg/api"
+	"github.com/moby/sys/mountinfo"
 )
 
 // GetContainerCgroupsV2AbsPath returns the absolute path to the cgroup v2 directory for a container.
@@ -112,20 +113,17 @@ func getCgroupV2Root() string {
 	return "/sys/fs/cgroup"
 }
 
-// findCgroupV2Mount reads /proc/mounts to find the cgroup2 filesystem mount point
+// findCgroupV2Mount uses mountinfo to find the cgroup2 filesystem mount point
 func findCgroupV2Mount() string {
-	data, err := os.ReadFile("/proc/mounts")
+	mounts, err := mountinfo.GetMounts(mountinfo.FSTypeFilter("cgroup2"))
 	if err != nil {
 		return ""
 	}
 
-	lines := strings.Split(string(data), "\n")
-	for _, line := range lines {
-		fields := strings.Fields(line)
-		if len(fields) >= 3 && fields[2] == "cgroup2" {
-			return fields[1]
-		}
+	if len(mounts) > 0 {
+		return mounts[0].Mountpoint
 	}
+
 	return ""
 }
 

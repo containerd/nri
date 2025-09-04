@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: nri-plugin-hook-injector
+spec:
+  template:
+    spec:
+      containers:
+        - name: plugin
+          volumeMounts:
+            - name: etc-hooks-d
+              mountPath: /etc/containers/nri/rdt-hook
+            # Remove unwanted mounts
+            - $patch: delete
+              mountPath: /usr/share/containers/oci/hooks.d
+            - $patch: delete
+              mountPath: /usr/libexec/oci/hooks.d
+      volumes:
+        # Replace the default hooks directory with a custom one
+        - name: etc-hooks-d
+          hostPath:
+            path: /etc/containers/nri/rdt-hook
+            type: DirectoryOrCreate
+        - $patch: delete
+          name: usr-share-hooks-d
+        - $patch: delete
+          name: libexec-hooks-d

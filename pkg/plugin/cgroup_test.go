@@ -134,6 +134,17 @@ func TestGetCgroupsV2AbsPath(t *testing.T) {
 			expected:    "/sys/fs/cgroup/kubepods.slice/kubepods-besteffort.slice/kubepods-besteffort-podf8952339_1101_46ca_948d_1906de5016b8.slice/crio-656a5b06e0c7490f743b43c20cb984b9a5fd79ea0e49211d84ee0ec3d7ed0307.scope",
 			description: "should handle real-world slice:container format without directory separator",
 		},
+		{
+			name: "container with cgroupfs path starting with /kubelet",
+			container: &api.Container{
+				Id: "test-container",
+				Linux: &api.LinuxContainer{
+					CgroupsPath: "/kubelet/kubepods/besteffort/pod346db9bc-06d5-450e-a97c-ce1d8209c72b/2d15832bd72e848c0583ec220826cd4bcde4d00ce49a82cd5d3a19ba2b39063a",
+				},
+			},
+			expected:    "/sys/fs/cgroup/kubelet/kubepods/besteffort/pod346db9bc-06d5-450e-a97c-ce1d8209c72b/2d15832bd72e848c0583ec220826cd4bcde4d00ce49a82cd5d3a19ba2b39063a",
+			description: "should properly join cgroupfs paths starting with /kubelet to cgroup root",
+		},
 	}
 
 	for _, tt := range tests {

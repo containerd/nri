@@ -25,6 +25,39 @@ import (
 	"github.com/moby/sys/mountinfo"
 )
 
+// Supported Cgroup Path Formats:
+// +--------+------------------+---------------------------------------+--------------------------------------------------+------------------------+
+// | Format | Type             | Example Input                         | Example Output                                   | Used By                |
+// +--------+------------------+---------------------------------------+--------------------------------------------------+------------------------+
+// | 1      | Complete         | /sys/fs/cgroup/kubepods/pod123        | /sys/fs/cgroup/kubepods/pod123                   | Pre-resolved paths     |
+// |        | Absolute Path    |                                       | (returned as-is)                                 |                        |
+// +--------+------------------+---------------------------------------+--------------------------------------------------+------------------------+
+// | 2      | Cgroupfs         | kubepods/burstable/pod123/container   | /sys/fs/cgroup/kubepods/burstable/pod123/        | cgroupfs driver        |
+// |        | Relative Path    |                                       | container                                        |                        |
+// +--------+------------------+---------------------------------------+--------------------------------------------------+------------------------+
+// | 3      | Cgroupfs Path    | /kubelet/kubepods/besteffort/pod123/  | /sys/fs/cgroup/kubelet/kubepods/besteffort/      | kubelet with cgroupfs  |
+// |        | Starting with /  | container456                          | pod123/container456                              |                        |
+// +--------+------------------+---------------------------------------+--------------------------------------------------+------------------------+
+// | 4      | Cgroupfs with    | kubepods.slice/kubepods-burstable.    | /sys/fs/cgroup/kubepods.slice/kubepods-          | cgroupfs with systemd  |
+// |        | .slice Notation  | slice/pod123.slice/container456.scope | burstable.slice/pod123.slice/container456.scope  | naming                 |
+// +--------+------------------+---------------------------------------+--------------------------------------------------+------------------------+
+// | 5      | Systemd Slice    | kubepods-burstable-pod123.slice:      | /sys/fs/cgroup/kubepods.slice/kubepods-          | cri-o, containerd      |
+// |        | with Colons      | cri-containerd:container456           | burstable.slice/kubepods-burstable-pod123.slice/ | systemd integration    |
+// |        |                  |                                       | cri-containerd-container456.scope                |                        |
+// +--------+------------------+---------------------------------------+--------------------------------------------------+------------------------+
+// | 6      | Systemd Slice    | kubepods-besteffort-pod123.slice:     | /sys/fs/cgroup/kubepods.slice/kubepods-          | cri-o direct format    |
+// |        | Direct Format    | crio:container456                     | besteffort.slice/kubepods-besteffort-pod123.     |                        |
+// |        |                  |                                       | slice/crio-container456.scope                    |                        |
+// +--------+------------------+---------------------------------------+--------------------------------------------------+------------------------+
+// | 7      | Systemd Service  | system.slice/containerd.service/      | /sys/fs/cgroup/system.slice/containerd.service/  | containerd with        |
+// |        | Hierarchy        | kubepods-burstable-pod123.slice/      | kubepods.slice/kubepods-burstable.slice/         | systemd                |
+// |        |                  | cri-containerd:container456           | kubepods-burstable-pod123.slice/cri-containerd-  |                        |
+// |        |                  |                                       | container456.scope                               |                        |
+// +--------+------------------+---------------------------------------+--------------------------------------------------+------------------------+
+// | 8      | Multiple Colons  | machine.slice/crio:container:runtime  | /sys/fs/cgroup/machine.slice/crio-container-     | Complex runtime        |
+// |        | in Systemd       |                                       | runtime.scope                                    | configurations         |
+// +--------+------------------+---------------------------------------+--------------------------------------------------+------------------------+
+
 // GetContainerCgroupsV2AbsPath returns the absolute path to the cgroup v2 directory for a container.
 // This method converts relative cgroup paths to absolute paths, for different cgroup managers,
 // QoS classes, and custom cgroup hierarchies.
@@ -61,10 +94,6 @@ func GetPodCgroupsV2AbsPath(pod *api.PodSandbox) string {
 
 // getCGroupsV2PathForContainer helper for container paths
 func getCGroupsV2PathForContainer(cgroupPath string) string {
-	if filepath.IsAbs(cgroupPath) {
-		return cgroupPath
-	}
-
 	cgroupV2Root := getCgroupV2Root()
 	if cgroupV2Root == "" {
 		// Fallback to default cgroup v2 mount point
@@ -77,10 +106,6 @@ func getCGroupsV2PathForContainer(cgroupPath string) string {
 
 // getCGroupsV2PathForPodWithRuntime helper for pod paths with runtime detection
 func getCGroupsV2PathForPodWithRuntime(cgroupPath string, shouldAddScope bool) string {
-	if filepath.IsAbs(cgroupPath) {
-		return cgroupPath
-	}
-
 	cgroupV2Root := getCgroupV2Root()
 	if cgroupV2Root == "" {
 		// Fallback to default cgroup v2 mount point
@@ -139,6 +164,11 @@ func isCgroupV2Mount(path string) bool {
 // resolveCgroupPath resolves the cgroup path by trying cgroupfs and systemd cgroup drivers
 // It first detects if the path is systemd-style, then applies conversion
 func resolveCgroupPath(cgroupRoot, cgroupPath string, isContainer bool) string {
+	// If the path already starts with the cgroup root, return it as-is
+	if strings.HasPrefix(cgroupPath, cgroupRoot) {
+		return cgroupPath
+	}
+
 	if isSystemdPath(cgroupPath) {
 		return convertSystemdPath(cgroupRoot, cgroupPath, isContainer)
 	}

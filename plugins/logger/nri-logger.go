@@ -23,6 +23,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/containerd/nri/pkg/plugin"
 	"github.com/sirupsen/logrus"
 	"sigs.k8s.io/yaml"
 
@@ -31,15 +32,16 @@ import (
 )
 
 type config struct {
-	LogFile       string   `json:"logFile"`
-	Events        []string `json:"events"`
-	AddAnnotation string   `json:"addAnnotation"`
-	SetAnnotation string   `json:"setAnnotation"`
-	AddEnv        string   `json:"addEnv"`
-	SetEnv        string   `json:"setEnv"`
+	LogFile          string   `json:"logFile"`
+	Events           []string `json:"events"`
+	AddAnnotation    string   `json:"addAnnotation"`
+	SetAnnotation    string   `json:"setAnnotation"`
+	AddEnv           string   `json:"addEnv"`
+	SetEnv           string   `json:"setEnv"`
+	EnableCGroupsLog bool     `json:"enableCGroupsLog"`
 }
 
-type plugin struct {
+type pluginLogger struct {
 	stub stub.Stub
 	mask stub.EventMask
 }
@@ -47,10 +49,10 @@ type plugin struct {
 var (
 	cfg config
 	log *logrus.Logger
-	_   = stub.ConfigureInterface(&plugin{})
+	_   = stub.ConfigureInterface(&pluginLogger{})
 )
 
-func (p *plugin) Configure(_ context.Context, config, runtime, version string) (stub.EventMask, error) {
+func (p *pluginLogger) Configure(_ context.Context, config, runtime, version string) (stub.EventMask, error) {
 	log.Infof("got configuration data: %q from runtime %s %s", config, runtime, version)
 	if config == "" {
 		return p.mask, nil
@@ -79,41 +81,45 @@ func (p *plugin) Configure(_ context.Context, config, runtime, version string) (
 	return p.mask, nil
 }
 
-func (p *plugin) Synchronize(_ context.Context, pods []*api.PodSandbox, containers []*api.Container) ([]*api.ContainerUpdate, error) {
+func (p *pluginLogger) Synchronize(_ context.Context, pods []*api.PodSandbox, containers []*api.Container) ([]*api.ContainerUpdate, error) {
 	dump("Synchronize", "pods", pods, "containers", containers)
 	return nil, nil
 }
 
-func (p *plugin) Shutdown() {
+func (p *pluginLogger) Shutdown() {
 	dump("Shutdown")
 }
 
-func (p *plugin) RunPodSandbox(_ context.Context, pod *api.PodSandbox) error {
+func (p *pluginLogger) RunPodSandbox(_ context.Context, pod *api.PodSandbox) error {
 	dump("RunPodSandbox", "pod", pod)
+	if cfg.EnableCGroupsLog {
+		log.WithFields(logrus.Fields{"relativePath": pod.Linux.CgroupsPath,
+			"absolutePath": plugin.GetPodCgroupsV2AbsPath(pod)}).Info("PodSandbox CGroups")
+	}
 	return nil
 }
 
-func (p *plugin) UpdatePodSandbox(_ context.Context, pod *api.PodSandbox, overHeadResources, resources *api.LinuxResources) error {
+func (p *pluginLogger) UpdatePodSandbox(_ context.Context, pod *api.PodSandbox, overHeadResources, resources *api.LinuxResources) error {
 	dump("UpdatePodSandbox", "pod", pod, "overHeadResources", overHeadResources, "resources", resources)
 	return nil
 }
 
-func (p *plugin) PostUpdatePodSandbox(_ context.Context, pod *api.PodSandbox) error {
+func (p *pluginLogger) PostUpdatePodSandbox(_ context.Context, pod *api.PodSandbox) error {
 	dump("PostUpdatePodSandbox", "pod", pod)
 	return nil
 }
 
-func (p *plugin) StopPodSandbox(_ context.Context, pod *api.PodSandbox) error {
+func (p *pluginLogger) StopPodSandbox(_ context.Context, pod *api.PodSandbox) error {
 	dump("StopPodSandbox", "pod", pod)
 	return nil
 }
 
-func (p *plugin) RemovePodSandbox(_ context.Context, pod *api.PodSandbox) error {
+func (p *pluginLogger) RemovePodSandbox(_ context.Context, pod *api.PodSandbox) error {
 	dump("RemovePodSandbox", "pod", pod)
 	return nil
 }
 
-func (p *plugin) CreateContainer(_ context.Context, pod *api.PodSandbox, container *api.Container) (*api.ContainerAdjustment, []*api.ContainerUpdate, error) {
+func (p *pluginLogger) CreateContainer(_ context.Context, pod *api.PodSandbox, container *api.Container) (*api.ContainerAdjustment, []*api.ContainerUpdate, error) {
 	dump("CreateContainer", "pod", pod, "container", container)
 
 	adjust := &api.ContainerAdjustment{}
@@ -132,51 +138,55 @@ func (p *plugin) CreateContainer(_ context.Context, pod *api.PodSandbox, contain
 		adjust.RemoveEnv(cfg.SetEnv)
 		adjust.AddEnv(cfg.SetEnv, fmt.Sprintf("logger-pid-%d", os.Getpid()))
 	}
+	if cfg.EnableCGroupsLog {
+		log.WithFields(logrus.Fields{"relativePath": container.Linux.CgroupsPath,
+			"absolutePath": plugin.GetContainerCgroupsV2AbsPath(container)}).Info("Container CGroups")
+	}
 
 	return adjust, nil, nil
 }
 
-func (p *plugin) PostCreateContainer(_ context.Context, pod *api.PodSandbox, container *api.Container) error {
+func (p *pluginLogger) PostCreateContainer(_ context.Context, pod *api.PodSandbox, container *api.Container) error {
 	dump("PostCreateContainer", "pod", pod, "container", container)
 	return nil
 }
 
-func (p *plugin) StartContainer(_ context.Context, pod *api.PodSandbox, container *api.Container) error {
+func (p *pluginLogger) StartContainer(_ context.Context, pod *api.PodSandbox, container *api.Container) error {
 	dump("StartContainer", "pod", pod, "container", container)
 	return nil
 }
 
-func (p *plugin) PostStartContainer(_ context.Context, pod *api.PodSandbox, container *api.Container) error {
+func (p *pluginLogger) PostStartContainer(_ context.Context, pod *api.PodSandbox, container *api.Container) error {
 	dump("PostStartContainer", "pod", pod, "container", container)
 	return nil
 }
 
-func (p *plugin) UpdateContainer(_ context.Context, pod *api.PodSandbox, container *api.Container, r *api.LinuxResources) ([]*api.ContainerUpdate, error) {
+func (p *pluginLogger) UpdateContainer(_ context.Context, pod *api.PodSandbox, container *api.Container, r *api.LinuxResources) ([]*api.ContainerUpdate, error) {
 	dump("UpdateContainer", "pod", pod, "container", container, "resources", r)
 	return nil, nil
 }
 
-func (p *plugin) PostUpdateContainer(_ context.Context, pod *api.PodSandbox, container *api.Container) error {
+func (p *pluginLogger) PostUpdateContainer(_ context.Context, pod *api.PodSandbox, container *api.Container) error {
 	dump("PostUpdateContainer", "pod", pod, "container", container)
 	return nil
 }
 
-func (p *plugin) StopContainer(_ context.Context, pod *api.PodSandbox, container *api.Container) ([]*api.ContainerUpdate, error) {
+func (p *pluginLogger) StopContainer(_ context.Context, pod *api.PodSandbox, container *api.Container) ([]*api.ContainerUpdate, error) {
 	dump("StopContainer", "pod", pod, "container", container)
 	return nil, nil
 }
 
-func (p *plugin) RemoveContainer(_ context.Context, pod *api.PodSandbox, container *api.Container) error {
+func (p *pluginLogger) RemoveContainer(_ context.Context, pod *api.PodSandbox, container *api.Container) error {
 	dump("RemoveContainer", "pod", pod, "container", container)
 	return nil
 }
 
-func (p *plugin) ValidateContainerAdjustment(_ context.Context, req *api.ValidateContainerAdjustmentRequest) error {
+func (p *pluginLogger) ValidateContainerAdjustment(_ context.Context, req *api.ValidateContainerAdjustmentRequest) error {
 	dump("ValidateContainerAdjustment", "request", req)
 	return nil
 }
 
-func (p *plugin) onClose() {
+func (p *pluginLogger) onClose() {
 	log.Infof("Connection to the runtime lost, exiting...")
 	os.Exit(1)
 }
@@ -228,13 +238,14 @@ func main() {
 		PadLevelText: true,
 	})
 
-	flag.StringVar(&pluginIdx, "idx", "", "plugin index to register to NRI")
+	flag.StringVar(&pluginIdx, "idx", "", "pluginLogger index to register to NRI")
 	flag.StringVar(&events, "events", "all", "comma-separated list of events to subscribe for")
 	flag.StringVar(&cfg.LogFile, "log-file", "", "logfile name, if logging to a file")
 	flag.StringVar(&cfg.AddAnnotation, "add-annotation", "", "add this annotation to containers")
 	flag.StringVar(&cfg.SetAnnotation, "set-annotation", "", "set this annotation on containers")
 	flag.StringVar(&cfg.AddEnv, "add-env", "", "add this environment variable for containers")
 	flag.StringVar(&cfg.SetEnv, "set-env", "", "set this environment variable for containers")
+	flag.BoolVar(&cfg.EnableCGroupsLog, "enable-cgroups-log", false, "enable cgroups log")
 	flag.Parse()
 
 	if cfg.LogFile != "" {
@@ -249,19 +260,19 @@ func main() {
 		opts = append(opts, stub.WithPluginIdx(pluginIdx))
 	}
 
-	p := &plugin{}
+	p := &pluginLogger{}
 	if p.mask, err = api.ParseEventMask(events); err != nil {
 		log.Fatalf("failed to parse events: %v", err)
 	}
 	cfg.Events = strings.Split(events, ",")
 
 	if p.stub, err = stub.New(p, append(opts, stub.WithOnClose(p.onClose))...); err != nil {
-		log.Fatalf("failed to create plugin stub: %v", err)
+		log.Fatalf("failed to create pluginLogger stub: %v", err)
 	}
 
 	err = p.stub.Run(context.Background())
 	if err != nil {
-		log.Errorf("plugin exited with error %v", err)
+		log.Errorf("pluginLogger exited with error %v", err)
 		os.Exit(1)
 	}
 }

@@ -550,11 +550,10 @@ time using the `nri_no_wasm` build tag.
 ## Security Considerations
 
 From a security perspective NRI plugins should be considered part of the
-container runtime. NRI does not implement granular access control to the
-functionality it offers. Access to NRI is controlled by restricting access
-to the systemwide NRI socket. If a process can connect to the NRI socket
-and send data, it has access to the full scope of functionality available
-via NRI.
+container runtime. Access to NRI is controlled by restricting access to
+the systemwide NRI socket. By default, if a process can connect to the
+NRI socket and send data, it has access to the full scope of
+functionality available via NRI.
 
 In particular this includes
 
@@ -572,6 +571,16 @@ socket permissions is strongly advised against. Enabling more permissive
 access control to NRI should never be done without fully understanding the
 full implications and potential consequences to container security.
 
+NRI offers two mechanisms for restricting this default scope of access:
+validation of container adjustments, and authentication of plugins.
+Validation can reject adjustments which plugins request. Authentication
+establishes an identity for a plugin, which allows validation to apply
+different restrictions to different plugins. Neither mechanism restricts
+which processes may connect to the NRI socket, so neither one replaces
+protecting the socket itself. See [Container Adjustment
+Validation](#container-adjustment-validation) and [Plugin
+Authentication](#plugin-authentication) for the details.
+
 ### Plugins as Kubernetes DaemonSets
 
 When the runtime manages pods and containers in a Kubernetes cluster, it
@@ -588,6 +597,55 @@ access to these sockets and can act as NRI or Device Plugins. See the
 [related documentation](https://kubernetes.io/docs/concepts/security/)
 and [best practices](https://kubernetes.io/docs/setup/best-practices/enforcing-pod-security-standards/)
 about Kubernetes security.
+
+## Plugin Authentication
+
+NRI can be configured to authenticate plugins during connection setup.
+The purpose of authentication is to reliably establish an identity for
+a plugin which then allows validation to apply different policies to
+plugins with different identity.
+
+This plugin identity is called a role in NRI. A role has a unique name,
+has a set of associated plugin keys, and an optional set of opaque tags.
+Keys map plugins to roles. Any plugin which identifies and authenticates
+itself with a matching key is associated with the role or the key. Role
+tags are opaque, carrying no semantic meaning for NRI itself. They can
+however carry semantic meaning for custom validators. Once a plugin gets
+authenticated, the assigned role and its tags are made available to the
+plugin itself and to any validating plugin.
+
+Enabling authentication does not restrict which plugins are allowed to
+connect and register. A plugin which does not authenticate itself is
+registered as before and is treated as having no role. A plugin which
+does start authenticating must finish: a plugin which requests a
+challenge but fails to answer it is not allowed to register, and a
+plugin cannot authenticate once it has registered. Built-in and
+WebAssembly plugins are part of the runtime process and never
+authenticate. Authentication establishes the identity of those plugins
+which have keys. It is not an admission control mechanism for the NRI
+socket.
+
+### Default Validation of Authenticated Plugins
+
+The default validator can be configured to apply different restrictions
+to different roles, hence to different plugins. This allows setting up
+a restricted default configuration then loosen these restrictions for
+selected plugins using per role overrides. For instance, one can disable
+Linux namespace adjustment globally, then allow it only for a single or
+a few plugins.
+
+Overrides are looked up by role name. A plugin gets the default
+configuration unless its role has an override for the restriction in
+question. This includes plugins with no role, so a plugin which did not
+authenticate is restricted by the defaults.
+
+### Custom Validation of Authenticated Plugins
+
+Plugin role names and tags are both passed to custom validators.
+Tags can be used to decompose a role into a set of explicitly assigned
+capabilities valid for that role. This allows validators to decide whether
+to allow or reject any changes requested by a plugin based on capabilities
+instead of attaching such semantics implicitly to a role name.
 
 ## API Stability
 

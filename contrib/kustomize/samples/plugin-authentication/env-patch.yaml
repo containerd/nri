@@ -1,0 +1,12 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: nri-plugin-template
+spec:
+  template:
+    spec:
+      containers:
+        - name: plugin
+          env:
+          - name: NRI_PLUGIN_AUTH_KEYDIR
+            value: /etc/containers/nri/auth

@@ -6,7 +6,7 @@ require (
 	github.com/containerd/containerd v1.7.28
 	github.com/containerd/containerd/api v1.8.0
 	github.com/containerd/nri v0.8.0
-	github.com/opencontainers/runtime-spec v1.1.0
+	github.com/opencontainers/runtime-spec v1.2.2-0.20250818071321-383cadbf08c0
 	github.com/sirupsen/logrus v1.9.3
 )
 

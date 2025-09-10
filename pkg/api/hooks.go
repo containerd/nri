@@ -79,7 +79,7 @@ func FromOCIHooks(o *rspec.Hooks) *Hooks {
 		return nil
 	}
 	return &Hooks{
-		Prestart:        FromOCIHookSlice(o.Prestart),
+		Prestart:        FromOCIHookSlice(o.Prestart), //nolint:staticcheck
 		CreateRuntime:   FromOCIHookSlice(o.CreateRuntime),
 		CreateContainer: FromOCIHookSlice(o.CreateContainer),
 		StartContainer:  FromOCIHookSlice(o.StartContainer),

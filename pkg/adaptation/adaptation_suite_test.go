@@ -583,6 +583,13 @@ var _ = Describe("Plugin container creation adjustments", func() {
 					return api.FromOCILinuxSeccomp(&seccomp)
 				}(),
 			)
+		case "rdt":
+			if overwrite {
+				a.RemoveLinuxRDT()
+			}
+			a.SetLinuxRDTClosID(p.name)
+			a.SetLinuxRDTSchemata([]string{"L3:0=ff", "MB:0=50"})
+			a.SetLinuxRDTEnableMonitoring(true)
 		}
 
 		return a, nil, nil
@@ -868,6 +875,17 @@ var _ = Describe("Plugin container creation adjustments", func() {
 					},
 				},
 			),
+			Entry("adjust RDT", "rdt",
+				&api.ContainerAdjustment{
+					Linux: &api.LinuxContainerAdjustment{
+						Rdt: &api.LinuxRdt{
+							ClosId:           api.String("test"),
+							Schemata:         api.RepeatedString([]string{"L3:0=ff", "MB:0=50"}),
+							EnableMonitoring: api.Bool(true),
+						},
+					},
+				},
+			),
 		)
 	})
 
@@ -1008,6 +1026,18 @@ var _ = Describe("Plugin container creation adjustments", func() {
 			),
 			Entry("adjust resources", "resources/classes", false, true, nil),
 			Entry("adjust I/O priority (conflicts)", "I/O priority", false, true, nil),
+			Entry("adjust RDT (conflicts)", "rdt", false, true, nil),
+			Entry("adjust RDT", "rdt", true, false,
+				&api.ContainerAdjustment{
+					Linux: &api.LinuxContainerAdjustment{
+						Rdt: &api.LinuxRdt{
+							ClosId:           api.String("foo"),
+							Schemata:         api.RepeatedString([]string{"L3:0=ff", "MB:0=50"}),
+							EnableMonitoring: api.Bool(true),
+						},
+					},
+				},
+			),
 		)
 	})
 

@@ -87,26 +87,7 @@ func collectCreateContainerResult(request *CreateContainerRequest) *result {
 		request: resultRequest{
 			create: request,
 		},
-		reply: resultReply{
-			adjust: &ContainerAdjustment{
-				Annotations: map[string]string{},
-				Mounts:      []*Mount{},
-				Env:         []*KeyValue{},
-				Hooks:       &Hooks{},
-				Rlimits:     []*POSIXRlimit{},
-				CDIDevices:  []*CDIDevice{},
-				Linux: &LinuxContainerAdjustment{
-					Devices: []*LinuxDevice{},
-					Resources: &LinuxResources{
-						Memory:         &LinuxMemory{},
-						Cpu:            &LinuxCPU{},
-						HugepageLimits: []*HugepageLimit{},
-						Unified:        map[string]string{},
-					},
-					Namespaces: []*LinuxNamespace{},
-				},
-			},
-		},
+		reply:   resultReply{},
 		updates: map[string]*ContainerUpdate{},
 		owners:  api.NewOwningPlugins(),
 	}
@@ -265,6 +246,8 @@ func (r *result) adjustAnnotations(annotations map[string]string, plugin string)
 		return nil
 	}
 
+	r.initAdjustAnnotations()
+
 	create, id := r.request.create, r.request.create.Container.Id
 	del := map[string]struct{}{}
 	for k := range annotations {
@@ -299,6 +282,8 @@ func (r *result) adjustMounts(mounts []*Mount, plugin string) error {
 	if len(mounts) == 0 {
 		return nil
 	}
+
+	r.initAdjustMounts()
 
 	create, id := r.request.create, r.request.create.Container.Id
 
@@ -365,6 +350,8 @@ func (r *result) adjustDevices(devices []*LinuxDevice, plugin string) error {
 		return nil
 	}
 
+	r.initAdjustDevices()
+
 	create, id := r.request.create, r.request.create.Container.Id
 
 	// first split removals from the rest of adjustments
@@ -423,6 +410,8 @@ func (r *result) adjustNamespaces(namespaces []*LinuxNamespace, plugin string) e
 		return nil
 	}
 
+	r.initAdjustNamespaces()
+
 	create, id := r.request.create, r.request.create.Container.Id
 
 	creatensmap := map[string]*LinuxNamespace{}
@@ -456,6 +445,8 @@ func (r *result) adjustCDIDevices(devices []*CDIDevice, plugin string) error {
 		return nil
 	}
 
+	r.initAdjustCDIDevices()
+
 	// Notes:
 	//   CDI devices are opaque references, typically to vendor specific
 	//   devices. They get resolved to actual devices and potential related
@@ -485,6 +476,8 @@ func (r *result) adjustEnv(env []*KeyValue, plugin string) error {
 	if len(env) == 0 {
 		return nil
 	}
+
+	r.initAdjustEnv()
 
 	create, id := r.request.create, r.request.create.Container.Id
 
@@ -558,6 +551,8 @@ func (r *result) adjustArgs(args []string, plugin string) error {
 		return nil
 	}
 
+	r.initAdjustArgs()
+
 	create, id := r.request.create, r.request.create.Container.Id
 
 	if args[0] == "" {
@@ -579,6 +574,8 @@ func (r *result) adjustHooks(hooks *Hooks, plugin string) error {
 	if hooks == nil {
 		return nil
 	}
+
+	r.initAdjustHooks()
 
 	reply := r.reply.adjust
 	container := r.request.create.Container
@@ -626,6 +623,8 @@ func (r *result) adjustResources(resources *LinuxResources, plugin string) error
 	if resources == nil {
 		return nil
 	}
+
+	r.initAdjustResources()
 
 	create, id := r.request.create, r.request.create.Container.Id
 	container := create.Container.Linux.Resources
@@ -796,6 +795,8 @@ func (r *result) adjustCgroupsPath(path, plugin string) error {
 		return nil
 	}
 
+	r.initAdjustCgroupsPath()
+
 	create, id := r.request.create, r.request.create.Container.Id
 
 	if err := r.owners.ClaimCgroupsPath(id, plugin); err != nil {
@@ -812,6 +813,8 @@ func (r *result) adjustOomScoreAdj(OomScoreAdj *OptionalInt, plugin string) erro
 	if OomScoreAdj == nil {
 		return nil
 	}
+
+	r.initAdjustOomScoreAdj()
 
 	create, id := r.request.create, r.request.create.Container.Id
 
@@ -830,6 +833,8 @@ func (r *result) adjustIOPriority(priority *LinuxIOPriority, plugin string) erro
 		return nil
 	}
 
+	r.initAdjustIOPriority()
+
 	create, id := r.request.create, r.request.create.Container.Id
 
 	if err := r.owners.ClaimIOPriority(id, plugin); err != nil {
@@ -846,6 +851,9 @@ func (r *result) adjustSeccompPolicy(adjustment *LinuxSeccomp, plugin string) er
 	if adjustment == nil {
 		return nil
 	}
+
+	r.initAdjustSeccompPolicy()
+
 	create, id := r.request.create, r.request.create.Container.Id
 
 	if err := r.owners.ClaimSeccompPolicy(id, plugin); err != nil {
@@ -859,6 +867,12 @@ func (r *result) adjustSeccompPolicy(adjustment *LinuxSeccomp, plugin string) er
 }
 
 func (r *result) adjustRlimits(rlimits []*POSIXRlimit, plugin string) error {
+	if len(rlimits) == 0 {
+		return nil
+	}
+
+	r.initAdjustRlimits()
+
 	create, id, adjust := r.request.create, r.request.create.Container.Id, r.reply.adjust
 	for _, l := range rlimits {
 		if err := r.owners.ClaimRlimit(id, l.Type, plugin); err != nil {
@@ -869,6 +883,88 @@ func (r *result) adjustRlimits(rlimits []*POSIXRlimit, plugin string) error {
 		adjust.Rlimits = append(adjust.Rlimits, l)
 	}
 	return nil
+}
+
+func (r *result) initAdjust() {
+	if r.reply.adjust == nil {
+		r.reply.adjust = &ContainerAdjustment{}
+	}
+}
+
+func (r *result) initAdjustAnnotations() {
+	r.initAdjust()
+	if r.reply.adjust.Annotations == nil {
+		r.reply.adjust.Annotations = map[string]string{}
+	}
+}
+
+func (r *result) initAdjustMounts() {
+	r.initAdjust()
+}
+
+func (r *result) initAdjustLinux() {
+	r.initAdjust()
+	if r.reply.adjust.Linux == nil {
+		r.reply.adjust.Linux = &LinuxContainerAdjustment{}
+	}
+}
+
+func (r *result) initAdjustDevices() {
+	r.initAdjustLinux()
+}
+
+func (r *result) initAdjustEnv() {
+	r.initAdjust()
+}
+
+func (r *result) initAdjustArgs() {
+	r.initAdjust()
+}
+
+func (r *result) initAdjustHooks() {
+	r.initAdjust()
+	if r.reply.adjust.Hooks == nil {
+		r.reply.adjust.Hooks = &Hooks{}
+	}
+}
+
+func (r *result) initAdjustResources() {
+	r.initAdjustLinux()
+	if r.reply.adjust.Linux.Resources == nil {
+		r.reply.adjust.Linux.Resources = &LinuxResources{
+			Memory:  &LinuxMemory{},
+			Cpu:     &LinuxCPU{},
+			Unified: map[string]string{},
+		}
+	}
+}
+
+func (r *result) initAdjustCgroupsPath() {
+	r.initAdjustLinux()
+}
+
+func (r *result) initAdjustOomScoreAdj() {
+	r.initAdjustLinux()
+}
+
+func (r *result) initAdjustIOPriority() {
+	r.initAdjustLinux()
+}
+
+func (r *result) initAdjustSeccompPolicy() {
+	r.initAdjustLinux()
+}
+
+func (r *result) initAdjustNamespaces() {
+	r.initAdjustLinux()
+}
+
+func (r *result) initAdjustRlimits() {
+	r.initAdjust()
+}
+
+func (r *result) initAdjustCDIDevices() {
+	r.initAdjust()
 }
 
 func (r *result) updateResources(reply, u *ContainerUpdate, plugin string) error {

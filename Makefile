@@ -13,7 +13,6 @@
 #   limitations under the License.
 
 PROTO_SOURCES = $(shell find . -name '*.proto' | grep -v /vendor/)
-PROTO_GOFILES = $(patsubst %.proto,%.pb.go,$(PROTO_SOURCES))
 PROTO_INCLUDE = -I$(PWD):/usr/local/include:/usr/include
 PROTO_OPTIONS = --proto_path=. $(PROTO_INCLUDE) \
     --go_opt=paths=source_relative --go_out=. \
@@ -77,11 +76,15 @@ FORCE:
 # build targets
 #
 
-build-proto: $(PROTO_GOFILES)
+build-proto:
+	for src in $(PROTO_SOURCES); do \
+		$(PROTO_COMPILE) $$src; \
+	done
+	sed -i '1s;^;//go:build !wasip1\n\n;' pkg/api/api_ttrpc.pb.go
 
 .PHONY: build-proto-dockerized
 build-proto-dockerized:
-	$(Q)docker build --build-arg ARTIFACTS="$(dir $(PROTO_GOFILES))" --target final \
+	$(Q)docker build --build-arg ARTIFACTS="$(dir $(PROTO_SOURCES))" --target final \
 		--output type=local,dest=$(RESOLVED_PWD) \
 		-f hack/Dockerfile.buildproto .
 	$(Q)tar xf artifacts.tgz && rm -f artifacts.tgz
@@ -172,15 +175,6 @@ validate-repo-no-changes:
 		echo "Please make sure to commit all changes, including generated files."; \
 		exit 1; \
 	}
-
-#
-# proto generation targets
-#
-
-%.pb.go: %.proto
-	$(Q)echo "Generating $@..."; \
-	$(PROTO_COMPILE) $<
-	sed -i '1s;^;//go:build !wasip1\n\n;' pkg/api/api_ttrpc.pb.go
 
 #
 # targets for installing dependencies

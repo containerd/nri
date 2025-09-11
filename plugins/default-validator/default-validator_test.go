@@ -244,7 +244,7 @@ func TestValidateReqiredPlugins(t *testing.T) {
 				}
 			)
 
-			err := v.validateRequiredPlugins(req)
+			err := v.validateRequiredPlugins(req, req.GetPluginMap())
 			if tc.fail {
 				require.Error(t, err)
 			} else {

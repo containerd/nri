@@ -178,9 +178,12 @@ validate-repo-no-changes:
 #
 
 %.pb.go: %.proto
-	$(Q)echo "Generating $@..."; \
-	$(PROTO_COMPILE) $<
-	sed -i '1s;^;//go:build !wasip1\n\n;' pkg/api/api_ttrpc.pb.go
+	$(Q)echo "Proto-compiling $<..."; \
+	$(PROTO_COMPILE) $< && \
+	ttrpc=$(dir $@)api_ttrpc.pb.go && \
+	if [ -f "$$ttrpc" ]; then \
+	    sed -i '1s;^;//go:build !wasip1\n\n;' $$ttrpc; \
+	fi
 
 #
 # targets for installing dependencies

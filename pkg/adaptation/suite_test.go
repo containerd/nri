@@ -31,7 +31,7 @@ import (
 	api "github.com/containerd/nri/pkg/api/v1beta1"
 	"github.com/sirupsen/logrus"
 
-	"github.com/containerd/nri/pkg/stub"
+	stub "github.com/containerd/nri/pkg/stub/v1beta1"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -231,10 +231,10 @@ func (m *mockRuntime) synchronize(ctx context.Context, cb nri.SyncCB) error {
 	return err
 }
 
-func (m *mockRuntime) RunPodSandbox(ctx context.Context, evt *api.StateChangeEvent) error {
+func (m *mockRuntime) RunPodSandbox(ctx context.Context, req *api.RunPodSandboxRequest) error {
 	b := m.runtime.BlockPluginSync()
 	defer b.Unblock()
-	return m.runtime.RunPodSandbox(ctx, evt)
+	return m.runtime.RunPodSandbox(ctx, req)
 }
 
 func (m *mockRuntime) UpdatePodSandbox(ctx context.Context, req *api.UpdatePodSandboxRequest) (*api.UpdatePodSandboxResponse, error) {
@@ -256,7 +256,7 @@ func (m *mockRuntime) UpdateContainer(ctx context.Context, req *api.UpdateContai
 }
 
 func (m *mockRuntime) startStopPodAndContainer(ctx context.Context, pod *api.PodSandbox, ctr *api.Container) error {
-	err := m.RunPodSandbox(ctx, &api.StateChangeEvent{
+	err := m.RunPodSandbox(ctx, &api.RunPodSandboxRequest{
 		Pod: pod,
 	})
 	if err != nil {
@@ -272,7 +272,7 @@ func (m *mockRuntime) startStopPodAndContainer(ctx context.Context, pod *api.Pod
 		return err
 	}
 
-	err = m.runtime.PostUpdatePodSandbox(ctx, &api.StateChangeEvent{
+	err = m.runtime.PostUpdatePodSandbox(ctx, &api.PostUpdatePodSandboxRequest{
 		Pod: pod,
 	})
 	if err != nil {
@@ -287,7 +287,7 @@ func (m *mockRuntime) startStopPodAndContainer(ctx context.Context, pod *api.Pod
 		return err
 	}
 
-	err = m.runtime.PostCreateContainer(ctx, &api.StateChangeEvent{
+	err = m.runtime.PostCreateContainer(ctx, &api.PostCreateContainerRequest{
 		Pod:       pod,
 		Container: ctr,
 	})
@@ -295,7 +295,7 @@ func (m *mockRuntime) startStopPodAndContainer(ctx context.Context, pod *api.Pod
 		return err
 	}
 
-	err = m.runtime.StartContainer(ctx, &api.StateChangeEvent{
+	err = m.runtime.StartContainer(ctx, &api.StartContainerRequest{
 		Pod:       pod,
 		Container: ctr,
 	})
@@ -303,7 +303,7 @@ func (m *mockRuntime) startStopPodAndContainer(ctx context.Context, pod *api.Pod
 		return err
 	}
 
-	err = m.runtime.PostStartContainer(ctx, &api.StateChangeEvent{
+	err = m.runtime.PostStartContainer(ctx, &api.PostStartContainerRequest{
 		Pod:       pod,
 		Container: ctr,
 	})
@@ -320,7 +320,7 @@ func (m *mockRuntime) startStopPodAndContainer(ctx context.Context, pod *api.Pod
 		return err
 	}
 
-	err = m.runtime.PostUpdateContainer(ctx, &api.StateChangeEvent{
+	err = m.runtime.PostUpdateContainer(ctx, &api.PostUpdateContainerRequest{
 		Pod:       pod,
 		Container: ctr,
 	})
@@ -336,7 +336,7 @@ func (m *mockRuntime) startStopPodAndContainer(ctx context.Context, pod *api.Pod
 		return err
 	}
 
-	err = m.runtime.RemoveContainer(ctx, &api.StateChangeEvent{
+	err = m.runtime.RemoveContainer(ctx, &api.RemoveContainerRequest{
 		Pod:       pod,
 		Container: ctr,
 	})
@@ -344,14 +344,14 @@ func (m *mockRuntime) startStopPodAndContainer(ctx context.Context, pod *api.Pod
 		return err
 	}
 
-	err = m.runtime.StopPodSandbox(ctx, &api.StateChangeEvent{
+	err = m.runtime.StopPodSandbox(ctx, &api.StopPodSandboxRequest{
 		Pod: pod,
 	})
 	if err != nil {
 		return err
 	}
 
-	err = m.runtime.RemovePodSandbox(ctx, &api.StateChangeEvent{
+	err = m.runtime.RemovePodSandbox(ctx, &api.RemovePodSandboxRequest{
 		Pod: pod,
 	})
 	if err != nil {
@@ -378,11 +378,11 @@ type mockPlugin struct {
 	pods map[string]*api.PodSandbox
 	ctrs map[string]*api.Container
 
-	runPodSandbox        func(*mockPlugin, *api.PodSandbox, *api.Container) error
+	runPodSandbox        func(*mockPlugin, *api.PodSandbox) error
 	updatePodSandbox     func(*mockPlugin, *api.PodSandbox, *api.LinuxResources, *api.LinuxResources) error
-	postUpdatePodSandbox func(*mockPlugin, *api.PodSandbox, *api.Container) error
-	stopPodSandbox       func(*mockPlugin, *api.PodSandbox, *api.Container) error
-	removePodSandbox     func(*mockPlugin, *api.PodSandbox, *api.Container) error
+	postUpdatePodSandbox func(*mockPlugin, *api.PodSandbox) error
+	stopPodSandbox       func(*mockPlugin, *api.PodSandbox) error
+	removePodSandbox     func(*mockPlugin, *api.PodSandbox) error
 	createContainer      func(*mockPlugin, *api.PodSandbox, *api.Container) (*api.ContainerAdjustment, []*api.ContainerUpdate, error)
 	postCreateContainer  func(*mockPlugin, *api.PodSandbox, *api.Container) error
 	startContainer       func(*mockPlugin, *api.PodSandbox, *api.Container) error
@@ -471,43 +471,43 @@ func (m *mockPlugin) Init(dir string) error {
 	m.ctrs = make(map[string]*api.Container)
 
 	if m.runPodSandbox == nil {
-		m.runPodSandbox = nopEvent
+		m.runPodSandbox = nopPodEvent
 	}
 	if m.updatePodSandbox == nil {
 		m.updatePodSandbox = nopUpdatePodSandbox
 	}
 	if m.postUpdatePodSandbox == nil {
-		m.postUpdatePodSandbox = nopEvent
+		m.postUpdatePodSandbox = nopPodEvent
 	}
 	if m.stopPodSandbox == nil {
-		m.stopPodSandbox = nopEvent
+		m.stopPodSandbox = nopPodEvent
 	}
 	if m.removePodSandbox == nil {
-		m.removePodSandbox = nopEvent
+		m.removePodSandbox = nopPodEvent
 	}
 	if m.createContainer == nil {
 		m.createContainer = nopCreateContainer
 	}
 	if m.postCreateContainer == nil {
-		m.postCreateContainer = nopEvent
+		m.postCreateContainer = nopContainerEvent
 	}
 	if m.startContainer == nil {
-		m.startContainer = nopEvent
+		m.startContainer = nopContainerEvent
 	}
 	if m.postStartContainer == nil {
-		m.postStartContainer = nopEvent
+		m.postStartContainer = nopContainerEvent
 	}
 	if m.updateContainer == nil {
 		m.updateContainer = nopUpdateContainer
 	}
 	if m.postUpdateContainer == nil {
-		m.postUpdateContainer = nopEvent
+		m.postUpdateContainer = nopContainerEvent
 	}
 	if m.stopContainer == nil {
 		m.stopContainer = nopStopContainer
 	}
 	if m.removeContainer == nil {
-		m.removeContainer = nopEvent
+		m.removeContainer = nopContainerEvent
 	}
 
 	return nil
@@ -592,7 +592,7 @@ func (m *mockPlugin) Shutdown(_ context.Context) {
 
 func (m *mockPlugin) RunPodSandbox(_ context.Context, pod *api.PodSandbox) error {
 	m.pods[pod.Id] = pod
-	err := m.runPodSandbox(m, pod, nil)
+	err := m.runPodSandbox(m, pod)
 	m.q.Add(PodSandboxEvent(pod, RunPodSandbox))
 	return err
 }
@@ -606,21 +606,21 @@ func (m *mockPlugin) UpdatePodSandbox(_ context.Context, pod *api.PodSandbox, ov
 
 func (m *mockPlugin) PostUpdatePodSandbox(_ context.Context, pod *api.PodSandbox) error {
 	m.pods[pod.Id] = pod
-	err := m.postUpdatePodSandbox(m, pod, nil)
+	err := m.postUpdatePodSandbox(m, pod)
 	m.q.Add(PodSandboxEvent(pod, PostUpdatePodSandbox))
 	return err
 }
 
 func (m *mockPlugin) StopPodSandbox(_ context.Context, pod *api.PodSandbox) error {
 	m.pods[pod.Id] = pod
-	err := m.stopPodSandbox(m, pod, nil)
+	err := m.stopPodSandbox(m, pod)
 	m.q.Add(PodSandboxEvent(pod, StopPodSandbox))
 	return err
 }
 
 func (m *mockPlugin) RemovePodSandbox(_ context.Context, pod *api.PodSandbox) error {
 	delete(m.pods, pod.Id)
-	err := m.removePodSandbox(m, pod, nil)
+	err := m.removePodSandbox(m, pod)
 	m.q.Add(PodSandboxEvent(pod, RemovePodSandbox))
 	return err
 }
@@ -696,7 +696,11 @@ func (m *mockPlugin) ValidateContainerAdjustment(_ context.Context, req *api.Val
 	return nil
 }
 
-func nopEvent(*mockPlugin, *api.PodSandbox, *api.Container) error {
+func nopPodEvent(*mockPlugin, *api.PodSandbox) error {
+	return nil
+}
+
+func nopContainerEvent(*mockPlugin, *api.PodSandbox, *api.Container) error {
 	return nil
 }
 

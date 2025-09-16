@@ -29,7 +29,7 @@ import (
 	"time"
 
 	"github.com/containerd/nri/pkg/adaptation/builtin"
-	"github.com/containerd/nri/pkg/api"
+	api "github.com/containerd/nri/pkg/api/v1beta1"
 	"github.com/containerd/nri/pkg/log"
 	"github.com/containerd/nri/pkg/net"
 	"github.com/containerd/nri/pkg/net/multiplex"
@@ -592,6 +592,116 @@ func recalcObjsPerSyncMsg(pods, ctrs int, err error) (int, int, error) {
 	return pods, ctrs, nil
 }
 
+// Relay RunPodSandbox requests to the plugin.
+func (p *plugin) runPodSandbox(ctx context.Context, req *RunPodSandboxRequest) (*RunPodSandboxResponse, error) {
+	if !p.events.IsSet(Event_RUN_POD_SANDBOX) {
+		return nil, nil
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, getPluginRequestTimeout())
+	defer cancel()
+
+	if _, err := p.impl.RunPodSandbox(ctx, req); err != nil {
+		if isFatalError(err) {
+			log.Errorf(ctx, "closing plugin %s, failed to handle RunPodSandbox event: %v",
+				p.name(), err)
+			p.close()
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	return &RunPodSandboxResponse{}, nil
+}
+
+// Relay UpdatePodSandbox requests to the plugin.
+func (p *plugin) updatePodSandbox(ctx context.Context, req *UpdatePodSandboxRequest) (*UpdatePodSandboxResponse, error) {
+	if !p.events.IsSet(Event_UPDATE_POD_SANDBOX) {
+		return nil, nil
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, getPluginRequestTimeout())
+	defer cancel()
+
+	if _, err := p.impl.UpdatePodSandbox(ctx, req); err != nil {
+		if isFatalError(err) {
+			log.Errorf(ctx, "closing plugin %s, failed to handle UpdatePodSandbox event: %v",
+				p.name(), err)
+			p.close()
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	return &UpdatePodSandboxResponse{}, nil
+}
+
+// Relay PostUpdatePodSandbox requests to the plugin.
+func (p *plugin) postUpdatePodSandbox(ctx context.Context, req *PostUpdatePodSandboxRequest) (*PostUpdatePodSandboxResponse, error) {
+	if !p.events.IsSet(Event_POST_UPDATE_POD_SANDBOX) {
+		return nil, nil
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, getPluginRequestTimeout())
+	defer cancel()
+
+	if _, err := p.impl.PostUpdatePodSandbox(ctx, req); err != nil {
+		if isFatalError(err) {
+			log.Errorf(ctx, "closing plugin %s, failed to handle PostUpdatePodSandbox event: %v",
+				p.name(), err)
+			p.close()
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	return &PostUpdatePodSandboxResponse{}, nil
+}
+
+// Relay StopPodSandbox requests to the plugin.
+func (p *plugin) stopPodSandbox(ctx context.Context, req *StopPodSandboxRequest) (*StopPodSandboxResponse, error) {
+	if !p.events.IsSet(Event_STOP_POD_SANDBOX) {
+		return nil, nil
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, getPluginRequestTimeout())
+	defer cancel()
+
+	if _, err := p.impl.StopPodSandbox(ctx, req); err != nil {
+		if isFatalError(err) {
+			log.Errorf(ctx, "closing plugin %s, failed to handle StopPodSandbox event: %v",
+				p.name(), err)
+			p.close()
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	return &StopPodSandboxResponse{}, nil
+}
+
+// Relay RemovePodSandbox requests to the plugin.
+func (p *plugin) removePodSandbox(ctx context.Context, req *RemovePodSandboxRequest) (*RemovePodSandboxResponse, error) {
+	if !p.events.IsSet(Event_REMOVE_POD_SANDBOX) {
+		return nil, nil
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, getPluginRequestTimeout())
+	defer cancel()
+
+	if _, err := p.impl.RemovePodSandbox(ctx, req); err != nil {
+		if isFatalError(err) {
+			log.Errorf(ctx, "closing plugin %s, failed to handle RemovePodSandbox event: %v",
+				p.name(), err)
+			p.close()
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	return &RemovePodSandboxResponse{}, nil
+}
+
 // Relay CreateContainer request to plugin.
 func (p *plugin) createContainer(ctx context.Context, req *CreateContainerRequest) (*CreateContainerResponse, error) {
 	if !p.events.IsSet(Event_CREATE_CONTAINER) {
@@ -613,6 +723,72 @@ func (p *plugin) createContainer(ctx context.Context, req *CreateContainerReques
 	}
 
 	return rpl, nil
+}
+
+// Relay PostCreateContainer requests to the plugin.
+func (p *plugin) postCreateContainer(ctx context.Context, req *PostCreateContainerRequest) (*PostCreateContainerResponse, error) {
+	if !p.events.IsSet(Event_POST_CREATE_CONTAINER) {
+		return nil, nil
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, getPluginRequestTimeout())
+	defer cancel()
+
+	if _, err := p.impl.PostCreateContainer(ctx, req); err != nil {
+		if isFatalError(err) {
+			log.Errorf(ctx, "closing plugin %s, failed to handle PostCreateContainer event: %v",
+				p.name(), err)
+			p.close()
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	return &PostCreateContainerResponse{}, nil
+}
+
+// Relay StartContainer requests to the plugin.
+func (p *plugin) startContainer(ctx context.Context, req *StartContainerRequest) (*StartContainerResponse, error) {
+	if !p.events.IsSet(Event_START_CONTAINER) {
+		return nil, nil
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, getPluginRequestTimeout())
+	defer cancel()
+
+	if _, err := p.impl.StartContainer(ctx, req); err != nil {
+		if isFatalError(err) {
+			log.Errorf(ctx, "closing plugin %s, failed to handle StartContainer event: %v",
+				p.name(), err)
+			p.close()
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	return &StartContainerResponse{}, nil
+}
+
+// Relay PostStartContainer requests to the plugin.
+func (p *plugin) postStartContainer(ctx context.Context, req *PostStartContainerRequest) (*PostStartContainerResponse, error) {
+	if !p.events.IsSet(Event_POST_START_CONTAINER) {
+		return nil, nil
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, getPluginRequestTimeout())
+	defer cancel()
+
+	if _, err := p.impl.PostStartContainer(ctx, req); err != nil {
+		if isFatalError(err) {
+			log.Errorf(ctx, "closing plugin %s, failed to handle PostStartContainer event: %v",
+				p.name(), err)
+			p.close()
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	return &PostStartContainerResponse{}, nil
 }
 
 // Relay UpdateContainer request to plugin.
@@ -638,6 +814,28 @@ func (p *plugin) updateContainer(ctx context.Context, req *UpdateContainerReques
 	return rpl, nil
 }
 
+// Relay PostUpdateContainer requests to the plugin.
+func (p *plugin) postUpdateContainer(ctx context.Context, req *PostUpdateContainerRequest) (*PostUpdateContainerResponse, error) {
+	if !p.events.IsSet(Event_POST_UPDATE_CONTAINER) {
+		return nil, nil
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, getPluginRequestTimeout())
+	defer cancel()
+
+	if _, err := p.impl.PostUpdateContainer(ctx, req); err != nil {
+		if isFatalError(err) {
+			log.Errorf(ctx, "closing plugin %s, failed to handle PostUpdateContainer event: %v",
+				p.name(), err)
+			p.close()
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	return &PostUpdateContainerResponse{}, nil
+}
+
 // Relay StopContainer request to the plugin.
 func (p *plugin) stopContainer(ctx context.Context, req *StopContainerRequest) (rpl *StopContainerResponse, err error) {
 	if !p.events.IsSet(Event_STOP_CONTAINER) {
@@ -661,47 +859,26 @@ func (p *plugin) stopContainer(ctx context.Context, req *StopContainerRequest) (
 	return rpl, nil
 }
 
-func (p *plugin) updatePodSandbox(ctx context.Context, req *UpdatePodSandboxRequest) (*UpdatePodSandboxResponse, error) {
-	if !p.events.IsSet(Event_UPDATE_POD_SANDBOX) {
+// Relay RemoveContainer requests to the plugin.
+func (p *plugin) removeContainer(ctx context.Context, req *RemoveContainerRequest) (*RemoveContainerResponse, error) {
+	if !p.events.IsSet(Event_REMOVE_CONTAINER) {
 		return nil, nil
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, getPluginRequestTimeout())
 	defer cancel()
 
-	if _, err := p.impl.UpdatePodSandbox(ctx, req); err != nil {
+	if _, err := p.impl.RemoveContainer(ctx, req); err != nil {
 		if isFatalError(err) {
-			log.Errorf(ctx, "closing plugin %s, failed to handle event %d: %v",
-				p.name(), Event_UPDATE_POD_SANDBOX, err)
+			log.Errorf(ctx, "closing plugin %s, failed to handle RemoveContainer event: %v",
+				p.name(), err)
 			p.close()
 			return nil, nil
 		}
 		return nil, err
 	}
 
-	return &UpdatePodSandboxResponse{}, nil
-}
-
-// Relay other pod or container state change events to the plugin.
-func (p *plugin) StateChange(ctx context.Context, evt *StateChangeEvent) (err error) {
-	if !p.events.IsSet(evt.Event) {
-		return nil
-	}
-
-	ctx, cancel := context.WithTimeout(ctx, getPluginRequestTimeout())
-	defer cancel()
-
-	if err = p.impl.StateChange(ctx, evt); err != nil {
-		if isFatalError(err) {
-			log.Errorf(ctx, "closing plugin %s, failed to handle event %d: %v",
-				p.name(), evt.Event, err)
-			p.close()
-			return nil
-		}
-		return err
-	}
-
-	return nil
+	return &RemoveContainerResponse{}, nil
 }
 
 func (p *plugin) ValidateContainerAdjustment(ctx context.Context, req *ValidateContainerAdjustmentRequest) error {
@@ -742,7 +919,7 @@ func isFatalError(err error) bool {
 // wasmHostFunctions implements the webassembly host functions
 type wasmHostFunctions struct{}
 
-func (wasmHostFunctions) Log(ctx context.Context, request *api.LogRequest) (*api.Empty, error) {
+func (wasmHostFunctions) Log(ctx context.Context, request *api.LogRequest) (*api.LogResponse, error) {
 	switch request.GetLevel() {
 	case api.LogRequest_LEVEL_INFO:
 		log.Infof(ctx, request.GetMsg())
@@ -754,5 +931,5 @@ func (wasmHostFunctions) Log(ctx context.Context, request *api.LogRequest) (*api
 		log.Debugf(ctx, request.GetMsg())
 	}
 
-	return &api.Empty{}, nil
+	return &api.LogResponse{}, nil
 }

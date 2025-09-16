@@ -28,7 +28,7 @@ import (
 	"time"
 
 	nri "github.com/containerd/nri/pkg/adaptation"
-	"github.com/containerd/nri/pkg/api"
+	api "github.com/containerd/nri/pkg/api/v1beta1"
 	"github.com/sirupsen/logrus"
 
 	"github.com/containerd/nri/pkg/stub"

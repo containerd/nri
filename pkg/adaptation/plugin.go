@@ -18,6 +18,7 @@ package adaptation
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
 	"fmt"
 	stdnet "net"
@@ -30,6 +31,8 @@ import (
 
 	"github.com/containerd/nri/pkg/adaptation/builtin"
 	"github.com/containerd/nri/pkg/api"
+	"github.com/containerd/nri/pkg/auth"
+	"github.com/containerd/nri/pkg/auth/ecdh"
 	"github.com/containerd/nri/pkg/log"
 	"github.com/containerd/nri/pkg/net"
 	"github.com/containerd/nri/pkg/net/multiplex"
@@ -43,6 +46,8 @@ const (
 	DefaultPluginRegistrationTimeout = api.DefaultPluginRegistrationTimeout
 	// DefaultPluginRequestTimeout is the default timeout for plugins to handle a request.
 	DefaultPluginRequestTimeout = api.DefaultPluginRequestTimeout
+	// DefaultAuthentication is the name of the default authentication algorithm.
+	DefaultAuthentication = ecdh.Name
 )
 
 var (
@@ -50,6 +55,18 @@ var (
 	pluginRequestTimeout      = DefaultPluginRequestTimeout
 	timeoutCfgLock            sync.RWMutex
 )
+
+type role struct {
+	role *auth.Role
+	algo auth.Authentication
+}
+
+func (r *role) GetRole() *auth.Role {
+	if r == nil {
+		return nil
+	}
+	return r.role
+}
 
 type plugin struct {
 	sync.Mutex
@@ -62,6 +79,7 @@ type plugin struct {
 	rpcc   *ttrpc.Client
 	rpcl   stdnet.Listener
 	rpcs   *ttrpc.Server
+	role   *role
 	events EventMask
 	closed bool
 	regC   chan error
@@ -323,6 +341,8 @@ func (p *plugin) start(name, version string) (err error) {
 			timeout = getPluginRegistrationTimeout()
 		)
 
+		auth.RegisterAuthenticationService(p.rpcs, p)
+
 		go func() {
 			err := p.rpcs.Serve(context.Background(), p.rpcl)
 			if err != ttrpc.ErrServerClosed {
@@ -430,6 +450,83 @@ func (p *plugin) qualifiedName() string {
 		base = "plugin"
 	}
 	return kind + ":" + idx + "-" + base + pid
+}
+
+// Authenticate handles the plugin's authentication request.
+func (p *plugin) RequestChallenge(ctx context.Context, req *auth.RequestChallengeRequest) (*auth.RequestChallengeResponse, error) {
+	if p.role != nil {
+		log.Errorf(ctx, "rejecting client, multiple authentication requests")
+		p.close()
+		return nil, fmt.Errorf("multiple authentication requests")
+	}
+
+	log.Infof(ctx, "authenticating client with key %q...", string(req.PublicKey))
+	p.role = &role{}
+
+	role, err := p.r.auth.GetRoleForKey(req.PublicKey)
+	if err != nil {
+		log.Errorf(ctx, "rejecting client with unknown key")
+		p.close()
+		return nil, err
+	}
+
+	p.role.role = role
+	impl, err := auth.Get(req.GetAlgorithm())
+	if err != nil {
+		log.Errorf(ctx, "rejecting client, unknown authentication algorithm %q", req.GetAlgorithm())
+		p.close()
+		return nil, err
+	}
+
+	algo, err := impl.NewWithEphemeralKeys()
+	if err != nil {
+		log.Errorf(ctx, "rejecting client, failed to set up authentication: %v", err)
+		p.close()
+		return nil, err
+	}
+
+	p.role.algo = algo
+	seed := make([]byte, 32)
+	if _, err := rand.Read(seed); err != nil {
+		log.Errorf(ctx, "rejecting client, failed to set up authentication: %v", err)
+		p.close()
+		return nil, err
+	}
+
+	chal, key, err := p.role.algo.Challenge(seed, req.PublicKey)
+	if err != nil {
+		log.Errorf(ctx, "rejecting client, challenge generation failed: %v", err)
+		p.close()
+		return nil, err
+	}
+
+	return &auth.RequestChallengeResponse{
+		PublicKey: []byte(key),
+		Challenge: chal,
+	}, nil
+}
+
+// RespondChallenge verifies the challenge response from the plugin.
+func (p *plugin) RespondChallenge(ctx context.Context, req *auth.RespondChallengeRequest) (*auth.RespondChallengeResponse, error) {
+	if p.role == nil || p.role.algo == nil {
+		log.Errorf(ctx, "rejecting client, response to nonexistent challenge")
+		p.close()
+		return nil, fmt.Errorf("response to nonexistent challenge")
+	}
+
+	if err := p.role.algo.Verify(req.Response); err != nil {
+		log.Errorf(ctx, "rejecting client, failed challenge response")
+		p.close()
+		return nil, err
+	}
+
+	log.Infof(ctx, "client authenticated to role %q (tags %v)",
+		p.role.GetRole().GetRole(), p.role.GetRole().GetTags())
+
+	return &auth.RespondChallengeResponse{
+		Role: p.role.GetRole().GetRole(),
+		Tags: p.role.GetRole().GetTags(),
+	}, nil
 }
 
 // RegisterPlugin handles the plugin's registration request.

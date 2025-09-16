@@ -20,7 +20,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/containerd/nri/pkg/api"
+	api "github.com/containerd/nri/pkg/api/v1beta1"
 )
 
 type pluginType struct {
@@ -71,40 +71,14 @@ func (p *pluginType) Configure(ctx context.Context, req *ConfigureRequest) (*Con
 	return nil, errUnknownImpl
 }
 
-func (p *pluginType) CreateContainer(ctx context.Context, req *CreateContainerRequest) (*CreateContainerResponse, error) {
+func (p *pluginType) RunPodSandbox(ctx context.Context, req *RunPodSandboxRequest) (*RunPodSandboxResponse, error) {
 	switch {
 	case p.ttrpcImpl != nil:
-		return p.ttrpcImpl.CreateContainer(ctx, req)
+		return p.ttrpcImpl.RunPodSandbox(ctx, req)
 	case p.builtinImpl != nil:
-		return p.builtinImpl.CreateContainer(ctx, req)
+		return p.builtinImpl.RunPodSandbox(ctx, req)
 	case p.wasmImpl != nil:
-		return p.wasmImpl.CreateContainer(ctx, req)
-	}
-
-	return nil, errUnknownImpl
-}
-
-func (p *pluginType) UpdateContainer(ctx context.Context, req *UpdateContainerRequest) (*UpdateContainerResponse, error) {
-	switch {
-	case p.ttrpcImpl != nil:
-		return p.ttrpcImpl.UpdateContainer(ctx, req)
-	case p.builtinImpl != nil:
-		return p.builtinImpl.UpdateContainer(ctx, req)
-	case p.wasmImpl != nil:
-		return p.wasmImpl.UpdateContainer(ctx, req)
-	}
-
-	return nil, errUnknownImpl
-}
-
-func (p *pluginType) StopContainer(ctx context.Context, req *StopContainerRequest) (*StopContainerResponse, error) {
-	switch {
-	case p.ttrpcImpl != nil:
-		return p.ttrpcImpl.StopContainer(ctx, req)
-	case p.builtinImpl != nil:
-		return p.builtinImpl.StopContainer(ctx, req)
-	case p.wasmImpl != nil:
-		return p.wasmImpl.StopContainer(ctx, req)
+		return p.wasmImpl.RunPodSandbox(ctx, req)
 	}
 
 	return nil, errUnknownImpl
@@ -123,18 +97,147 @@ func (p *pluginType) UpdatePodSandbox(ctx context.Context, req *UpdatePodSandbox
 	return nil, errUnknownImpl
 }
 
-func (p *pluginType) StateChange(ctx context.Context, req *StateChangeEvent) (err error) {
+func (p *pluginType) PostUpdatePodSandbox(ctx context.Context, req *PostUpdatePodSandboxRequest) (*PostUpdatePodSandboxResponse, error) {
 	switch {
 	case p.ttrpcImpl != nil:
-		_, err = p.ttrpcImpl.StateChange(ctx, req)
+		return p.ttrpcImpl.PostUpdatePodSandbox(ctx, req)
 	case p.builtinImpl != nil:
-		_, err = p.builtinImpl.StateChange(ctx, req)
+		return p.builtinImpl.PostUpdatePodSandbox(ctx, req)
 	case p.wasmImpl != nil:
-		_, err = p.wasmImpl.StateChange(ctx, req)
-	default:
-		err = errUnknownImpl
+		return p.wasmImpl.PostUpdatePodSandbox(ctx, req)
 	}
-	return err
+
+	return nil, errUnknownImpl
+}
+
+func (p *pluginType) StopPodSandbox(ctx context.Context, req *StopPodSandboxRequest) (*StopPodSandboxResponse, error) {
+	switch {
+	case p.ttrpcImpl != nil:
+		return p.ttrpcImpl.StopPodSandbox(ctx, req)
+	case p.builtinImpl != nil:
+		return p.builtinImpl.StopPodSandbox(ctx, req)
+	case p.wasmImpl != nil:
+		return p.wasmImpl.StopPodSandbox(ctx, req)
+	}
+
+	return nil, errUnknownImpl
+}
+
+func (p *pluginType) RemovePodSandbox(ctx context.Context, req *RemovePodSandboxRequest) (*RemovePodSandboxResponse, error) {
+	switch {
+	case p.ttrpcImpl != nil:
+		return p.ttrpcImpl.RemovePodSandbox(ctx, req)
+	case p.builtinImpl != nil:
+		return p.builtinImpl.RemovePodSandbox(ctx, req)
+	case p.wasmImpl != nil:
+		return p.wasmImpl.RemovePodSandbox(ctx, req)
+	}
+
+	return nil, errUnknownImpl
+}
+
+func (p *pluginType) CreateContainer(ctx context.Context, req *CreateContainerRequest) (*CreateContainerResponse, error) {
+	switch {
+	case p.ttrpcImpl != nil:
+		return p.ttrpcImpl.CreateContainer(ctx, req)
+	case p.builtinImpl != nil:
+		return p.builtinImpl.CreateContainer(ctx, req)
+	case p.wasmImpl != nil:
+		return p.wasmImpl.CreateContainer(ctx, req)
+	}
+
+	return nil, errUnknownImpl
+}
+
+func (p *pluginType) PostCreateContainer(ctx context.Context, req *PostCreateContainerRequest) (*PostCreateContainerResponse, error) {
+	switch {
+	case p.ttrpcImpl != nil:
+		return p.ttrpcImpl.PostCreateContainer(ctx, req)
+	case p.builtinImpl != nil:
+		return p.builtinImpl.PostCreateContainer(ctx, req)
+	case p.wasmImpl != nil:
+		return p.wasmImpl.PostCreateContainer(ctx, req)
+	}
+
+	return nil, errUnknownImpl
+}
+
+func (p *pluginType) StartContainer(ctx context.Context, req *StartContainerRequest) (*StartContainerResponse, error) {
+	switch {
+	case p.ttrpcImpl != nil:
+		return p.ttrpcImpl.StartContainer(ctx, req)
+	case p.builtinImpl != nil:
+		return p.builtinImpl.StartContainer(ctx, req)
+	case p.wasmImpl != nil:
+		return p.wasmImpl.StartContainer(ctx, req)
+	}
+
+	return nil, errUnknownImpl
+}
+
+func (p *pluginType) PostStartContainer(ctx context.Context, req *PostStartContainerRequest) (*PostStartContainerResponse, error) {
+	switch {
+	case p.ttrpcImpl != nil:
+		return p.ttrpcImpl.PostStartContainer(ctx, req)
+	case p.builtinImpl != nil:
+		return p.builtinImpl.PostStartContainer(ctx, req)
+	case p.wasmImpl != nil:
+		return p.wasmImpl.PostStartContainer(ctx, req)
+	}
+
+	return nil, errUnknownImpl
+}
+
+func (p *pluginType) UpdateContainer(ctx context.Context, req *UpdateContainerRequest) (*UpdateContainerResponse, error) {
+	switch {
+	case p.ttrpcImpl != nil:
+		return p.ttrpcImpl.UpdateContainer(ctx, req)
+	case p.builtinImpl != nil:
+		return p.builtinImpl.UpdateContainer(ctx, req)
+	case p.wasmImpl != nil:
+		return p.wasmImpl.UpdateContainer(ctx, req)
+	}
+
+	return nil, errUnknownImpl
+}
+
+func (p *pluginType) PostUpdateContainer(ctx context.Context, req *PostUpdateContainerRequest) (*PostUpdateContainerResponse, error) {
+	switch {
+	case p.ttrpcImpl != nil:
+		return p.ttrpcImpl.PostUpdateContainer(ctx, req)
+	case p.builtinImpl != nil:
+		return p.builtinImpl.PostUpdateContainer(ctx, req)
+	case p.wasmImpl != nil:
+		return p.wasmImpl.PostUpdateContainer(ctx, req)
+	}
+
+	return nil, errUnknownImpl
+}
+
+func (p *pluginType) StopContainer(ctx context.Context, req *StopContainerRequest) (*StopContainerResponse, error) {
+	switch {
+	case p.ttrpcImpl != nil:
+		return p.ttrpcImpl.StopContainer(ctx, req)
+	case p.builtinImpl != nil:
+		return p.builtinImpl.StopContainer(ctx, req)
+	case p.wasmImpl != nil:
+		return p.wasmImpl.StopContainer(ctx, req)
+	}
+
+	return nil, errUnknownImpl
+}
+
+func (p *pluginType) RemoveContainer(ctx context.Context, req *RemoveContainerRequest) (*RemoveContainerResponse, error) {
+	switch {
+	case p.ttrpcImpl != nil:
+		return p.ttrpcImpl.RemoveContainer(ctx, req)
+	case p.builtinImpl != nil:
+		return p.builtinImpl.RemoveContainer(ctx, req)
+	case p.wasmImpl != nil:
+		return p.wasmImpl.RemoveContainer(ctx, req)
+	}
+
+	return nil, errUnknownImpl
 }
 
 func (p *pluginType) ValidateContainerAdjustment(ctx context.Context, req *ValidateContainerAdjustmentRequest) (*ValidateContainerAdjustmentResponse, error) {

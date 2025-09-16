@@ -22,7 +22,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/containerd/nri/pkg/api"
+	api "github.com/containerd/nri/pkg/api/v1beta1"
 )
 
 type result struct {

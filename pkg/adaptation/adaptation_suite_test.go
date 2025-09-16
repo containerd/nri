@@ -35,7 +35,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	nri "github.com/containerd/nri/pkg/adaptation"
-	"github.com/containerd/nri/pkg/api"
+	api "github.com/containerd/nri/pkg/api/v1beta1"
 	"github.com/containerd/nri/pkg/plugin"
 	validator "github.com/containerd/nri/plugins/default-validator/builtin"
 	rspec "github.com/opencontainers/runtime-spec/specs-go"

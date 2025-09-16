@@ -98,6 +98,7 @@ type (
 	Hook                     = api.Hook
 	POSIXRlimit              = api.POSIXRlimit
 	SecurityProfile          = api.SecurityProfile
+	User                     = api.User
 
 	EventMask = api.EventMask
 )

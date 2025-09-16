@@ -18,13 +18,22 @@ package api
 
 import (
 	"fmt"
+
+	"github.com/containerd/nri/pkg/auth"
+)
+
+type (
+	// Role is an authenticated role.
+	Role = auth.Role
 )
 
 // AddPlugin records a plugin for the validation request.
-func (v *ValidateContainerAdjustmentRequest) AddPlugin(name, index string) {
+func (v *ValidateContainerAdjustmentRequest) AddPlugin(name, index string, r *Role) {
 	v.Plugins = append(v.Plugins, &PluginInstance{
 		Name:  name,
 		Index: index,
+		Role:  r.GetRole(),
+		Tags:  r.GetTags(),
 	})
 }
 

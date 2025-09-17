@@ -34,19 +34,9 @@ import (
 type DefaultValidatorConfig struct {
 	// Enable the default validator plugin.
 	Enable bool `yaml:"enable" toml:"enable"`
-	// RejectOCIHookAdjustment fails validation if OCI hooks are adjusted.
-	RejectOCIHookAdjustment bool `yaml:"rejectOCIHookAdjustment" toml:"reject_oci_hook_adjustment"`
-	// RejectRuntimeDefaultSeccompAdjustment fails validation if a runtime default seccomp
-	// policy is adjusted.
-	RejectRuntimeDefaultSeccompAdjustment bool `yaml:"rejectRuntimeDefaultSeccompAdjustment" toml:"reject_runtime_default_seccomp_adjustment"`
-	// RejectUnconfinedSeccompAdjustment fails validation if an unconfined seccomp policy is
-	// adjusted.
-	RejectUnconfinedSeccompAdjustment bool `yaml:"rejectUnconfinedSeccompAdjustment" toml:"reject_unconfined_seccomp_adjustment"`
-	// RejectCustomSeccompAdjustment fails validation if a custom seccomp policy (aka LOCALHOST)
-	// is adjusted.
-	RejectCustomSeccompAdjustment bool `yaml:"rejectCustomSeccompAdjustment" toml:"reject_custom_seccomp_adjustment"`
-	// RejectNamespaceAdjustment fails validation if any plugin adjusts Linux namespaces.
-	RejectNamespaceAdjustment bool `yaml:"rejectNamespaceAdjustment" toml:"reject_namespace_adjustment"`
+	*Config
+	// Roles provide per-role overrides to the default configuration above.
+	Roles map[string]*Config `yaml:"roles" toml:"roles"`
 	// RequiredPlugins list globally required plugins. These must be present
 	// or otherwise validation will fail.
 	// WARNING: This is a global setting and will affect all containers. In
@@ -60,6 +50,23 @@ type DefaultValidatorConfig struct {
 	// TolerateMissingPlugins is an optional annotation key. If set, it can
 	// be used to annotate containers to tolerate missing required plugins.
 	TolerateMissingAnnotation string `yaml:"tolerateMissingPluginsAnnotation" toml:"tolerate_missing_plugins_annotation"`
+}
+
+// Config provides validation defaults or per role configuration.
+type Config struct {
+	// RejectOCIHookAdjustment fails validation if OCI hooks are adjusted.
+	RejectOCIHookAdjustment *bool `yaml:"rejectOCIHookAdjustment" toml:"reject_oci_hook_adjustment"`
+	// RejectRuntimeDefaultSeccompAdjustment fails validation if a runtime default seccomp
+	// policy is adjusted.
+	RejectRuntimeDefaultSeccompAdjustment *bool `yaml:"rejectRuntimeDefaultSeccompAdjustment" toml:"reject_runtime_default_seccomp_adjustment"`
+	// RejectUnconfinedSeccompAdjustment fails validation if an unconfined seccomp policy is
+	// adjusted.
+	RejectUnconfinedSeccompAdjustment *bool `yaml:"rejectUnconfinedSeccompAdjustment" toml:"reject_unconfined_seccomp_adjustment"`
+	// RejectCustomSeccompAdjustment fails validation if a custom seccomp policy (aka LOCALHOST)
+	// is adjusted.
+	RejectCustomSeccompAdjustment *bool `yaml:"rejectCustomSeccompAdjustment" toml:"reject_custom_seccomp_adjustment"`
+	// RejectNamespaceAdjustment fails validation if any plugin adjusts Linux namespaces.
+	RejectNamespaceAdjustment *bool `yaml:"rejectNamespaceAdjustment" toml:"reject_namespace_adjustment"`
 }
 
 // DefaultValidator implements default validation.
@@ -95,22 +102,24 @@ func (v *DefaultValidator) ValidateContainerAdjustment(ctx context.Context, req 
 	log.Debugf(ctx, "Validating adjustment of container %s/%s/%s",
 		req.GetPod().GetNamespace(), req.GetPod().GetName(), req.GetContainer().GetName())
 
-	if err := v.validateOCIHooks(req); err != nil {
+	plugins := req.GetPluginMap()
+
+	if err := v.validateOCIHooks(req, plugins); err != nil {
 		log.Errorf(ctx, "rejecting adjustment: %v", err)
 		return err
 	}
 
-	if err := v.validateSeccompPolicy(req); err != nil {
+	if err := v.validateSeccompPolicy(req, plugins); err != nil {
 		log.Errorf(ctx, "rejecting adjustment: %v", err)
 		return err
 	}
 
-	if err := v.validateNamespaces(req); err != nil {
+	if err := v.validateNamespaces(req, plugins); err != nil {
 		log.Errorf(ctx, "rejecting adjustment: %v", err)
 		return err
 	}
 
-	if err := v.validateRequiredPlugins(req); err != nil {
+	if err := v.validateRequiredPlugins(req, plugins); err != nil {
 		log.Errorf(ctx, "rejecting adjustment: %v", err)
 		return err
 	}
@@ -118,12 +127,8 @@ func (v *DefaultValidator) ValidateContainerAdjustment(ctx context.Context, req 
 	return nil
 }
 
-func (v *DefaultValidator) validateOCIHooks(req *api.ValidateContainerAdjustmentRequest) error {
+func (v *DefaultValidator) validateOCIHooks(req *api.ValidateContainerAdjustmentRequest, plugins map[string]*api.PluginInstance) error {
 	if req.Adjust == nil {
-		return nil
-	}
-
-	if !v.cfg.RejectOCIHookAdjustment {
 		return nil
 	}
 
@@ -132,18 +137,28 @@ func (v *DefaultValidator) validateOCIHooks(req *api.ValidateContainerAdjustment
 		return nil
 	}
 
-	offender := ""
+	defaults := v.cfg.Config
+	rejected := []string{}
 
-	if !strings.Contains(owners, ",") {
-		offender = fmt.Sprintf("plugin %q", owners)
-	} else {
-		offender = fmt.Sprintf("plugins %q", owners)
+	for _, p := range strings.Split(owners, ",") {
+		if instance, ok := plugins[p]; ok {
+			cfg := v.cfg.GetConfig(instance.GetRole())
+			if cfg.DenyOCIHookInjection(defaults) {
+				rejected = append(rejected, p)
+			}
+		}
 	}
+
+	if len(rejected) == 0 {
+		return nil
+	}
+
+	offender := fmt.Sprintf("plugin(s) %q", strings.Join(rejected, ","))
 
 	return fmt.Errorf("%w: %s attempted restricted OCI hook injection", ErrValidation, offender)
 }
 
-func (v *DefaultValidator) validateSeccompPolicy(req *api.ValidateContainerAdjustmentRequest) error {
+func (v *DefaultValidator) validateSeccompPolicy(req *api.ValidateContainerAdjustmentRequest, plugins map[string]*api.PluginInstance) error {
 	if req.Adjust == nil {
 		return nil
 	}
@@ -153,22 +168,31 @@ func (v *DefaultValidator) validateSeccompPolicy(req *api.ValidateContainerAdjus
 		return nil
 	}
 
+	var (
+		cfg      *Config
+		defaults = v.cfg.Config
+	)
+
+	if instance, ok := plugins[owner]; ok {
+		cfg = v.cfg.GetConfig(instance.GetRole())
+	}
+
 	profile := req.Container.GetLinux().GetSeccompProfile()
 	switch {
 	case profile == nil || profile.GetProfileType() == api.SecurityProfile_UNCONFINED:
-		if v.cfg.RejectUnconfinedSeccompAdjustment {
+		if cfg.DenyUnconfinedSeccompAdjustment(defaults) {
 			return fmt.Errorf("%w: plugin %s attempted restricted "+
 				" unconfined seccomp policy adjustment", ErrValidation, owner)
 		}
 
 	case profile.GetProfileType() == api.SecurityProfile_RUNTIME_DEFAULT:
-		if v.cfg.RejectRuntimeDefaultSeccompAdjustment {
+		if cfg.DenyRuntimeDefaultSeccompAdjustment(defaults) {
 			return fmt.Errorf("%w: plugin %s attempted restricted "+
 				"runtime default seccomp policy adjustment", ErrValidation, owner)
 		}
 
 	case profile.GetProfileType() == api.SecurityProfile_LOCALHOST:
-		if v.cfg.RejectCustomSeccompAdjustment {
+		if cfg.DenyCustomSeccompAdjustment(defaults) {
 			return fmt.Errorf("%w: plugin %s attempted restricted "+
 				" custom seccomp policy adjustment", ErrValidation, owner)
 		}
@@ -177,12 +201,8 @@ func (v *DefaultValidator) validateSeccompPolicy(req *api.ValidateContainerAdjus
 	return nil
 }
 
-func (v *DefaultValidator) validateNamespaces(req *api.ValidateContainerAdjustmentRequest) error {
+func (v *DefaultValidator) validateNamespaces(req *api.ValidateContainerAdjustmentRequest, plugins map[string]*api.PluginInstance) error {
 	if req.Adjust == nil {
-		return nil
-	}
-
-	if !v.cfg.RejectNamespaceAdjustment {
 		return nil
 	}
 
@@ -191,10 +211,27 @@ func (v *DefaultValidator) validateNamespaces(req *api.ValidateContainerAdjustme
 		return nil
 	}
 
-	offenders := "plugin(s) "
+	defaults := v.cfg.Config
+	rejected := []string{}
+
+	for ns, p := range owners {
+		if instance, ok := plugins[p]; ok {
+			cfg := v.cfg.GetConfig(instance.GetRole())
+			if cfg.DenyNamespaceAdjustment(defaults) {
+				rejected = append(rejected, ns)
+			}
+		}
+	}
+
+	if len(rejected) == 0 {
+		return nil
+	}
+
+	offenders := ""
 	sep := ""
 
-	for ns, plugin := range owners {
+	for _, ns := range rejected {
+		plugin := owners[ns]
 		offenders += sep + fmt.Sprintf("%q (namespace %q)", plugin, ns)
 		sep = ", "
 	}
@@ -203,7 +240,7 @@ func (v *DefaultValidator) validateNamespaces(req *api.ValidateContainerAdjustme
 		ErrValidation, offenders)
 }
 
-func (v *DefaultValidator) validateRequiredPlugins(req *api.ValidateContainerAdjustmentRequest) error {
+func (v *DefaultValidator) validateRequiredPlugins(req *api.ValidateContainerAdjustmentRequest, plugins map[string]*api.PluginInstance) error {
 	var (
 		container = req.GetContainer().GetName()
 		required  = slices.Clone(v.cfg.RequiredPlugins)
@@ -234,7 +271,6 @@ func (v *DefaultValidator) validateRequiredPlugins(req *api.ValidateContainerAdj
 		return nil
 	}
 
-	plugins := req.GetPluginMap()
 	missing := []string{}
 
 	for _, r := range required {
@@ -256,4 +292,68 @@ func (v *DefaultValidator) validateRequiredPlugins(req *api.ValidateContainerAdj
 	}
 
 	return fmt.Errorf("%w: %s not present", ErrValidation, offender)
+}
+
+// GetConfig returns overrides for the named role if it exists in the
+// configuration.
+func (cfg *DefaultValidatorConfig) GetConfig(role string) *Config {
+	if cfg == nil || cfg.Roles == nil {
+		return nil
+	}
+	return cfg.Roles[role]
+}
+
+// DenyOCIHookInjection checks whether OCI hook injection should be denied
+// based on the configuration, using an optional fallbak configuration if
+// this one is nil or omits configuration.
+func (cfg *Config) DenyOCIHookInjection(fallback *Config) bool {
+	if cfg != nil && cfg.RejectOCIHookAdjustment != nil {
+		return *cfg.RejectOCIHookAdjustment
+	}
+
+	return fallback != nil && fallback.DenyOCIHookInjection(nil)
+}
+
+// DenyUnconfinedSeccompAdjustment checks whether adjustment of an unconfined
+// seccomp policy should be denied based on the configuration, using an optional
+// fallback configuration if this one is nil or omits configuration.
+func (cfg *Config) DenyUnconfinedSeccompAdjustment(fallback *Config) bool {
+	if cfg != nil && cfg.RejectUnconfinedSeccompAdjustment != nil {
+		return *cfg.RejectUnconfinedSeccompAdjustment
+	}
+
+	return fallback != nil && fallback.DenyUnconfinedSeccompAdjustment(nil)
+}
+
+// DenyRuntimeDefaultSeccompAdjustment checks whether adjustment of a runtime
+// default seccomp policy should be denied based on the configuration, using an
+// optional fallback configuration if this one is nil or omits configuration.
+func (cfg *Config) DenyRuntimeDefaultSeccompAdjustment(fallback *Config) bool {
+	if cfg != nil && cfg.RejectRuntimeDefaultSeccompAdjustment != nil {
+		return *cfg.RejectRuntimeDefaultSeccompAdjustment
+	}
+
+	return fallback != nil && fallback.DenyRuntimeDefaultSeccompAdjustment(nil)
+}
+
+// DenyCustomSeccompAdjustment checks whether adjustment of a custom (localhost)
+// seccomp policy should be denied based on the configuration, using an optional
+// fallback configuration if this one is nil or omits configuration.
+func (cfg *Config) DenyCustomSeccompAdjustment(fallback *Config) bool {
+	if cfg != nil && cfg.RejectCustomSeccompAdjustment != nil {
+		return *cfg.RejectCustomSeccompAdjustment
+	}
+
+	return fallback != nil && fallback.DenyCustomSeccompAdjustment(nil)
+}
+
+// DenyNamespaceAdjustment checks whether adjustment of Linux namespace should
+// be denied based on the configuration, using an optional fallback configuration
+// if this one is nil or omits configuration.
+func (cfg *Config) DenyNamespaceAdjustment(fallback *Config) bool {
+	if cfg != nil && cfg.RejectNamespaceAdjustment != nil {
+		return *cfg.RejectNamespaceAdjustment
+	}
+
+	return fallback != nil && fallback.DenyNamespaceAdjustment(nil)
 }

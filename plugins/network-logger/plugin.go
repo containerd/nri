@@ -23,8 +23,8 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"github.com/containerd/nri/pkg/api"
-	"github.com/containerd/nri/pkg/stub"
+	api "github.com/containerd/nri/pkg/api/v1beta1"
+	stub "github.com/containerd/nri/pkg/stub/v1beta1"
 )
 
 type plugin struct {

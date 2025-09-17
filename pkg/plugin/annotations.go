@@ -17,7 +17,7 @@
 package plugin
 
 import (
-	"github.com/containerd/nri/pkg/api"
+	api "github.com/containerd/nri/pkg/api/v1beta1"
 )
 
 const (

@@ -25,8 +25,8 @@ import (
 	"github.com/sirupsen/logrus"
 	"sigs.k8s.io/yaml"
 
-	"github.com/containerd/nri/pkg/api"
-	"github.com/containerd/nri/pkg/stub"
+	api "github.com/containerd/nri/pkg/api/v1beta1"
+	stub "github.com/containerd/nri/pkg/stub/v1beta1"
 )
 
 type config struct {
@@ -93,11 +93,11 @@ func (p *plugin) CreateContainer(_ context.Context, pod *api.PodSandbox, ctr *ap
 	// has not been created yet, this is the lifecycle event which allows you
 	// the largest set of changes to the container's configuration, including
 	// some of the later immutable parameters. Take a look at the adjustment
-	// functions in pkg/api/adjustment.go to see the available controls.
+	// functions in pkg/api/v1beta1/adjustment.go to see the available controls.
 	//
 	// In addition to reconfiguring the container being created, you are also
 	// allowed to update other existing containers. Take a look at the update
-	// functions in pkg/api/update.go to see the available controls.
+	// functions in pkg/api/v1beta1/update.go to see the available controls.
 	//
 
 	adjustment := &api.ContainerAdjustment{}
@@ -127,7 +127,7 @@ func (p *plugin) UpdateContainer(_ context.Context, pod *api.PodSandbox, ctr *ap
 	//
 	// This is the container update request handler. You can make changes to
 	// the container update before it is applied. Take a look at the functions
-	// in pkg/api/update.go to see the available controls.
+	// in pkg/api/v1beta1/update.go to see the available controls.
 	//
 	// In addition to altering the pending update itself, you are also allowed
 	// to update other existing containers.
@@ -149,7 +149,7 @@ func (p *plugin) StopContainer(_ context.Context, pod *api.PodSandbox, ctr *api.
 	//
 	// This is the container (post-)stop request handler. You can update any
 	// of the remaining running containers. Take a look at the functions in
-	// pkg/api/update.go to see the available controls.
+	// pkg/api/v1beta1/update.go to see the available controls.
 	//
 
 	return []*api.ContainerUpdate{}, nil

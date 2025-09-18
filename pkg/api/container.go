@@ -16,7 +16,9 @@
 
 package api
 
-import "time"
+import (
+	"time"
+)
 
 // GetCreatedAtTime returns the time the container was created at as time.Time.
 func (x *Container) GetCreatedAtTime() time.Time {

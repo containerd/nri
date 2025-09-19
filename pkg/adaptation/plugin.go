@@ -305,6 +305,7 @@ func (p *plugin) connect(conn stdnet.Conn) (retErr error) {
 	}
 
 	api.RegisterRuntimeService(p.rpcs, p)
+	p.RegisterV1Alpha1Bridge()
 
 	return nil
 }

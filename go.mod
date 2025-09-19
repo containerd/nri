@@ -3,6 +3,7 @@ module github.com/containerd/nri
 go 1.24.0
 
 require (
+	github.com/brianvoe/gofakeit/v7 v7.7.3
 	github.com/containerd/ttrpc v1.2.7
 	github.com/google/go-cmp v0.7.0
 	github.com/knqyf263/go-plugin v0.9.0

@@ -25,7 +25,7 @@ import (
 	rspec "github.com/opencontainers/runtime-spec/specs-go"
 	rgen "github.com/opencontainers/runtime-tools/generate"
 
-	"github.com/containerd/nri/pkg/api"
+	api "github.com/containerd/nri/pkg/api/v1beta1"
 	xgen "github.com/containerd/nri/pkg/runtime-tools/generate"
 )
 

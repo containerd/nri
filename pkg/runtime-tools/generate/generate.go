@@ -26,7 +26,7 @@ import (
 	rspec "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/opencontainers/runtime-tools/generate"
 
-	nri "github.com/containerd/nri/pkg/api"
+	nri "github.com/containerd/nri/pkg/api/v1beta1"
 )
 
 // GeneratorOption is an option for Generator().

@@ -532,6 +532,20 @@ var _ = Describe("Plugin container creation adjustments", func() {
 				Class: api.IOPrioClass_IOPRIO_CLASS_NONE,
 			})
 
+		case "linux scheduler":
+			a.SetLinuxScheduler(&api.LinuxScheduler{
+				Policy:   api.LinuxSchedulerPolicy_SCHED_FIFO,
+				Priority: 10,
+				Flags: []api.LinuxSchedulerFlag{
+					api.LinuxSchedulerFlag_SCHED_FLAG_RESET_ON_FORK,
+				},
+			})
+
+		case "clear linux scheduler":
+			a.SetLinuxScheduler(&api.LinuxScheduler{
+				Policy: api.LinuxSchedulerPolicy_SCHED_NONE,
+			})
+
 		case "resources/cpu":
 			a.SetLinuxCPUShares(123)
 			a.SetLinuxCPUQuota(456)
@@ -758,10 +772,32 @@ var _ = Describe("Plugin container creation adjustments", func() {
 					},
 				},
 			),
+			Entry("adjust linux scheduler", "linux scheduler",
+				&api.ContainerAdjustment{
+					Linux: &api.LinuxContainerAdjustment{
+						Scheduler: &api.LinuxScheduler{
+							Policy:   api.LinuxSchedulerPolicy_SCHED_FIFO,
+							Priority: 10,
+							Flags: []api.LinuxSchedulerFlag{
+								api.LinuxSchedulerFlag_SCHED_FLAG_RESET_ON_FORK,
+							},
+						},
+					},
+				},
+			),
 			Entry("clear I/O priority", "clear I/O priority",
 				&api.ContainerAdjustment{
 					Linux: &api.LinuxContainerAdjustment{
 						IoPriority: &api.LinuxIOPriority{},
+					},
+				},
+			),
+			Entry("clear linux scheduler", "clear linux scheduler",
+				&api.ContainerAdjustment{
+					Linux: &api.LinuxContainerAdjustment{
+						Scheduler: &api.LinuxScheduler{
+							Policy: api.LinuxSchedulerPolicy_SCHED_NONE,
+						},
 					},
 				},
 			),
@@ -1008,6 +1044,7 @@ var _ = Describe("Plugin container creation adjustments", func() {
 			),
 			Entry("adjust resources", "resources/classes", false, true, nil),
 			Entry("adjust I/O priority (conflicts)", "I/O priority", false, true, nil),
+			Entry("adjust linux scheduler (conflicts)", "linux scheduler", false, true, nil),
 		)
 	})
 

@@ -628,6 +628,25 @@ var _ = Describe("Plugin container creation adjustments", func() {
 							"argument",
 							"list",
 						},
+						Linux: &api.LinuxContainer{
+							Resources: &api.LinuxResources{
+								Cpu: &api.LinuxCPU{
+									Shares:          api.UInt64(111),
+									Quota:           api.Int64(222),
+									Period:          api.UInt64(333),
+									RealtimeRuntime: api.Int64(444),
+									RealtimePeriod:  api.UInt64(555),
+								},
+								Memory: &api.LinuxMemory{
+									Limit:            api.Int64(11111),
+									Reservation:      api.Int64(22222),
+									Swap:             api.Int64(33333),
+									Swappiness:       api.UInt64(44444),
+									DisableOomKiller: api.Bool(false),
+									UseHierarchy:     api.Bool(false),
+								},
+							},
+						},
 					}
 				)
 
@@ -903,6 +922,25 @@ var _ = Describe("Plugin container creation adjustments", func() {
 							"original",
 							"argument",
 							"list",
+						},
+						Linux: &api.LinuxContainer{
+							Resources: &api.LinuxResources{
+								Cpu: &api.LinuxCPU{
+									Shares:          api.UInt64(111),
+									Quota:           api.Int64(222),
+									Period:          api.UInt64(333),
+									RealtimeRuntime: api.Int64(444),
+									RealtimePeriod:  api.UInt64(555),
+								},
+								Memory: &api.LinuxMemory{
+									Limit:            api.Int64(11111),
+									Reservation:      api.Int64(22222),
+									Swap:             api.Int64(33333),
+									Swappiness:       api.UInt64(44444),
+									DisableOomKiller: api.Bool(false),
+									UseHierarchy:     api.Bool(false),
+								},
+							},
 						},
 					}
 				)

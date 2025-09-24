@@ -17,7 +17,7 @@
 // TODO: Add comments to exported methods and functions.
 //
 //nolint:revive // exported symbols should have comments
-package api
+package v1alpha1
 
 import (
 	"fmt"

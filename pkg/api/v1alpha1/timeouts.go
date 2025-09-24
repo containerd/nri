@@ -14,4 +14,15 @@
    limitations under the License.
 */
 
-package api
+package v1alpha1
+
+import (
+	"time"
+)
+
+const (
+	// DefaultPluginRegistrationTimeout is the default timeout for plugin registration.
+	DefaultPluginRegistrationTimeout = 5 * time.Second
+	// DefaultPluginRequestTimeout is the default timeout for plugins to handle a request.
+	DefaultPluginRequestTimeout = 2 * time.Second
+)

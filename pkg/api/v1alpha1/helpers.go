@@ -14,7 +14,7 @@
    limitations under the License.
 */
 
-package api
+package v1alpha1
 
 // DupStringSlice creates a copy of a string slice.
 func DupStringSlice(in []string) []string {

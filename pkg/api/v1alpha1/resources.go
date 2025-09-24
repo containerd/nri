@@ -16,7 +16,7 @@
    limitations under the License.
 */
 
-package api
+package v1alpha1
 
 import (
 	rspec "github.com/opencontainers/runtime-spec/specs-go"

@@ -18,7 +18,7 @@ syntax = "proto3";
 
 package nri.pkg.api.v1alpha1;
 
-option go_package = "github.com/containerd/nri/pkg/api;api";
+option go_package = "github.com/containerd/nri/pkg/api/v1alpha1;v1alpha1";
 
 // Runtime service is the public API runtimes expose for NRI plugins.
 // On this interface RPC requests are initiated by the plugin. This

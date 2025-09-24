@@ -14,7 +14,7 @@
    limitations under the License.
 */
 
-package api_test
+package v1alpha1_test
 
 import (
 	"testing"

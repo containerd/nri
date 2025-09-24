@@ -14,7 +14,7 @@
    limitations under the License.
 */
 
-package api
+package v1alpha1
 
 //nolint
 // SetContainerId sets the id of the container to update.

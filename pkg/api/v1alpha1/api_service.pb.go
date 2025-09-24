@@ -17,9 +17,9 @@
 // versions:
 // 	protoc-gen-go-plugin v0.1.0
 // 	protoc               v3.20.1
-// source: pkg/api/api.proto
+// source: pkg/api/v1alpha1/api.proto
 
-package api
+package v1alpha1
 
 import (
 	context "context"

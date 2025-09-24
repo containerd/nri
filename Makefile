@@ -73,6 +73,8 @@ allclean: clean clean-cache
 
 test: test-gopkgs
 
+generate: generate-golang
+
 FORCE:
 
 #
@@ -183,6 +185,16 @@ validate-repo-no-changes:
 		echo "Please make sure to commit all changes, including generated files."; \
 		exit 1; \
 	}
+
+#
+# golang generation targets
+#
+
+generate-golang: pkg/api/api-v1alpha1.go pkg/api/api-v1alpha1-wasm.go
+
+pkg/api/api-v1alpha1.go pkg/api/api-v1alpha1-wasm.go: pkg/api/v1alpha1/api.proto pkg/api/doc.go
+	$(Q)echo "Regenerating $@..."; \
+	$(GO_CMD) generate ./pkg/api
 
 #
 # targets for installing dependencies

@@ -58,7 +58,7 @@ jobs:
 
       - name: Force regeneration of protobuf files on build
         run: |
-          touch pkg/api/api.proto
+          touch pkg/api/*/api.proto
 
       - run: |
           make all

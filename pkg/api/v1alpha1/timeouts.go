@@ -14,7 +14,15 @@
    limitations under the License.
 */
 
-//go:generate go build -C ../../hack/gen-pkg-alias
-//go:generate ../../hack/gen-pkg-alias/gen-pkg-alias -src ../../pkg/api/v1alpha1 -dst ../../pkg/api -rm -out api-v1alpha1.go -b !wasip1 -l ../../hack/license-header
-//go:generate env GOOS=wasip1 GOARCH=wasm ../../hack/gen-pkg-alias/gen-pkg-alias -src ../../pkg/api/v1alpha1 -dst ../../pkg/api -rm -out api-v1alpha1-wasm.go -b wasip1 -l ../../hack/license-header
-package api
+package v1alpha1
+
+import (
+	"time"
+)
+
+const (
+	// DefaultPluginRegistrationTimeout is the default timeout for plugin registration.
+	DefaultPluginRegistrationTimeout = 5 * time.Second
+	// DefaultPluginRequestTimeout is the default timeout for plugins to handle a request.
+	DefaultPluginRequestTimeout = 2 * time.Second
+)

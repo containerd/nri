@@ -14,7 +14,25 @@
    limitations under the License.
 */
 
-//go:generate go build -C ../../hack/gen-pkg-alias
-//go:generate ../../hack/gen-pkg-alias/gen-pkg-alias -src ../../pkg/api/v1alpha1 -dst ../../pkg/api -rm -out api-v1alpha1.go -b !wasip1 -l ../../hack/license-header
-//go:generate env GOOS=wasip1 GOARCH=wasm ../../hack/gen-pkg-alias/gen-pkg-alias -src ../../pkg/api/v1alpha1 -dst ../../pkg/api -rm -out api-v1alpha1-wasm.go -b wasip1 -l ../../hack/license-header
-package api
+package v1alpha1
+
+import (
+	rspec "github.com/opencontainers/runtime-spec/specs-go"
+)
+
+// FromOCILinuxNamespaces returns a namespace slice from an OCI runtime Spec.
+func FromOCILinuxNamespaces(o []rspec.LinuxNamespace) []*LinuxNamespace {
+	var namespaces []*LinuxNamespace
+	for _, ns := range o {
+		namespaces = append(namespaces, &LinuxNamespace{
+			Type: string(ns.Type),
+			Path: ns.Path,
+		})
+	}
+	return namespaces
+}
+
+// IsMarkedForRemoval checks if a LinuxNamespace is marked for removal.
+func (n *LinuxNamespace) IsMarkedForRemoval() (string, bool) {
+	return IsMarkedForRemoval(n.Type)
+}

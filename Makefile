@@ -33,6 +33,7 @@ BIN_PATH      := $(BUILD_PATH)/bin
 TOOLS_PATH    := $(BUILD_PATH)/tools
 COVERAGE_PATH := $(BUILD_PATH)/coverage
 
+PROTOBUF_VERSION = 3.20.1
 PROTO_SOURCES = $(shell find pkg -name '*.proto' | grep -v /vendor/)
 PROTO_GOFILES = $(patsubst %.proto,%.pb.go,$(PROTO_SOURCES))
 PROTO_INCLUDE = -I $(PWD) -I$(TOOLS_PATH)/include
@@ -186,6 +187,14 @@ validate-repo-no-changes:
 #
 # targets for installing dependencies
 #
+check-protoc:
+	$(Q)found_proto=$(shell $(PROTO_COMPILE) --version 2> /dev/null | awk '{print $$2}'); \
+	if [ "$$found_proto" != "$(PROTOBUF_VERSION)" ]; then \
+	echo "installing protoc version $(PROTOBUF_VERSION) (found: $$found_proto)"; \
+		make install-protoc; \
+	else \
+		echo "protoc version $$found_proto found."; \
+	fi
 
 install-protoc install-protobuf:
 	$(Q)./scripts/install-protobuf

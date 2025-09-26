@@ -80,7 +80,7 @@ FORCE:
 # build targets
 #
 
-build-proto: $(PROTO_GOFILES)
+build-proto: check-protoc install-ttrpc-plugin install-wasm-plugin install-protoc-dependencies $(PROTO_GOFILES)
 
 .PHONY: build-proto-dockerized
 build-proto-dockerized:

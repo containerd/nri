@@ -53,7 +53,7 @@ jobs:
 
       - name: Install protoc and plugins
         run: |
-          sudo make install-protoc
+          make install-protoc
           make install-protoc-dependencies install-ttrpc-plugin install-wasm-plugin
 
       - name: Force regeneration of protobuf files on build

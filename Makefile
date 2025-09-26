@@ -34,6 +34,7 @@ TOOLS_PATH    := $(BUILD_PATH)/tools
 PROTOC_PATH   := $(TOOLS_PATH)/protoc
 COVERAGE_PATH := $(BUILD_PATH)/coverage
 
+PROTOBUF_VERSION = 3.20.1
 PROTO_SOURCES = $(shell find pkg -name '*.proto' | grep -v /vendor/)
 PROTO_GOFILES = $(patsubst %.proto,%.pb.go,$(PROTO_SOURCES))
 PROTO_INCLUDE = -I $(PWD) -I$(PROTOC_PATH)/include
@@ -187,9 +188,21 @@ validate-repo-no-changes:
 #
 # targets for installing dependencies
 #
+check-protoc:
+	$(Q)found_proto=$(shell $(PROTO_COMPILE) --version 2> /dev/null | awk '{print $$2}'); \
+	if [ "$$found_proto" != "$(PROTOBUF_VERSION)" ]; then \
+	echo "installing protoc version $(PROTOBUF_VERSION) (found: $$found_proto)"; \
+		make clean-protoc; \
+		make install-protoc; \
+	else \
+		echo "protoc version $$found_proto found."; \
+	fi
 
 install-protoc install-protobuf:
-	$(Q)./scripts/install-protobuf
+	$(Q)PROTOBUF_VERSION=$(PROTOBUF_VERSION) ./scripts/install-protobuf
+
+clean-protoc:
+	$(Q)rm -rf $(PROTOC_PATH)
 
 install-ttrpc-plugin:
 	$(Q)GOBIN="$(PROTOC_PATH)/bin" $(GO_INSTALL) -mod=mod github.com/containerd/ttrpc/cmd/protoc-gen-go-ttrpc@74421d10189e8c118870d294c9f7f62db2d33ec1

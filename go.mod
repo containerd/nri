@@ -28,6 +28,7 @@ require (
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/google/pprof v0.0.0-20240424215950-a892ee059fd6 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
+	github.com/planetscale/vtprotobuf v0.4.0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/rogpeppe/go-internal v1.10.0 // indirect
 	github.com/syndtr/gocapability v0.0.0-20200815063812-42c35b437635 // indirect
@@ -39,3 +40,9 @@ require (
 )
 
 replace github.com/opencontainers/runtime-tools v0.9.0 => github.com/opencontainers/runtime-tools v0.0.0-20221026201742-946c877fa809
+
+tool (
+	github.com/containerd/ttrpc/cmd/protoc-gen-go-ttrpc
+	github.com/knqyf263/go-plugin/cmd/protoc-gen-go-plugin
+	google.golang.org/protobuf/cmd/protoc-gen-go
+)

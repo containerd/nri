@@ -205,13 +205,13 @@ clean-protoc:
 	$(Q)rm -rf $(PROTOC_PATH)
 
 install-ttrpc-plugin:
-	$(Q)GOBIN="$(PROTOC_PATH)/bin" $(GO_INSTALL) -mod=mod github.com/containerd/ttrpc/cmd/protoc-gen-go-ttrpc@74421d10189e8c118870d294c9f7f62db2d33ec1
+	$(Q)GOBIN="$(PROTOC_PATH)/bin" $(GO_INSTALL) github.com/containerd/ttrpc/cmd/protoc-gen-go-ttrpc
 
 install-wasm-plugin:
-	$(Q)GOBIN="$(PROTOC_PATH)/bin" $(GO_INSTALL) -mod=mod github.com/knqyf263/go-plugin/cmd/protoc-gen-go-plugin@$(shell go list -m -f {{.Version}} github.com/knqyf263/go-plugin)
+	$(Q)GOBIN="$(PROTOC_PATH)/bin" $(GO_INSTALL) github.com/knqyf263/go-plugin/cmd/protoc-gen-go-plugin
 
 install-protoc-dependencies:
-	$(Q)GOBIN="$(PROTOC_PATH)/bin" $(GO_INSTALL) -mod=mod google.golang.org/protobuf/cmd/protoc-gen-go@v1.28.0
+	$(Q)GOBIN="$(PROTOC_PATH)/bin" $(GO_INSTALL) google.golang.org/protobuf/cmd/protoc-gen-go
 
 install-ginkgo:
 	$(Q)$(GO_INSTALL) -mod=mod github.com/onsi/ginkgo/v2/ginkgo

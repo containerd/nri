@@ -229,7 +229,7 @@ func main() {
 	})
 
 	flag.StringVar(&pluginIdx, "idx", "", "plugin index to register to NRI")
-	flag.StringVar(&events, "events", "all", "comma-separated list of events to subscribe for")
+	flag.StringVar(&events, "events", "", "comma-separated list of events to subscribe for")
 	flag.StringVar(&cfg.LogFile, "log-file", "", "logfile name, if logging to a file")
 	flag.StringVar(&cfg.AddAnnotation, "add-annotation", "", "add this annotation to containers")
 	flag.StringVar(&cfg.SetAnnotation, "set-annotation", "", "set this annotation on containers")
@@ -250,8 +250,10 @@ func main() {
 	}
 
 	p := &plugin{}
-	if p.mask, err = api.ParseEventMask(events); err != nil {
-		log.Fatalf("failed to parse events: %v", err)
+	if events != "" {
+		if p.mask, err = api.ParseEventMask(events); err != nil {
+			log.Fatalf("failed to parse events: %v", err)
+		}
 	}
 	cfg.Events = strings.Split(events, ",")
 

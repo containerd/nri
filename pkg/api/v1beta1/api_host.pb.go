@@ -176,25 +176,57 @@ func (p *PluginPlugin) Load(ctx context.Context, pluginPath string, hostFunction
 	if shutdown == nil {
 		return nil, errors.New("plugin_shutdown is not exported")
 	}
-	createcontainer := module.ExportedFunction("plugin_create_container")
-	if createcontainer == nil {
-		return nil, errors.New("plugin_create_container is not exported")
-	}
-	updatecontainer := module.ExportedFunction("plugin_update_container")
-	if updatecontainer == nil {
-		return nil, errors.New("plugin_update_container is not exported")
-	}
-	stopcontainer := module.ExportedFunction("plugin_stop_container")
-	if stopcontainer == nil {
-		return nil, errors.New("plugin_stop_container is not exported")
+	runpodsandbox := module.ExportedFunction("plugin_run_pod_sandbox")
+	if runpodsandbox == nil {
+		return nil, errors.New("plugin_run_pod_sandbox is not exported")
 	}
 	updatepodsandbox := module.ExportedFunction("plugin_update_pod_sandbox")
 	if updatepodsandbox == nil {
 		return nil, errors.New("plugin_update_pod_sandbox is not exported")
 	}
-	statechange := module.ExportedFunction("plugin_state_change")
-	if statechange == nil {
-		return nil, errors.New("plugin_state_change is not exported")
+	postupdatepodsandbox := module.ExportedFunction("plugin_post_update_pod_sandbox")
+	if postupdatepodsandbox == nil {
+		return nil, errors.New("plugin_post_update_pod_sandbox is not exported")
+	}
+	stoppodsandbox := module.ExportedFunction("plugin_stop_pod_sandbox")
+	if stoppodsandbox == nil {
+		return nil, errors.New("plugin_stop_pod_sandbox is not exported")
+	}
+	removepodsandbox := module.ExportedFunction("plugin_remove_pod_sandbox")
+	if removepodsandbox == nil {
+		return nil, errors.New("plugin_remove_pod_sandbox is not exported")
+	}
+	createcontainer := module.ExportedFunction("plugin_create_container")
+	if createcontainer == nil {
+		return nil, errors.New("plugin_create_container is not exported")
+	}
+	postcreatecontainer := module.ExportedFunction("plugin_post_create_container")
+	if postcreatecontainer == nil {
+		return nil, errors.New("plugin_post_create_container is not exported")
+	}
+	startcontainer := module.ExportedFunction("plugin_start_container")
+	if startcontainer == nil {
+		return nil, errors.New("plugin_start_container is not exported")
+	}
+	poststartcontainer := module.ExportedFunction("plugin_post_start_container")
+	if poststartcontainer == nil {
+		return nil, errors.New("plugin_post_start_container is not exported")
+	}
+	updatecontainer := module.ExportedFunction("plugin_update_container")
+	if updatecontainer == nil {
+		return nil, errors.New("plugin_update_container is not exported")
+	}
+	postupdatecontainer := module.ExportedFunction("plugin_post_update_container")
+	if postupdatecontainer == nil {
+		return nil, errors.New("plugin_post_update_container is not exported")
+	}
+	stopcontainer := module.ExportedFunction("plugin_stop_container")
+	if stopcontainer == nil {
+		return nil, errors.New("plugin_stop_container is not exported")
+	}
+	removecontainer := module.ExportedFunction("plugin_remove_container")
+	if removecontainer == nil {
+		return nil, errors.New("plugin_remove_container is not exported")
 	}
 	validatecontaineradjustment := module.ExportedFunction("plugin_validate_container_adjustment")
 	if validatecontaineradjustment == nil {
@@ -218,11 +250,19 @@ func (p *PluginPlugin) Load(ctx context.Context, pluginPath string, hostFunction
 		configure:                   configure,
 		synchronize:                 synchronize,
 		shutdown:                    shutdown,
-		createcontainer:             createcontainer,
-		updatecontainer:             updatecontainer,
-		stopcontainer:               stopcontainer,
+		runpodsandbox:               runpodsandbox,
 		updatepodsandbox:            updatepodsandbox,
-		statechange:                 statechange,
+		postupdatepodsandbox:        postupdatepodsandbox,
+		stoppodsandbox:              stoppodsandbox,
+		removepodsandbox:            removepodsandbox,
+		createcontainer:             createcontainer,
+		postcreatecontainer:         postcreatecontainer,
+		startcontainer:              startcontainer,
+		poststartcontainer:          poststartcontainer,
+		updatecontainer:             updatecontainer,
+		postupdatecontainer:         postupdatecontainer,
+		stopcontainer:               stopcontainer,
+		removecontainer:             removecontainer,
 		validatecontaineradjustment: validatecontaineradjustment,
 	}, nil
 }
@@ -242,11 +282,19 @@ type pluginPlugin struct {
 	configure                   api.Function
 	synchronize                 api.Function
 	shutdown                    api.Function
-	createcontainer             api.Function
-	updatecontainer             api.Function
-	stopcontainer               api.Function
+	runpodsandbox               api.Function
 	updatepodsandbox            api.Function
-	statechange                 api.Function
+	postupdatepodsandbox        api.Function
+	stoppodsandbox              api.Function
+	removepodsandbox            api.Function
+	createcontainer             api.Function
+	postcreatecontainer         api.Function
+	startcontainer              api.Function
+	poststartcontainer          api.Function
+	updatecontainer             api.Function
+	postupdatecontainer         api.Function
+	stopcontainer               api.Function
+	removecontainer             api.Function
 	validatecontaineradjustment api.Function
 }
 
@@ -372,7 +420,7 @@ func (p *pluginPlugin) Synchronize(ctx context.Context, request *SynchronizeRequ
 
 	return response, nil
 }
-func (p *pluginPlugin) Shutdown(ctx context.Context, request *Empty) (*Empty, error) {
+func (p *pluginPlugin) Shutdown(ctx context.Context, request *ShutdownRequest) (*ShutdownResponse, error) {
 	data, err := request.MarshalVT()
 	if err != nil {
 		return nil, err
@@ -426,14 +474,14 @@ func (p *pluginPlugin) Shutdown(ctx context.Context, request *Empty) (*Empty, er
 		return nil, errors.New(string(bytes))
 	}
 
-	response := new(Empty)
+	response := new(ShutdownResponse)
 	if err = response.UnmarshalVT(bytes); err != nil {
 		return nil, err
 	}
 
 	return response, nil
 }
-func (p *pluginPlugin) CreateContainer(ctx context.Context, request *CreateContainerRequest) (*CreateContainerResponse, error) {
+func (p *pluginPlugin) RunPodSandbox(ctx context.Context, request *RunPodSandboxRequest) (*RunPodSandboxResponse, error) {
 	data, err := request.MarshalVT()
 	if err != nil {
 		return nil, err
@@ -458,7 +506,7 @@ func (p *pluginPlugin) CreateContainer(ctx context.Context, request *CreateConta
 		}
 	}
 
-	ptrSize, err := p.createcontainer.Call(ctx, dataPtr, dataSize)
+	ptrSize, err := p.runpodsandbox.Call(ctx, dataPtr, dataSize)
 	if err != nil {
 		return nil, err
 	}
@@ -487,129 +535,7 @@ func (p *pluginPlugin) CreateContainer(ctx context.Context, request *CreateConta
 		return nil, errors.New(string(bytes))
 	}
 
-	response := new(CreateContainerResponse)
-	if err = response.UnmarshalVT(bytes); err != nil {
-		return nil, err
-	}
-
-	return response, nil
-}
-func (p *pluginPlugin) UpdateContainer(ctx context.Context, request *UpdateContainerRequest) (*UpdateContainerResponse, error) {
-	data, err := request.MarshalVT()
-	if err != nil {
-		return nil, err
-	}
-	dataSize := uint64(len(data))
-
-	var dataPtr uint64
-	// If the input data is not empty, we must allocate the in-Wasm memory to store it, and pass to the plugin.
-	if dataSize != 0 {
-		results, err := p.malloc.Call(ctx, dataSize)
-		if err != nil {
-			return nil, err
-		}
-		dataPtr = results[0]
-		// This pointer is managed by the Wasm module, which is unaware of external usage.
-		// So, we have to free it when finished
-		defer p.free.Call(ctx, dataPtr)
-
-		// The pointer is a linear memory offset, which is where we write the name.
-		if !p.module.Memory().Write(uint32(dataPtr), data) {
-			return nil, fmt.Errorf("Memory.Write(%d, %d) out of range of memory size %d", dataPtr, dataSize, p.module.Memory().Size())
-		}
-	}
-
-	ptrSize, err := p.updatecontainer.Call(ctx, dataPtr, dataSize)
-	if err != nil {
-		return nil, err
-	}
-
-	resPtr := uint32(ptrSize[0] >> 32)
-	resSize := uint32(ptrSize[0])
-	var isErrResponse bool
-	if (resSize & (1 << 31)) > 0 {
-		isErrResponse = true
-		resSize &^= (1 << 31)
-	}
-
-	// We don't need the memory after deserialization: make sure it is freed.
-	if resPtr != 0 {
-		defer p.free.Call(ctx, uint64(resPtr))
-	}
-
-	// The pointer is a linear memory offset, which is where we write the name.
-	bytes, ok := p.module.Memory().Read(resPtr, resSize)
-	if !ok {
-		return nil, fmt.Errorf("Memory.Read(%d, %d) out of range of memory size %d",
-			resPtr, resSize, p.module.Memory().Size())
-	}
-
-	if isErrResponse {
-		return nil, errors.New(string(bytes))
-	}
-
-	response := new(UpdateContainerResponse)
-	if err = response.UnmarshalVT(bytes); err != nil {
-		return nil, err
-	}
-
-	return response, nil
-}
-func (p *pluginPlugin) StopContainer(ctx context.Context, request *StopContainerRequest) (*StopContainerResponse, error) {
-	data, err := request.MarshalVT()
-	if err != nil {
-		return nil, err
-	}
-	dataSize := uint64(len(data))
-
-	var dataPtr uint64
-	// If the input data is not empty, we must allocate the in-Wasm memory to store it, and pass to the plugin.
-	if dataSize != 0 {
-		results, err := p.malloc.Call(ctx, dataSize)
-		if err != nil {
-			return nil, err
-		}
-		dataPtr = results[0]
-		// This pointer is managed by the Wasm module, which is unaware of external usage.
-		// So, we have to free it when finished
-		defer p.free.Call(ctx, dataPtr)
-
-		// The pointer is a linear memory offset, which is where we write the name.
-		if !p.module.Memory().Write(uint32(dataPtr), data) {
-			return nil, fmt.Errorf("Memory.Write(%d, %d) out of range of memory size %d", dataPtr, dataSize, p.module.Memory().Size())
-		}
-	}
-
-	ptrSize, err := p.stopcontainer.Call(ctx, dataPtr, dataSize)
-	if err != nil {
-		return nil, err
-	}
-
-	resPtr := uint32(ptrSize[0] >> 32)
-	resSize := uint32(ptrSize[0])
-	var isErrResponse bool
-	if (resSize & (1 << 31)) > 0 {
-		isErrResponse = true
-		resSize &^= (1 << 31)
-	}
-
-	// We don't need the memory after deserialization: make sure it is freed.
-	if resPtr != 0 {
-		defer p.free.Call(ctx, uint64(resPtr))
-	}
-
-	// The pointer is a linear memory offset, which is where we write the name.
-	bytes, ok := p.module.Memory().Read(resPtr, resSize)
-	if !ok {
-		return nil, fmt.Errorf("Memory.Read(%d, %d) out of range of memory size %d",
-			resPtr, resSize, p.module.Memory().Size())
-	}
-
-	if isErrResponse {
-		return nil, errors.New(string(bytes))
-	}
-
-	response := new(StopContainerResponse)
+	response := new(RunPodSandboxResponse)
 	if err = response.UnmarshalVT(bytes); err != nil {
 		return nil, err
 	}
@@ -677,7 +603,7 @@ func (p *pluginPlugin) UpdatePodSandbox(ctx context.Context, request *UpdatePodS
 
 	return response, nil
 }
-func (p *pluginPlugin) StateChange(ctx context.Context, request *StateChangeEvent) (*Empty, error) {
+func (p *pluginPlugin) PostUpdatePodSandbox(ctx context.Context, request *PostUpdatePodSandboxRequest) (*PostUpdatePodSandboxResponse, error) {
 	data, err := request.MarshalVT()
 	if err != nil {
 		return nil, err
@@ -702,7 +628,7 @@ func (p *pluginPlugin) StateChange(ctx context.Context, request *StateChangeEven
 		}
 	}
 
-	ptrSize, err := p.statechange.Call(ctx, dataPtr, dataSize)
+	ptrSize, err := p.postupdatepodsandbox.Call(ctx, dataPtr, dataSize)
 	if err != nil {
 		return nil, err
 	}
@@ -731,7 +657,617 @@ func (p *pluginPlugin) StateChange(ctx context.Context, request *StateChangeEven
 		return nil, errors.New(string(bytes))
 	}
 
-	response := new(Empty)
+	response := new(PostUpdatePodSandboxResponse)
+	if err = response.UnmarshalVT(bytes); err != nil {
+		return nil, err
+	}
+
+	return response, nil
+}
+func (p *pluginPlugin) StopPodSandbox(ctx context.Context, request *StopPodSandboxRequest) (*StopPodSandboxResponse, error) {
+	data, err := request.MarshalVT()
+	if err != nil {
+		return nil, err
+	}
+	dataSize := uint64(len(data))
+
+	var dataPtr uint64
+	// If the input data is not empty, we must allocate the in-Wasm memory to store it, and pass to the plugin.
+	if dataSize != 0 {
+		results, err := p.malloc.Call(ctx, dataSize)
+		if err != nil {
+			return nil, err
+		}
+		dataPtr = results[0]
+		// This pointer is managed by the Wasm module, which is unaware of external usage.
+		// So, we have to free it when finished
+		defer p.free.Call(ctx, dataPtr)
+
+		// The pointer is a linear memory offset, which is where we write the name.
+		if !p.module.Memory().Write(uint32(dataPtr), data) {
+			return nil, fmt.Errorf("Memory.Write(%d, %d) out of range of memory size %d", dataPtr, dataSize, p.module.Memory().Size())
+		}
+	}
+
+	ptrSize, err := p.stoppodsandbox.Call(ctx, dataPtr, dataSize)
+	if err != nil {
+		return nil, err
+	}
+
+	resPtr := uint32(ptrSize[0] >> 32)
+	resSize := uint32(ptrSize[0])
+	var isErrResponse bool
+	if (resSize & (1 << 31)) > 0 {
+		isErrResponse = true
+		resSize &^= (1 << 31)
+	}
+
+	// We don't need the memory after deserialization: make sure it is freed.
+	if resPtr != 0 {
+		defer p.free.Call(ctx, uint64(resPtr))
+	}
+
+	// The pointer is a linear memory offset, which is where we write the name.
+	bytes, ok := p.module.Memory().Read(resPtr, resSize)
+	if !ok {
+		return nil, fmt.Errorf("Memory.Read(%d, %d) out of range of memory size %d",
+			resPtr, resSize, p.module.Memory().Size())
+	}
+
+	if isErrResponse {
+		return nil, errors.New(string(bytes))
+	}
+
+	response := new(StopPodSandboxResponse)
+	if err = response.UnmarshalVT(bytes); err != nil {
+		return nil, err
+	}
+
+	return response, nil
+}
+func (p *pluginPlugin) RemovePodSandbox(ctx context.Context, request *RemovePodSandboxRequest) (*RemovePodSandboxResponse, error) {
+	data, err := request.MarshalVT()
+	if err != nil {
+		return nil, err
+	}
+	dataSize := uint64(len(data))
+
+	var dataPtr uint64
+	// If the input data is not empty, we must allocate the in-Wasm memory to store it, and pass to the plugin.
+	if dataSize != 0 {
+		results, err := p.malloc.Call(ctx, dataSize)
+		if err != nil {
+			return nil, err
+		}
+		dataPtr = results[0]
+		// This pointer is managed by the Wasm module, which is unaware of external usage.
+		// So, we have to free it when finished
+		defer p.free.Call(ctx, dataPtr)
+
+		// The pointer is a linear memory offset, which is where we write the name.
+		if !p.module.Memory().Write(uint32(dataPtr), data) {
+			return nil, fmt.Errorf("Memory.Write(%d, %d) out of range of memory size %d", dataPtr, dataSize, p.module.Memory().Size())
+		}
+	}
+
+	ptrSize, err := p.removepodsandbox.Call(ctx, dataPtr, dataSize)
+	if err != nil {
+		return nil, err
+	}
+
+	resPtr := uint32(ptrSize[0] >> 32)
+	resSize := uint32(ptrSize[0])
+	var isErrResponse bool
+	if (resSize & (1 << 31)) > 0 {
+		isErrResponse = true
+		resSize &^= (1 << 31)
+	}
+
+	// We don't need the memory after deserialization: make sure it is freed.
+	if resPtr != 0 {
+		defer p.free.Call(ctx, uint64(resPtr))
+	}
+
+	// The pointer is a linear memory offset, which is where we write the name.
+	bytes, ok := p.module.Memory().Read(resPtr, resSize)
+	if !ok {
+		return nil, fmt.Errorf("Memory.Read(%d, %d) out of range of memory size %d",
+			resPtr, resSize, p.module.Memory().Size())
+	}
+
+	if isErrResponse {
+		return nil, errors.New(string(bytes))
+	}
+
+	response := new(RemovePodSandboxResponse)
+	if err = response.UnmarshalVT(bytes); err != nil {
+		return nil, err
+	}
+
+	return response, nil
+}
+func (p *pluginPlugin) CreateContainer(ctx context.Context, request *CreateContainerRequest) (*CreateContainerResponse, error) {
+	data, err := request.MarshalVT()
+	if err != nil {
+		return nil, err
+	}
+	dataSize := uint64(len(data))
+
+	var dataPtr uint64
+	// If the input data is not empty, we must allocate the in-Wasm memory to store it, and pass to the plugin.
+	if dataSize != 0 {
+		results, err := p.malloc.Call(ctx, dataSize)
+		if err != nil {
+			return nil, err
+		}
+		dataPtr = results[0]
+		// This pointer is managed by the Wasm module, which is unaware of external usage.
+		// So, we have to free it when finished
+		defer p.free.Call(ctx, dataPtr)
+
+		// The pointer is a linear memory offset, which is where we write the name.
+		if !p.module.Memory().Write(uint32(dataPtr), data) {
+			return nil, fmt.Errorf("Memory.Write(%d, %d) out of range of memory size %d", dataPtr, dataSize, p.module.Memory().Size())
+		}
+	}
+
+	ptrSize, err := p.createcontainer.Call(ctx, dataPtr, dataSize)
+	if err != nil {
+		return nil, err
+	}
+
+	resPtr := uint32(ptrSize[0] >> 32)
+	resSize := uint32(ptrSize[0])
+	var isErrResponse bool
+	if (resSize & (1 << 31)) > 0 {
+		isErrResponse = true
+		resSize &^= (1 << 31)
+	}
+
+	// We don't need the memory after deserialization: make sure it is freed.
+	if resPtr != 0 {
+		defer p.free.Call(ctx, uint64(resPtr))
+	}
+
+	// The pointer is a linear memory offset, which is where we write the name.
+	bytes, ok := p.module.Memory().Read(resPtr, resSize)
+	if !ok {
+		return nil, fmt.Errorf("Memory.Read(%d, %d) out of range of memory size %d",
+			resPtr, resSize, p.module.Memory().Size())
+	}
+
+	if isErrResponse {
+		return nil, errors.New(string(bytes))
+	}
+
+	response := new(CreateContainerResponse)
+	if err = response.UnmarshalVT(bytes); err != nil {
+		return nil, err
+	}
+
+	return response, nil
+}
+func (p *pluginPlugin) PostCreateContainer(ctx context.Context, request *PostCreateContainerRequest) (*PostCreateContainerResponse, error) {
+	data, err := request.MarshalVT()
+	if err != nil {
+		return nil, err
+	}
+	dataSize := uint64(len(data))
+
+	var dataPtr uint64
+	// If the input data is not empty, we must allocate the in-Wasm memory to store it, and pass to the plugin.
+	if dataSize != 0 {
+		results, err := p.malloc.Call(ctx, dataSize)
+		if err != nil {
+			return nil, err
+		}
+		dataPtr = results[0]
+		// This pointer is managed by the Wasm module, which is unaware of external usage.
+		// So, we have to free it when finished
+		defer p.free.Call(ctx, dataPtr)
+
+		// The pointer is a linear memory offset, which is where we write the name.
+		if !p.module.Memory().Write(uint32(dataPtr), data) {
+			return nil, fmt.Errorf("Memory.Write(%d, %d) out of range of memory size %d", dataPtr, dataSize, p.module.Memory().Size())
+		}
+	}
+
+	ptrSize, err := p.postcreatecontainer.Call(ctx, dataPtr, dataSize)
+	if err != nil {
+		return nil, err
+	}
+
+	resPtr := uint32(ptrSize[0] >> 32)
+	resSize := uint32(ptrSize[0])
+	var isErrResponse bool
+	if (resSize & (1 << 31)) > 0 {
+		isErrResponse = true
+		resSize &^= (1 << 31)
+	}
+
+	// We don't need the memory after deserialization: make sure it is freed.
+	if resPtr != 0 {
+		defer p.free.Call(ctx, uint64(resPtr))
+	}
+
+	// The pointer is a linear memory offset, which is where we write the name.
+	bytes, ok := p.module.Memory().Read(resPtr, resSize)
+	if !ok {
+		return nil, fmt.Errorf("Memory.Read(%d, %d) out of range of memory size %d",
+			resPtr, resSize, p.module.Memory().Size())
+	}
+
+	if isErrResponse {
+		return nil, errors.New(string(bytes))
+	}
+
+	response := new(PostCreateContainerResponse)
+	if err = response.UnmarshalVT(bytes); err != nil {
+		return nil, err
+	}
+
+	return response, nil
+}
+func (p *pluginPlugin) StartContainer(ctx context.Context, request *StartContainerRequest) (*StartContainerResponse, error) {
+	data, err := request.MarshalVT()
+	if err != nil {
+		return nil, err
+	}
+	dataSize := uint64(len(data))
+
+	var dataPtr uint64
+	// If the input data is not empty, we must allocate the in-Wasm memory to store it, and pass to the plugin.
+	if dataSize != 0 {
+		results, err := p.malloc.Call(ctx, dataSize)
+		if err != nil {
+			return nil, err
+		}
+		dataPtr = results[0]
+		// This pointer is managed by the Wasm module, which is unaware of external usage.
+		// So, we have to free it when finished
+		defer p.free.Call(ctx, dataPtr)
+
+		// The pointer is a linear memory offset, which is where we write the name.
+		if !p.module.Memory().Write(uint32(dataPtr), data) {
+			return nil, fmt.Errorf("Memory.Write(%d, %d) out of range of memory size %d", dataPtr, dataSize, p.module.Memory().Size())
+		}
+	}
+
+	ptrSize, err := p.startcontainer.Call(ctx, dataPtr, dataSize)
+	if err != nil {
+		return nil, err
+	}
+
+	resPtr := uint32(ptrSize[0] >> 32)
+	resSize := uint32(ptrSize[0])
+	var isErrResponse bool
+	if (resSize & (1 << 31)) > 0 {
+		isErrResponse = true
+		resSize &^= (1 << 31)
+	}
+
+	// We don't need the memory after deserialization: make sure it is freed.
+	if resPtr != 0 {
+		defer p.free.Call(ctx, uint64(resPtr))
+	}
+
+	// The pointer is a linear memory offset, which is where we write the name.
+	bytes, ok := p.module.Memory().Read(resPtr, resSize)
+	if !ok {
+		return nil, fmt.Errorf("Memory.Read(%d, %d) out of range of memory size %d",
+			resPtr, resSize, p.module.Memory().Size())
+	}
+
+	if isErrResponse {
+		return nil, errors.New(string(bytes))
+	}
+
+	response := new(StartContainerResponse)
+	if err = response.UnmarshalVT(bytes); err != nil {
+		return nil, err
+	}
+
+	return response, nil
+}
+func (p *pluginPlugin) PostStartContainer(ctx context.Context, request *PostStartContainerRequest) (*PostStartContainerResponse, error) {
+	data, err := request.MarshalVT()
+	if err != nil {
+		return nil, err
+	}
+	dataSize := uint64(len(data))
+
+	var dataPtr uint64
+	// If the input data is not empty, we must allocate the in-Wasm memory to store it, and pass to the plugin.
+	if dataSize != 0 {
+		results, err := p.malloc.Call(ctx, dataSize)
+		if err != nil {
+			return nil, err
+		}
+		dataPtr = results[0]
+		// This pointer is managed by the Wasm module, which is unaware of external usage.
+		// So, we have to free it when finished
+		defer p.free.Call(ctx, dataPtr)
+
+		// The pointer is a linear memory offset, which is where we write the name.
+		if !p.module.Memory().Write(uint32(dataPtr), data) {
+			return nil, fmt.Errorf("Memory.Write(%d, %d) out of range of memory size %d", dataPtr, dataSize, p.module.Memory().Size())
+		}
+	}
+
+	ptrSize, err := p.poststartcontainer.Call(ctx, dataPtr, dataSize)
+	if err != nil {
+		return nil, err
+	}
+
+	resPtr := uint32(ptrSize[0] >> 32)
+	resSize := uint32(ptrSize[0])
+	var isErrResponse bool
+	if (resSize & (1 << 31)) > 0 {
+		isErrResponse = true
+		resSize &^= (1 << 31)
+	}
+
+	// We don't need the memory after deserialization: make sure it is freed.
+	if resPtr != 0 {
+		defer p.free.Call(ctx, uint64(resPtr))
+	}
+
+	// The pointer is a linear memory offset, which is where we write the name.
+	bytes, ok := p.module.Memory().Read(resPtr, resSize)
+	if !ok {
+		return nil, fmt.Errorf("Memory.Read(%d, %d) out of range of memory size %d",
+			resPtr, resSize, p.module.Memory().Size())
+	}
+
+	if isErrResponse {
+		return nil, errors.New(string(bytes))
+	}
+
+	response := new(PostStartContainerResponse)
+	if err = response.UnmarshalVT(bytes); err != nil {
+		return nil, err
+	}
+
+	return response, nil
+}
+func (p *pluginPlugin) UpdateContainer(ctx context.Context, request *UpdateContainerRequest) (*UpdateContainerResponse, error) {
+	data, err := request.MarshalVT()
+	if err != nil {
+		return nil, err
+	}
+	dataSize := uint64(len(data))
+
+	var dataPtr uint64
+	// If the input data is not empty, we must allocate the in-Wasm memory to store it, and pass to the plugin.
+	if dataSize != 0 {
+		results, err := p.malloc.Call(ctx, dataSize)
+		if err != nil {
+			return nil, err
+		}
+		dataPtr = results[0]
+		// This pointer is managed by the Wasm module, which is unaware of external usage.
+		// So, we have to free it when finished
+		defer p.free.Call(ctx, dataPtr)
+
+		// The pointer is a linear memory offset, which is where we write the name.
+		if !p.module.Memory().Write(uint32(dataPtr), data) {
+			return nil, fmt.Errorf("Memory.Write(%d, %d) out of range of memory size %d", dataPtr, dataSize, p.module.Memory().Size())
+		}
+	}
+
+	ptrSize, err := p.updatecontainer.Call(ctx, dataPtr, dataSize)
+	if err != nil {
+		return nil, err
+	}
+
+	resPtr := uint32(ptrSize[0] >> 32)
+	resSize := uint32(ptrSize[0])
+	var isErrResponse bool
+	if (resSize & (1 << 31)) > 0 {
+		isErrResponse = true
+		resSize &^= (1 << 31)
+	}
+
+	// We don't need the memory after deserialization: make sure it is freed.
+	if resPtr != 0 {
+		defer p.free.Call(ctx, uint64(resPtr))
+	}
+
+	// The pointer is a linear memory offset, which is where we write the name.
+	bytes, ok := p.module.Memory().Read(resPtr, resSize)
+	if !ok {
+		return nil, fmt.Errorf("Memory.Read(%d, %d) out of range of memory size %d",
+			resPtr, resSize, p.module.Memory().Size())
+	}
+
+	if isErrResponse {
+		return nil, errors.New(string(bytes))
+	}
+
+	response := new(UpdateContainerResponse)
+	if err = response.UnmarshalVT(bytes); err != nil {
+		return nil, err
+	}
+
+	return response, nil
+}
+func (p *pluginPlugin) PostUpdateContainer(ctx context.Context, request *PostUpdateContainerRequest) (*PostUpdateContainerResponse, error) {
+	data, err := request.MarshalVT()
+	if err != nil {
+		return nil, err
+	}
+	dataSize := uint64(len(data))
+
+	var dataPtr uint64
+	// If the input data is not empty, we must allocate the in-Wasm memory to store it, and pass to the plugin.
+	if dataSize != 0 {
+		results, err := p.malloc.Call(ctx, dataSize)
+		if err != nil {
+			return nil, err
+		}
+		dataPtr = results[0]
+		// This pointer is managed by the Wasm module, which is unaware of external usage.
+		// So, we have to free it when finished
+		defer p.free.Call(ctx, dataPtr)
+
+		// The pointer is a linear memory offset, which is where we write the name.
+		if !p.module.Memory().Write(uint32(dataPtr), data) {
+			return nil, fmt.Errorf("Memory.Write(%d, %d) out of range of memory size %d", dataPtr, dataSize, p.module.Memory().Size())
+		}
+	}
+
+	ptrSize, err := p.postupdatecontainer.Call(ctx, dataPtr, dataSize)
+	if err != nil {
+		return nil, err
+	}
+
+	resPtr := uint32(ptrSize[0] >> 32)
+	resSize := uint32(ptrSize[0])
+	var isErrResponse bool
+	if (resSize & (1 << 31)) > 0 {
+		isErrResponse = true
+		resSize &^= (1 << 31)
+	}
+
+	// We don't need the memory after deserialization: make sure it is freed.
+	if resPtr != 0 {
+		defer p.free.Call(ctx, uint64(resPtr))
+	}
+
+	// The pointer is a linear memory offset, which is where we write the name.
+	bytes, ok := p.module.Memory().Read(resPtr, resSize)
+	if !ok {
+		return nil, fmt.Errorf("Memory.Read(%d, %d) out of range of memory size %d",
+			resPtr, resSize, p.module.Memory().Size())
+	}
+
+	if isErrResponse {
+		return nil, errors.New(string(bytes))
+	}
+
+	response := new(PostUpdateContainerResponse)
+	if err = response.UnmarshalVT(bytes); err != nil {
+		return nil, err
+	}
+
+	return response, nil
+}
+func (p *pluginPlugin) StopContainer(ctx context.Context, request *StopContainerRequest) (*StopContainerResponse, error) {
+	data, err := request.MarshalVT()
+	if err != nil {
+		return nil, err
+	}
+	dataSize := uint64(len(data))
+
+	var dataPtr uint64
+	// If the input data is not empty, we must allocate the in-Wasm memory to store it, and pass to the plugin.
+	if dataSize != 0 {
+		results, err := p.malloc.Call(ctx, dataSize)
+		if err != nil {
+			return nil, err
+		}
+		dataPtr = results[0]
+		// This pointer is managed by the Wasm module, which is unaware of external usage.
+		// So, we have to free it when finished
+		defer p.free.Call(ctx, dataPtr)
+
+		// The pointer is a linear memory offset, which is where we write the name.
+		if !p.module.Memory().Write(uint32(dataPtr), data) {
+			return nil, fmt.Errorf("Memory.Write(%d, %d) out of range of memory size %d", dataPtr, dataSize, p.module.Memory().Size())
+		}
+	}
+
+	ptrSize, err := p.stopcontainer.Call(ctx, dataPtr, dataSize)
+	if err != nil {
+		return nil, err
+	}
+
+	resPtr := uint32(ptrSize[0] >> 32)
+	resSize := uint32(ptrSize[0])
+	var isErrResponse bool
+	if (resSize & (1 << 31)) > 0 {
+		isErrResponse = true
+		resSize &^= (1 << 31)
+	}
+
+	// We don't need the memory after deserialization: make sure it is freed.
+	if resPtr != 0 {
+		defer p.free.Call(ctx, uint64(resPtr))
+	}
+
+	// The pointer is a linear memory offset, which is where we write the name.
+	bytes, ok := p.module.Memory().Read(resPtr, resSize)
+	if !ok {
+		return nil, fmt.Errorf("Memory.Read(%d, %d) out of range of memory size %d",
+			resPtr, resSize, p.module.Memory().Size())
+	}
+
+	if isErrResponse {
+		return nil, errors.New(string(bytes))
+	}
+
+	response := new(StopContainerResponse)
+	if err = response.UnmarshalVT(bytes); err != nil {
+		return nil, err
+	}
+
+	return response, nil
+}
+func (p *pluginPlugin) RemoveContainer(ctx context.Context, request *RemoveContainerRequest) (*RemoveContainerResponse, error) {
+	data, err := request.MarshalVT()
+	if err != nil {
+		return nil, err
+	}
+	dataSize := uint64(len(data))
+
+	var dataPtr uint64
+	// If the input data is not empty, we must allocate the in-Wasm memory to store it, and pass to the plugin.
+	if dataSize != 0 {
+		results, err := p.malloc.Call(ctx, dataSize)
+		if err != nil {
+			return nil, err
+		}
+		dataPtr = results[0]
+		// This pointer is managed by the Wasm module, which is unaware of external usage.
+		// So, we have to free it when finished
+		defer p.free.Call(ctx, dataPtr)
+
+		// The pointer is a linear memory offset, which is where we write the name.
+		if !p.module.Memory().Write(uint32(dataPtr), data) {
+			return nil, fmt.Errorf("Memory.Write(%d, %d) out of range of memory size %d", dataPtr, dataSize, p.module.Memory().Size())
+		}
+	}
+
+	ptrSize, err := p.removecontainer.Call(ctx, dataPtr, dataSize)
+	if err != nil {
+		return nil, err
+	}
+
+	resPtr := uint32(ptrSize[0] >> 32)
+	resSize := uint32(ptrSize[0])
+	var isErrResponse bool
+	if (resSize & (1 << 31)) > 0 {
+		isErrResponse = true
+		resSize &^= (1 << 31)
+	}
+
+	// We don't need the memory after deserialization: make sure it is freed.
+	if resPtr != 0 {
+		defer p.free.Call(ctx, uint64(resPtr))
+	}
+
+	// The pointer is a linear memory offset, which is where we write the name.
+	bytes, ok := p.module.Memory().Read(resPtr, resSize)
+	if !ok {
+		return nil, fmt.Errorf("Memory.Read(%d, %d) out of range of memory size %d",
+			resPtr, resSize, p.module.Memory().Size())
+	}
+
+	if isErrResponse {
+		return nil, errors.New(string(bytes))
+	}
+
+	response := new(RemoveContainerResponse)
 	if err = response.UnmarshalVT(bytes); err != nil {
 		return nil, err
 	}

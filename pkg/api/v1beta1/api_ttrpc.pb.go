@@ -10,7 +10,7 @@ import (
 )
 
 type RuntimeService interface {
-	RegisterPlugin(context.Context, *RegisterPluginRequest) (*Empty, error)
+	RegisterPlugin(context.Context, *RegisterPluginRequest) (*RegisterPluginResponse, error)
 	UpdateContainers(context.Context, *UpdateContainersRequest) (*UpdateContainersResponse, error)
 }
 
@@ -45,8 +45,8 @@ func NewRuntimeClient(client *ttrpc.Client) RuntimeService {
 	}
 }
 
-func (c *runtimeClient) RegisterPlugin(ctx context.Context, req *RegisterPluginRequest) (*Empty, error) {
-	var resp Empty
+func (c *runtimeClient) RegisterPlugin(ctx context.Context, req *RegisterPluginRequest) (*RegisterPluginResponse, error) {
+	var resp RegisterPluginResponse
 	if err := c.client.Call(ctx, "nri.pkg.api.v1beta1.Runtime", "RegisterPlugin", req, &resp); err != nil {
 		return nil, err
 	}
@@ -64,12 +64,20 @@ func (c *runtimeClient) UpdateContainers(ctx context.Context, req *UpdateContain
 type PluginService interface {
 	Configure(context.Context, *ConfigureRequest) (*ConfigureResponse, error)
 	Synchronize(context.Context, *SynchronizeRequest) (*SynchronizeResponse, error)
-	Shutdown(context.Context, *Empty) (*Empty, error)
-	CreateContainer(context.Context, *CreateContainerRequest) (*CreateContainerResponse, error)
-	UpdateContainer(context.Context, *UpdateContainerRequest) (*UpdateContainerResponse, error)
-	StopContainer(context.Context, *StopContainerRequest) (*StopContainerResponse, error)
+	Shutdown(context.Context, *ShutdownRequest) (*ShutdownResponse, error)
+	RunPodSandbox(context.Context, *RunPodSandboxRequest) (*RunPodSandboxResponse, error)
 	UpdatePodSandbox(context.Context, *UpdatePodSandboxRequest) (*UpdatePodSandboxResponse, error)
-	StateChange(context.Context, *StateChangeEvent) (*Empty, error)
+	PostUpdatePodSandbox(context.Context, *PostUpdatePodSandboxRequest) (*PostUpdatePodSandboxResponse, error)
+	StopPodSandbox(context.Context, *StopPodSandboxRequest) (*StopPodSandboxResponse, error)
+	RemovePodSandbox(context.Context, *RemovePodSandboxRequest) (*RemovePodSandboxResponse, error)
+	CreateContainer(context.Context, *CreateContainerRequest) (*CreateContainerResponse, error)
+	PostCreateContainer(context.Context, *PostCreateContainerRequest) (*PostCreateContainerResponse, error)
+	StartContainer(context.Context, *StartContainerRequest) (*StartContainerResponse, error)
+	PostStartContainer(context.Context, *PostStartContainerRequest) (*PostStartContainerResponse, error)
+	UpdateContainer(context.Context, *UpdateContainerRequest) (*UpdateContainerResponse, error)
+	PostUpdateContainer(context.Context, *PostUpdateContainerRequest) (*PostUpdateContainerResponse, error)
+	StopContainer(context.Context, *StopContainerRequest) (*StopContainerResponse, error)
+	RemoveContainer(context.Context, *RemoveContainerRequest) (*RemoveContainerResponse, error)
 	ValidateContainerAdjustment(context.Context, *ValidateContainerAdjustmentRequest) (*ValidateContainerAdjustmentResponse, error)
 }
 
@@ -91,32 +99,18 @@ func RegisterPluginService(srv *ttrpc.Server, svc PluginService) {
 				return svc.Synchronize(ctx, &req)
 			},
 			"Shutdown": func(ctx context.Context, unmarshal func(interface{}) error) (interface{}, error) {
-				var req Empty
+				var req ShutdownRequest
 				if err := unmarshal(&req); err != nil {
 					return nil, err
 				}
 				return svc.Shutdown(ctx, &req)
 			},
-			"CreateContainer": func(ctx context.Context, unmarshal func(interface{}) error) (interface{}, error) {
-				var req CreateContainerRequest
+			"RunPodSandbox": func(ctx context.Context, unmarshal func(interface{}) error) (interface{}, error) {
+				var req RunPodSandboxRequest
 				if err := unmarshal(&req); err != nil {
 					return nil, err
 				}
-				return svc.CreateContainer(ctx, &req)
-			},
-			"UpdateContainer": func(ctx context.Context, unmarshal func(interface{}) error) (interface{}, error) {
-				var req UpdateContainerRequest
-				if err := unmarshal(&req); err != nil {
-					return nil, err
-				}
-				return svc.UpdateContainer(ctx, &req)
-			},
-			"StopContainer": func(ctx context.Context, unmarshal func(interface{}) error) (interface{}, error) {
-				var req StopContainerRequest
-				if err := unmarshal(&req); err != nil {
-					return nil, err
-				}
-				return svc.StopContainer(ctx, &req)
+				return svc.RunPodSandbox(ctx, &req)
 			},
 			"UpdatePodSandbox": func(ctx context.Context, unmarshal func(interface{}) error) (interface{}, error) {
 				var req UpdatePodSandboxRequest
@@ -125,12 +119,82 @@ func RegisterPluginService(srv *ttrpc.Server, svc PluginService) {
 				}
 				return svc.UpdatePodSandbox(ctx, &req)
 			},
-			"StateChange": func(ctx context.Context, unmarshal func(interface{}) error) (interface{}, error) {
-				var req StateChangeEvent
+			"PostUpdatePodSandbox": func(ctx context.Context, unmarshal func(interface{}) error) (interface{}, error) {
+				var req PostUpdatePodSandboxRequest
 				if err := unmarshal(&req); err != nil {
 					return nil, err
 				}
-				return svc.StateChange(ctx, &req)
+				return svc.PostUpdatePodSandbox(ctx, &req)
+			},
+			"StopPodSandbox": func(ctx context.Context, unmarshal func(interface{}) error) (interface{}, error) {
+				var req StopPodSandboxRequest
+				if err := unmarshal(&req); err != nil {
+					return nil, err
+				}
+				return svc.StopPodSandbox(ctx, &req)
+			},
+			"RemovePodSandbox": func(ctx context.Context, unmarshal func(interface{}) error) (interface{}, error) {
+				var req RemovePodSandboxRequest
+				if err := unmarshal(&req); err != nil {
+					return nil, err
+				}
+				return svc.RemovePodSandbox(ctx, &req)
+			},
+			"CreateContainer": func(ctx context.Context, unmarshal func(interface{}) error) (interface{}, error) {
+				var req CreateContainerRequest
+				if err := unmarshal(&req); err != nil {
+					return nil, err
+				}
+				return svc.CreateContainer(ctx, &req)
+			},
+			"PostCreateContainer": func(ctx context.Context, unmarshal func(interface{}) error) (interface{}, error) {
+				var req PostCreateContainerRequest
+				if err := unmarshal(&req); err != nil {
+					return nil, err
+				}
+				return svc.PostCreateContainer(ctx, &req)
+			},
+			"StartContainer": func(ctx context.Context, unmarshal func(interface{}) error) (interface{}, error) {
+				var req StartContainerRequest
+				if err := unmarshal(&req); err != nil {
+					return nil, err
+				}
+				return svc.StartContainer(ctx, &req)
+			},
+			"PostStartContainer": func(ctx context.Context, unmarshal func(interface{}) error) (interface{}, error) {
+				var req PostStartContainerRequest
+				if err := unmarshal(&req); err != nil {
+					return nil, err
+				}
+				return svc.PostStartContainer(ctx, &req)
+			},
+			"UpdateContainer": func(ctx context.Context, unmarshal func(interface{}) error) (interface{}, error) {
+				var req UpdateContainerRequest
+				if err := unmarshal(&req); err != nil {
+					return nil, err
+				}
+				return svc.UpdateContainer(ctx, &req)
+			},
+			"PostUpdateContainer": func(ctx context.Context, unmarshal func(interface{}) error) (interface{}, error) {
+				var req PostUpdateContainerRequest
+				if err := unmarshal(&req); err != nil {
+					return nil, err
+				}
+				return svc.PostUpdateContainer(ctx, &req)
+			},
+			"StopContainer": func(ctx context.Context, unmarshal func(interface{}) error) (interface{}, error) {
+				var req StopContainerRequest
+				if err := unmarshal(&req); err != nil {
+					return nil, err
+				}
+				return svc.StopContainer(ctx, &req)
+			},
+			"RemoveContainer": func(ctx context.Context, unmarshal func(interface{}) error) (interface{}, error) {
+				var req RemoveContainerRequest
+				if err := unmarshal(&req); err != nil {
+					return nil, err
+				}
+				return svc.RemoveContainer(ctx, &req)
 			},
 			"ValidateContainerAdjustment": func(ctx context.Context, unmarshal func(interface{}) error) (interface{}, error) {
 				var req ValidateContainerAdjustmentRequest
@@ -169,33 +233,17 @@ func (c *pluginClient) Synchronize(ctx context.Context, req *SynchronizeRequest)
 	return &resp, nil
 }
 
-func (c *pluginClient) Shutdown(ctx context.Context, req *Empty) (*Empty, error) {
-	var resp Empty
+func (c *pluginClient) Shutdown(ctx context.Context, req *ShutdownRequest) (*ShutdownResponse, error) {
+	var resp ShutdownResponse
 	if err := c.client.Call(ctx, "nri.pkg.api.v1beta1.Plugin", "Shutdown", req, &resp); err != nil {
 		return nil, err
 	}
 	return &resp, nil
 }
 
-func (c *pluginClient) CreateContainer(ctx context.Context, req *CreateContainerRequest) (*CreateContainerResponse, error) {
-	var resp CreateContainerResponse
-	if err := c.client.Call(ctx, "nri.pkg.api.v1beta1.Plugin", "CreateContainer", req, &resp); err != nil {
-		return nil, err
-	}
-	return &resp, nil
-}
-
-func (c *pluginClient) UpdateContainer(ctx context.Context, req *UpdateContainerRequest) (*UpdateContainerResponse, error) {
-	var resp UpdateContainerResponse
-	if err := c.client.Call(ctx, "nri.pkg.api.v1beta1.Plugin", "UpdateContainer", req, &resp); err != nil {
-		return nil, err
-	}
-	return &resp, nil
-}
-
-func (c *pluginClient) StopContainer(ctx context.Context, req *StopContainerRequest) (*StopContainerResponse, error) {
-	var resp StopContainerResponse
-	if err := c.client.Call(ctx, "nri.pkg.api.v1beta1.Plugin", "StopContainer", req, &resp); err != nil {
+func (c *pluginClient) RunPodSandbox(ctx context.Context, req *RunPodSandboxRequest) (*RunPodSandboxResponse, error) {
+	var resp RunPodSandboxResponse
+	if err := c.client.Call(ctx, "nri.pkg.api.v1beta1.Plugin", "RunPodSandbox", req, &resp); err != nil {
 		return nil, err
 	}
 	return &resp, nil
@@ -209,9 +257,89 @@ func (c *pluginClient) UpdatePodSandbox(ctx context.Context, req *UpdatePodSandb
 	return &resp, nil
 }
 
-func (c *pluginClient) StateChange(ctx context.Context, req *StateChangeEvent) (*Empty, error) {
-	var resp Empty
-	if err := c.client.Call(ctx, "nri.pkg.api.v1beta1.Plugin", "StateChange", req, &resp); err != nil {
+func (c *pluginClient) PostUpdatePodSandbox(ctx context.Context, req *PostUpdatePodSandboxRequest) (*PostUpdatePodSandboxResponse, error) {
+	var resp PostUpdatePodSandboxResponse
+	if err := c.client.Call(ctx, "nri.pkg.api.v1beta1.Plugin", "PostUpdatePodSandbox", req, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+func (c *pluginClient) StopPodSandbox(ctx context.Context, req *StopPodSandboxRequest) (*StopPodSandboxResponse, error) {
+	var resp StopPodSandboxResponse
+	if err := c.client.Call(ctx, "nri.pkg.api.v1beta1.Plugin", "StopPodSandbox", req, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+func (c *pluginClient) RemovePodSandbox(ctx context.Context, req *RemovePodSandboxRequest) (*RemovePodSandboxResponse, error) {
+	var resp RemovePodSandboxResponse
+	if err := c.client.Call(ctx, "nri.pkg.api.v1beta1.Plugin", "RemovePodSandbox", req, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+func (c *pluginClient) CreateContainer(ctx context.Context, req *CreateContainerRequest) (*CreateContainerResponse, error) {
+	var resp CreateContainerResponse
+	if err := c.client.Call(ctx, "nri.pkg.api.v1beta1.Plugin", "CreateContainer", req, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+func (c *pluginClient) PostCreateContainer(ctx context.Context, req *PostCreateContainerRequest) (*PostCreateContainerResponse, error) {
+	var resp PostCreateContainerResponse
+	if err := c.client.Call(ctx, "nri.pkg.api.v1beta1.Plugin", "PostCreateContainer", req, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+func (c *pluginClient) StartContainer(ctx context.Context, req *StartContainerRequest) (*StartContainerResponse, error) {
+	var resp StartContainerResponse
+	if err := c.client.Call(ctx, "nri.pkg.api.v1beta1.Plugin", "StartContainer", req, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+func (c *pluginClient) PostStartContainer(ctx context.Context, req *PostStartContainerRequest) (*PostStartContainerResponse, error) {
+	var resp PostStartContainerResponse
+	if err := c.client.Call(ctx, "nri.pkg.api.v1beta1.Plugin", "PostStartContainer", req, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+func (c *pluginClient) UpdateContainer(ctx context.Context, req *UpdateContainerRequest) (*UpdateContainerResponse, error) {
+	var resp UpdateContainerResponse
+	if err := c.client.Call(ctx, "nri.pkg.api.v1beta1.Plugin", "UpdateContainer", req, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+func (c *pluginClient) PostUpdateContainer(ctx context.Context, req *PostUpdateContainerRequest) (*PostUpdateContainerResponse, error) {
+	var resp PostUpdateContainerResponse
+	if err := c.client.Call(ctx, "nri.pkg.api.v1beta1.Plugin", "PostUpdateContainer", req, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+func (c *pluginClient) StopContainer(ctx context.Context, req *StopContainerRequest) (*StopContainerResponse, error) {
+	var resp StopContainerResponse
+	if err := c.client.Call(ctx, "nri.pkg.api.v1beta1.Plugin", "StopContainer", req, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+func (c *pluginClient) RemoveContainer(ctx context.Context, req *RemoveContainerRequest) (*RemoveContainerResponse, error) {
+	var resp RemoveContainerResponse
+	if err := c.client.Call(ctx, "nri.pkg.api.v1beta1.Plugin", "RemoveContainer", req, &resp); err != nil {
 		return nil, err
 	}
 	return &resp, nil
@@ -226,7 +354,7 @@ func (c *pluginClient) ValidateContainerAdjustment(ctx context.Context, req *Val
 }
 
 type HostFunctionsService interface {
-	Log(context.Context, *LogRequest) (*Empty, error)
+	Log(context.Context, *LogRequest) (*LogResponse, error)
 }
 
 func RegisterHostFunctionsService(srv *ttrpc.Server, svc HostFunctionsService) {
@@ -253,8 +381,8 @@ func NewHostFunctionsClient(client *ttrpc.Client) HostFunctionsService {
 	}
 }
 
-func (c *hostfunctionsClient) Log(ctx context.Context, req *LogRequest) (*Empty, error) {
-	var resp Empty
+func (c *hostfunctionsClient) Log(ctx context.Context, req *LogRequest) (*LogResponse, error) {
+	var resp LogResponse
 	if err := c.client.Call(ctx, "nri.pkg.api.v1beta1.HostFunctions", "Log", req, &resp); err != nil {
 		return nil, err
 	}

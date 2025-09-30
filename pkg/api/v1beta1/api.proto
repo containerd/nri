@@ -26,7 +26,7 @@ option go_package = "github.com/containerd/nri/pkg/api/v1beta1;v1beta1";
 // The rest of the API is defined by the Plugin service.
 service Runtime {
     // RegisterPlugin registers the plugin with the runtime.
-    rpc RegisterPlugin(RegisterPluginRequest) returns (Empty);
+    rpc RegisterPlugin(RegisterPluginRequest) returns (RegisterPluginResponse);
     // UpdateContainers requests unsolicited updates to a set of containers.
     rpc UpdateContainers(UpdateContainersRequest) returns (UpdateContainersResponse);
 }
@@ -37,6 +37,8 @@ message RegisterPluginRequest {
     // Plugin invocation index. Plugins are called in ascending index order.
     string plugin_idx = 2;
 }
+
+message RegisterPluginResponse {}
 
 message UpdateContainersRequest {
   // List of containers to update.
@@ -82,7 +84,22 @@ service Plugin {
   rpc Synchronize(SynchronizeRequest) returns (SynchronizeResponse);
 
   // Shutdown a plugin (let it know the runtime is going down).
-  rpc Shutdown(Empty) returns (Empty);
+  rpc Shutdown(ShutdownRequest) returns (ShutdownResponse);
+
+  // RunPodSandbox relays the corresponding request to the plugin.
+  rpc RunPodSandbox(RunPodSandboxRequest) returns (RunPodSandboxResponse);
+
+  // UpdatePodSandbox relays the corresponding request to the plugin.
+  rpc UpdatePodSandbox(UpdatePodSandboxRequest) returns (UpdatePodSandboxResponse);
+
+  // PostUpdatePodSandbox relays the corresponding request to the plugin.
+  rpc PostUpdatePodSandbox(PostUpdatePodSandboxRequest) returns (PostUpdatePodSandboxResponse);
+
+  // StopPodSandbox relays the corresponding request to the plugin.
+  rpc StopPodSandbox(StopPodSandboxRequest) returns (StopPodSandboxResponse);
+
+  // RemovePodSandbox relays the corresponding request to the plugin.
+  rpc RemovePodSandbox(RemovePodSandboxRequest) returns (RemovePodSandboxResponse);
 
   // CreateContainer relays the corresponding request to the plugin. In
   // response, the plugin can adjust the container being created, and
@@ -92,23 +109,29 @@ service Plugin {
   // assigned container resources.
   rpc CreateContainer(CreateContainerRequest) returns (CreateContainerResponse);
 
+  // PostCreateContainer relays the corresponding request to the plugin.
+  rpc PostCreateContainer(PostCreateContainerRequest) returns (PostCreateContainerResponse);
+
+  // StartContainer relays the corresponding request to the plugin.
+  rpc StartContainer(StartContainerRequest) returns (StartContainerResponse);
+
+  // PostStartContainer relays the corresponding request to the plugin.
+  rpc PostStartContainer(PostStartContainerRequest) returns (PostStartContainerResponse);
+
   // UpdateContainer relays the corresponding request to the plugin.
   // The plugin can alter how the container is updated and request updates
   // to additional containers in the runtime.
   rpc UpdateContainer(UpdateContainerRequest) returns (UpdateContainerResponse);
 
+  // PostUpdateContainer relays the corresponding request to the plugin.
+  rpc PostUpdateContainer(PostUpdateContainerRequest) returns (PostUpdateContainerResponse);
+
   // StopContainer relays the corresponding request to the plugin. The plugin
   // can update any of the remaining containers in the runtime in response.
   rpc StopContainer(StopContainerRequest) returns (StopContainerResponse);
 
-  // UpdatePodSandbox relays the corresponding request to the plugin.
-  rpc UpdatePodSandbox(UpdatePodSandboxRequest) returns (UpdatePodSandboxResponse);
-
-  // StateChange relays any remaining pod or container lifecycle/state change
-  // events the plugin has subscribed for. These can be used to trigger any
-  // plugin-specific processing which needs to occur in connection with any of
-  // these events.
-  rpc StateChange(StateChangeEvent) returns (Empty);
+  // RemoveContainer relays the corresponding request to the plugin.
+  rpc RemoveContainer(RemoveContainerRequest) returns (RemoveContainerResponse);
 
   // ValidateContainerAdjustment relays a container adjustment validation request
   // to the plugin. Container creation will fail the plugin rejects the adjustments.
@@ -118,7 +141,7 @@ service Plugin {
 // go:plugin type=host
 service HostFunctions {
   // Log displays a log message
-  rpc Log(LogRequest) returns (Empty) {}
+  rpc Log(LogRequest) returns (LogResponse);
 }
 
 message LogRequest {
@@ -133,6 +156,8 @@ message LogRequest {
   }
   Level level = 2;
 }
+
+message LogResponse {}
 
 message ConfigureRequest {
   // Any plugin-specific data, if present among the NRI configuration.
@@ -169,6 +194,52 @@ message SynchronizeResponse {
   bool more = 2;
 }
 
+message ShutdownRequest {
+  // Reason for the shutdown, if any.
+  string reason = 1;
+}
+
+message ShutdownResponse {}
+
+message RunPodSandboxRequest {
+  // Pod being started.
+  PodSandbox pod = 1;
+}
+
+message RunPodSandboxResponse {}
+
+message UpdatePodSandboxRequest {
+  // Pod being updated.
+  PodSandbox pod = 1;
+  // Overhead associated with this pod.
+  LinuxResources overhead_linux_resources = 2;
+  // Sum of container resources for this pod.
+  LinuxResources linux_resources = 3;
+}
+
+message UpdatePodSandboxResponse {}
+
+message PostUpdatePodSandboxRequest {
+  // Pod updated.
+  PodSandbox pod = 1;
+}
+
+message PostUpdatePodSandboxResponse {}
+
+message StopPodSandboxRequest {
+  // Pod being stopped.
+  PodSandbox pod = 1;
+}
+
+message StopPodSandboxResponse {}
+
+message RemovePodSandboxRequest {
+  // Pod being removed.
+  PodSandbox pod = 1;
+}
+
+message RemovePodSandboxResponse {}
+
 message CreateContainerRequest {
   // Pod of container being created.
   PodSandbox pod = 1;
@@ -184,6 +255,33 @@ message CreateContainerResponse {
   // Requested eviction of existing containers.
   repeated ContainerEviction evict = 3;
 }
+
+message PostCreateContainerRequest {
+    // Pod of container created.
+    PodSandbox pod = 1;
+    // Container created.
+    Container container = 2;
+}
+
+message PostCreateContainerResponse {}
+
+message StartContainerRequest {
+    // Pod of container being started.
+    PodSandbox pod = 1;
+    // Container being started.
+    Container container = 2;
+}
+
+message StartContainerResponse {}
+
+message PostStartContainerRequest {
+    // Pod of container started.
+    PodSandbox pod = 1;
+    // Container started.
+    Container container = 2;
+}
+
+message PostStartContainerResponse {}
 
 message UpdateContainerRequest {
   // Pod of container being updated.
@@ -201,6 +299,15 @@ message UpdateContainerResponse {
   repeated ContainerEviction evict = 2;
 }
 
+message PostUpdateContainerRequest {
+    // Pod of container updated.
+    PodSandbox pod = 1;
+    // Container updated.
+    Container container = 2;
+}
+
+message PostUpdateContainerResponse {}
+
 message StopContainerRequest {
   // Pod of container being stopped.
   PodSandbox pod = 1;
@@ -213,27 +320,14 @@ message StopContainerResponse {
   repeated ContainerUpdate update = 1;
 }
 
-message UpdatePodSandboxRequest {
-  // Pod being updated.
+message RemoveContainerRequest {
+  // Pod of container removed.
   PodSandbox pod = 1;
-  // Overhead associated with this pod.
-  LinuxResources overhead_linux_resources = 2;
-  // Sum of container resources for this pod.
-  LinuxResources linux_resources = 3;
+  // Container removed.
+  Container container = 2;
 }
 
-message UpdatePodSandboxResponse {}
-
-message StateChangeEvent {
-  // Event type of notification.
-  Event event = 1;
-  // Pod this notification is sent for. If this event is related to a container,
-  // pod is set to the pod of the container.
-  PodSandbox pod = 2;
-  // Container this notification is sent for. If the event is related to a pod,
-  // container is nil.
-  Container container = 3;
-}
+message RemoveContainerResponse {}
 
 message ValidateContainerAdjustmentRequest {
     // Pod of container being adjusted.
@@ -259,9 +353,6 @@ message ValidateContainerAdjustmentResponse {
     bool reject = 1;
     string reason = 2;
 }
-
-// Empty response for those *Requests that are semantically events.
-message Empty {}
 
 // Events that plugins can subscribe to in ConfigureResponse.
 enum Event {

@@ -20,11 +20,11 @@
 #
 set -eu -o pipefail
 
-PROTOBUF_VERSION=3.20.1
+PROTOBUF_VERSION=${PROTOBUF_VERSION-3.20.1}
 GOARCH=$(go env GOARCH)
 GOOS=$(go env GOOS)
 PROTOBUF_DIR=$(mktemp -d)
-INSTALL_DIR="$PWD/build/tools"
+INSTALL_DIR="$PWD/build/tools/protoc"
 
 mkdir -p "$INSTALL_DIR"
 

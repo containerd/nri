@@ -125,6 +125,7 @@ func (s *Suite) WaitForPluginsToSync(plugins ...*mockPlugin) {
 	for _, plugin := range plugins {
 		Expect(plugin.Wait(PluginSynchronized, timeout)).To(Succeed())
 	}
+	s.runtime.runtime.BlockPluginSync().Unblock() // ensure plugins are fully registered
 }
 
 // Cleanup the test suite.

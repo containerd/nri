@@ -45,6 +45,19 @@ func (p *pluginType) isBuiltin() bool {
 	return p.builtinImpl != nil
 }
 
+func (p *pluginType) Shutdown(ctx context.Context, req *ShutdownRequest) (*ShutdownResponse, error) {
+	switch {
+	case p.ttrpcImpl != nil:
+		return p.ttrpcImpl.Shutdown(ctx, req)
+	case p.builtinImpl != nil:
+		return p.builtinImpl.Shutdown(ctx, req)
+	case p.wasmImpl != nil:
+		return p.wasmImpl.Shutdown(ctx, req)
+	}
+
+	return nil, errUnknownImpl
+}
+
 func (p *pluginType) Synchronize(ctx context.Context, req *SynchronizeRequest) (*SynchronizeResponse, error) {
 	switch {
 	case p.ttrpcImpl != nil:

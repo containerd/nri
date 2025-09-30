@@ -22,6 +22,7 @@ import (
 	"io/fs"
 	"net"
 	"os"
+	"path"
 	"path/filepath"
 	"sort"
 	"sync"
@@ -223,6 +224,18 @@ func (r *Adaptation) Stop() {
 
 	r.stopListener()
 	r.stopPlugins()
+}
+
+// ShutdownPlugins shuts down plugins matching the given pattern with the given reason.
+func (r *Adaptation) ShutdownPlugins(reason, pattern string) {
+	r.Lock()
+	defer r.Unlock()
+
+	for _, p := range r.plugins {
+		if match, _ := path.Match(pattern, p.name()); match {
+			p.shutdown(reason)
+		}
+	}
 }
 
 // RunPodSandbox relays the corresponding CRI event to plugins.

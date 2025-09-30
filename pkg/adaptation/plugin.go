@@ -43,6 +43,16 @@ const (
 	DefaultPluginRegistrationTimeout = api.DefaultPluginRegistrationTimeout
 	// DefaultPluginRequestTimeout is the default timeout for plugins to handle a request.
 	DefaultPluginRequestTimeout = api.DefaultPluginRequestTimeout
+
+	// Give this much time for a plugin before closing due to an error. This should
+	// allow any returned error or a shutdown request to be received and processed,
+	// hopefully giving the plugins more context than just a ttrpc.ErrServerClosed.
+	shutdownDelay = 1 * time.Second
+
+	// ShutdownTtrpcProtoError is the shutdown reason for a ttrpc protocol error
+	ShutdownTtrpcProtoError = "ttrpc protocol error"
+	// ShutdownRequestTimeout is the shutdown reason for a plugin timeout
+	ShutdownRequestTimeout = "request handling timeout"
 )
 
 var (
@@ -333,37 +343,50 @@ func (p *plugin) start(name, version string) (err error) {
 		select {
 		case err = <-p.regC:
 			if err != nil {
+				p.delayedClose(shutdownDelay)
 				return fmt.Errorf("failed to register plugin: %w", err)
 			}
 		case <-p.closeC:
 			return fmt.Errorf("failed to register plugin, connection closed")
 		case <-time.After(timeout):
-			p.close()
-			p.stop()
+			p.shutdown("plugin registration timed out")
 			return errors.New("plugin registration timed out")
 		}
 	}
 
 	err = p.configure(context.Background(), name, version, p.cfg)
 	if err != nil {
-		p.close()
-		p.stop()
+		p.delayedClose(shutdownDelay)
 		return err
 	}
 
 	return nil
 }
 
+// Close a plugin after a delay. Clear the plugins event mask immediately.
+// If the plugin was launched by us, also stop it.
+func (p *plugin) delayedClose(delay time.Duration) {
+	p.Lock()
+	defer p.Unlock()
+
+	p.events = 0
+	go func() {
+		time.Sleep(delay)
+		p.close()
+		p.stop()
+	}()
+}
+
 // close a plugin shutting down its multiplexed ttrpc connections.
 func (p *plugin) close() {
-	if p.impl.isWasm() || p.impl.isBuiltin() {
-		p.closed = true
-		return
-	}
-
 	p.Lock()
 	defer p.Unlock()
 	if p.closed {
+		return
+	}
+
+	if p.impl.isWasm() || p.impl.isBuiltin() {
+		p.closed = true
 		return
 	}
 
@@ -397,6 +420,15 @@ func (p *plugin) stop() error {
 	p.cmd.Process.Release()
 
 	return nil
+}
+
+func (p *plugin) shutdown(reason string) {
+	p.delayedClose(shutdownDelay)
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), shutdownDelay)
+		defer cancel()
+		p.impl.Shutdown(ctx, &api.ShutdownRequest{Reason: reason})
+	}()
 }
 
 // Name returns a string indentication for the plugin.
@@ -434,11 +466,11 @@ func (p *plugin) RegisterPlugin(ctx context.Context, req *RegisterPluginRequest)
 	if p.isExternal() {
 		if req.PluginName == "" {
 			p.regC <- fmt.Errorf("plugin %q registered with an empty name", p.qualifiedName())
-			return &RegisterPluginResponse{}, errors.New("invalid (empty) plugin name")
+			return nil, errors.New("invalid (empty) plugin name")
 		}
 		if err := api.CheckPluginIndex(req.PluginIdx); err != nil {
 			p.regC <- fmt.Errorf("plugin %q registered with an invalid index: %w", req.PluginName, err)
-			return &RegisterPluginResponse{}, fmt.Errorf("invalid plugin index: %w", err)
+			return nil, fmt.Errorf("invalid plugin index: %w", err)
 		}
 		p.base = req.PluginName
 		p.idx = req.PluginIdx
@@ -603,10 +635,7 @@ func (p *plugin) runPodSandbox(ctx context.Context, req *RunPodSandboxRequest) (
 	defer cancel()
 
 	if _, err := p.impl.RunPodSandbox(ctx, req); err != nil {
-		if isFatalError(err) {
-			log.Errorf(ctx, "closing plugin %s, failed to handle RunPodSandbox event: %v",
-				p.name(), err)
-			p.close()
+		if p.closeIfFatalError(ctx, err, "RunPodSandbox") {
 			return nil, nil
 		}
 		return nil, err
@@ -625,10 +654,7 @@ func (p *plugin) updatePodSandbox(ctx context.Context, req *UpdatePodSandboxRequ
 	defer cancel()
 
 	if _, err := p.impl.UpdatePodSandbox(ctx, req); err != nil {
-		if isFatalError(err) {
-			log.Errorf(ctx, "closing plugin %s, failed to handle UpdatePodSandbox event: %v",
-				p.name(), err)
-			p.close()
+		if p.closeIfFatalError(ctx, err, "UpdatePodSandbox") {
 			return nil, nil
 		}
 		return nil, err
@@ -647,10 +673,7 @@ func (p *plugin) postUpdatePodSandbox(ctx context.Context, req *PostUpdatePodSan
 	defer cancel()
 
 	if _, err := p.impl.PostUpdatePodSandbox(ctx, req); err != nil {
-		if isFatalError(err) {
-			log.Errorf(ctx, "closing plugin %s, failed to handle PostUpdatePodSandbox event: %v",
-				p.name(), err)
-			p.close()
+		if p.closeIfFatalError(ctx, err, "PostUpdatePodSandbox") {
 			return nil, nil
 		}
 		return nil, err
@@ -669,10 +692,7 @@ func (p *plugin) stopPodSandbox(ctx context.Context, req *StopPodSandboxRequest)
 	defer cancel()
 
 	if _, err := p.impl.StopPodSandbox(ctx, req); err != nil {
-		if isFatalError(err) {
-			log.Errorf(ctx, "closing plugin %s, failed to handle StopPodSandbox event: %v",
-				p.name(), err)
-			p.close()
+		if p.closeIfFatalError(ctx, err, "StopPodSandbox") {
 			return nil, nil
 		}
 		return nil, err
@@ -691,10 +711,7 @@ func (p *plugin) removePodSandbox(ctx context.Context, req *RemovePodSandboxRequ
 	defer cancel()
 
 	if _, err := p.impl.RemovePodSandbox(ctx, req); err != nil {
-		if isFatalError(err) {
-			log.Errorf(ctx, "closing plugin %s, failed to handle RemovePodSandbox event: %v",
-				p.name(), err)
-			p.close()
+		if p.closeIfFatalError(ctx, err, "RemovePodSandbox") {
 			return nil, nil
 		}
 		return nil, err
@@ -714,10 +731,7 @@ func (p *plugin) createContainer(ctx context.Context, req *CreateContainerReques
 
 	rpl, err := p.impl.CreateContainer(ctx, req)
 	if err != nil {
-		if isFatalError(err) {
-			log.Errorf(ctx, "closing plugin %s, failed to handle CreateContainer request: %v",
-				p.name(), err)
-			p.close()
+		if p.closeIfFatalError(ctx, err, "CreateContainer") {
 			return nil, nil
 		}
 		return nil, err
@@ -736,10 +750,7 @@ func (p *plugin) postCreateContainer(ctx context.Context, req *PostCreateContain
 	defer cancel()
 
 	if _, err := p.impl.PostCreateContainer(ctx, req); err != nil {
-		if isFatalError(err) {
-			log.Errorf(ctx, "closing plugin %s, failed to handle PostCreateContainer event: %v",
-				p.name(), err)
-			p.close()
+		if p.closeIfFatalError(ctx, err, "PostCreateContainer") {
 			return nil, nil
 		}
 		return nil, err
@@ -758,10 +769,7 @@ func (p *plugin) startContainer(ctx context.Context, req *StartContainerRequest)
 	defer cancel()
 
 	if _, err := p.impl.StartContainer(ctx, req); err != nil {
-		if isFatalError(err) {
-			log.Errorf(ctx, "closing plugin %s, failed to handle StartContainer event: %v",
-				p.name(), err)
-			p.close()
+		if p.closeIfFatalError(ctx, err, "StartContainer") {
 			return nil, nil
 		}
 		return nil, err
@@ -780,10 +788,7 @@ func (p *plugin) postStartContainer(ctx context.Context, req *PostStartContainer
 	defer cancel()
 
 	if _, err := p.impl.PostStartContainer(ctx, req); err != nil {
-		if isFatalError(err) {
-			log.Errorf(ctx, "closing plugin %s, failed to handle PostStartContainer event: %v",
-				p.name(), err)
-			p.close()
+		if p.closeIfFatalError(ctx, err, "StartContainer") {
 			return nil, nil
 		}
 		return nil, err
@@ -803,10 +808,7 @@ func (p *plugin) updateContainer(ctx context.Context, req *UpdateContainerReques
 
 	rpl, err := p.impl.UpdateContainer(ctx, req)
 	if err != nil {
-		if isFatalError(err) {
-			log.Errorf(ctx, "closing plugin %s, failed to handle UpdateContainer request: %v",
-				p.name(), err)
-			p.close()
+		if p.closeIfFatalError(ctx, err, "UpdateContainer") {
 			return nil, nil
 		}
 		return nil, err
@@ -825,10 +827,7 @@ func (p *plugin) postUpdateContainer(ctx context.Context, req *PostUpdateContain
 	defer cancel()
 
 	if _, err := p.impl.PostUpdateContainer(ctx, req); err != nil {
-		if isFatalError(err) {
-			log.Errorf(ctx, "closing plugin %s, failed to handle PostUpdateContainer event: %v",
-				p.name(), err)
-			p.close()
+		if p.closeIfFatalError(ctx, err, "PostUpdateContainer") {
 			return nil, nil
 		}
 		return nil, err
@@ -848,10 +847,7 @@ func (p *plugin) stopContainer(ctx context.Context, req *StopContainerRequest) (
 
 	rpl, err = p.impl.StopContainer(ctx, req)
 	if err != nil {
-		if isFatalError(err) {
-			log.Errorf(ctx, "closing plugin %s, failed to handle StopContainer request: %v",
-				p.name(), err)
-			p.close()
+		if p.closeIfFatalError(ctx, err, "StopContainer") {
 			return nil, nil
 		}
 		return nil, err
@@ -870,10 +866,7 @@ func (p *plugin) removeContainer(ctx context.Context, req *RemoveContainerReques
 	defer cancel()
 
 	if _, err := p.impl.RemoveContainer(ctx, req); err != nil {
-		if isFatalError(err) {
-			log.Errorf(ctx, "closing plugin %s, failed to handle RemoveContainer event: %v",
-				p.name(), err)
-			p.close()
+		if p.closeIfFatalError(ctx, err, "RemoveContainer") {
 			return nil, nil
 		}
 		return nil, err
@@ -892,29 +885,44 @@ func (p *plugin) ValidateContainerAdjustment(ctx context.Context, req *ValidateC
 
 	rpl, err := p.impl.ValidateContainerAdjustment(ctx, req)
 	if err != nil {
-		if isFatalError(err) {
-			log.Errorf(ctx, "closing plugin %s, failed to validate request: %v", p.name(), err)
-			p.close()
-		}
+		p.closeIfFatalError(ctx, err, "validation request")
 		return fmt.Errorf("validator plugin %s failed: %v", p.name(), err)
 	}
 
 	return rpl.ValidationResult(p.name())
 }
 
-// isFatalError returns true if the error is fatal and the plugin connection should be closed.
-func isFatalError(err error) bool {
+func (p *plugin) closeIfFatalError(ctx context.Context, err error, what string) bool {
+	fatal, reason := isFatalError(err)
+	if !fatal {
+		return false
+	}
+
+	if reason != "" {
+		log.Errorf(ctx, "shutting down plugin %s, failed to handle %s: %v", what, p.name(), err)
+		p.shutdown(reason)
+	} else {
+		log.Errorf(ctx, "closing plugin %s, failed to handle %s: %v", what, p.name(), err)
+		p.delayedClose(shutdownDelay)
+	}
+
+	return true
+}
+
+// isFatalError returns true if the error is fatal and the plugin connection should be closed
+// or shutdown with a given reason string.
+func isFatalError(err error) (bool, string) {
 	switch {
 	case errors.Is(err, ttrpc.ErrClosed):
-		return true
+		return true, ""
 	case errors.Is(err, ttrpc.ErrServerClosed):
-		return true
+		return true, ""
 	case errors.Is(err, ttrpc.ErrProtocol):
-		return true
+		return true, ShutdownTtrpcProtoError
 	case errors.Is(err, context.DeadlineExceeded):
-		return true
+		return true, ShutdownRequestTimeout
 	}
-	return false
+	return false, ""
 }
 
 // wasmHostFunctions implements the webassembly host functions

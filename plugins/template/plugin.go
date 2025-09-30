@@ -66,8 +66,9 @@ func (p *plugin) Synchronize(_ context.Context, pods []*api.PodSandbox, containe
 	return nil, nil
 }
 
-func (p *plugin) Shutdown(_ context.Context) {
-	log.Info("Runtime shutting down...")
+func (p *plugin) Shutdown(_ context.Context, reason string) {
+	log.Infof("Shutdown with reason %q", reason)
+	os.Exit(0)
 }
 
 func (p *plugin) RunPodSandbox(_ context.Context, pod *api.PodSandbox) error {

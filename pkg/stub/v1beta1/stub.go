@@ -60,7 +60,7 @@ type SynchronizeInterface interface {
 // ShutdownInterface handles a Shutdown API request.
 type ShutdownInterface interface {
 	// Shutdown notifies the plugin about the runtime shutting down.
-	Shutdown(context.Context)
+	Shutdown(context.Context, string)
 }
 
 // RunPodInterface handles RunPodSandbox API events.
@@ -301,7 +301,7 @@ type stub struct {
 type handlers struct {
 	Configure                   func(context.Context, string, string, string) (api.EventMask, error)
 	Synchronize                 func(context.Context, []*api.PodSandbox, []*api.Container) ([]*api.ContainerUpdate, error)
-	Shutdown                    func(context.Context)
+	Shutdown                    func(context.Context, string)
 	RunPodSandbox               func(context.Context, *api.PodSandbox) error
 	UpdatePodSandbox            func(context.Context, *api.PodSandbox, *api.LinuxResources, *api.LinuxResources) error
 	PostUpdatePodSandbox        func(context.Context, *api.PodSandbox) error
@@ -713,11 +713,13 @@ func (stub *stub) deliverSync(ctx context.Context, req *api.SynchronizeRequest) 
 }
 
 // Shutdown the plugin.
-func (stub *stub) Shutdown(ctx context.Context, _ *api.ShutdownRequest) (*api.ShutdownResponse, error) {
-	handler := stub.handlers.Shutdown
-	if handler != nil {
-		handler(ctx)
+func (stub *stub) Shutdown(ctx context.Context, req *api.ShutdownRequest) (*api.ShutdownResponse, error) {
+	log.Infof(ctx, "shut down by runtime, with reason %q", req.Reason)
+
+	if stub.handlers.Shutdown != nil {
+		stub.handlers.Shutdown(ctx, req.Reason)
 	}
+
 	return &api.ShutdownResponse{}, nil
 }
 

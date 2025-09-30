@@ -128,6 +128,11 @@ func (s *Suite) WaitForPluginsToSync(plugins ...*mockPlugin) {
 	s.runtime.runtime.BlockPluginSync().Unblock() // ensure plugins are fully registered
 }
 
+// ShutdownPlugin shuts down the given plugin.
+func (s *Suite) ShutdownPlugin(plugin *mockPlugin, reason string) {
+	s.runtime.ShutdownPlugins(reason, plugin.FullName())
+}
+
 // Cleanup the test suite.
 func (s *Suite) Cleanup() {
 	s.runtime.Stop()
@@ -200,6 +205,12 @@ func (m *mockRuntime) Stop() {
 	if m.runtime != nil {
 		m.runtime.Stop()
 		m.runtime = nil
+	}
+}
+
+func (m *mockRuntime) ShutdownPlugins(reason, pattern string) {
+	if m.runtime != nil {
+		m.runtime.ShutdownPlugins(reason, pattern)
 	}
 }
 
@@ -395,6 +406,7 @@ type mockPlugin struct {
 }
 
 var (
+	_ = stub.ShutdownInterface(&mockPlugin{})
 	_ = stub.ConfigureInterface(&mockPlugin{})
 	_ = stub.SynchronizeInterface(&mockPlugin{})
 	_ = stub.RunPodInterface(&mockPlugin{})
@@ -586,8 +598,8 @@ func (m *mockPlugin) Synchronize(_ context.Context, pods []*api.PodSandbox, ctrs
 	return nil, nil
 }
 
-func (m *mockPlugin) Shutdown(_ context.Context) {
-	m.q.Add(PluginShutdown)
+func (m *mockPlugin) Shutdown(_ context.Context, reason string) {
+	m.q.Add(PluginShutdownWithReason(reason))
 }
 
 func (m *mockPlugin) RunPodSandbox(_ context.Context, pod *api.PodSandbox) error {
@@ -753,9 +765,10 @@ const (
 )
 
 type Event struct {
-	Type EventType
-	Pod  *api.PodSandbox
-	Ctr  *api.Container
+	Type   EventType
+	Pod    *api.PodSandbox
+	Ctr    *api.Container
+	Reason string
 }
 
 var (
@@ -772,6 +785,9 @@ var (
 	}
 	ContainerEvent = func(ctr *api.Container, t EventType) *Event {
 		return &Event{Type: t, Ctr: ctr}
+	}
+	PluginShutdownWithReason = func(reason string) *Event {
+		return &Event{Type: Shutdown, Reason: reason}
 	}
 )
 
@@ -868,6 +884,10 @@ func (q *EventQ) Wait(w *Event, deadline <-chan time.Time) (*Event, error) {
 	}
 	q.c = make(chan *Event, 16)
 	defer func() {
+		if unlocked {
+			q.Lock()
+			unlocked = false
+		}
 		c := q.c
 		q.c = nil
 		close(c)

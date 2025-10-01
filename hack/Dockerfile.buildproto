@@ -23,12 +23,9 @@ WORKDIR /go/src
 RUN apt-get update && apt-get install -y unzip
 
 RUN --mount=type=cache,target=/go/pkg/mod/ \
-    --mount=src=.,target=. \
-    make install-protoc-dependencies install-ttrpc-plugin install-wasm-plugin install-protoc
-
-RUN --mount=type=cache,target=/go/pkg/mod/ \
+    --mount=type=cache,target=/go/tools/,sharing=private \
     --mount=src=.,target=.,rw=true \
-    make build-proto && \
+    make build-proto PROTOC_PATH=/go/tools/protoc && \
     tar czf /artifacts.tgz ${ARTIFACTS}
 
 FROM scratch AS final

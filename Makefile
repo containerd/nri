@@ -193,7 +193,7 @@ check-protoc:
 	fi
 
 install-protoc install-protobuf:
-	$(Q)PROTOBUF_VERSION=$(PROTOBUF_VERSION) ./scripts/install-protobuf
+	$(Q)PROTOBUF_VERSION=$(PROTOBUF_VERSION) INSTALL_DIR=$(PROTOC_PATH) ./scripts/install-protobuf
 
 clean-protoc:
 	$(Q)rm -rf $(PROTOC_PATH)

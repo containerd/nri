@@ -310,6 +310,12 @@ func (a *ContainerAdjustment) SetLinuxSeccompPolicy(seccomp *LinuxSeccomp) {
 	a.Linux.SeccompPolicy = seccomp
 }
 
+// SetLinuxScheduler records setting the Linux scheduler attributes for a container.
+func (a *ContainerAdjustment) SetLinuxScheduler(sch *LinuxScheduler) {
+	a.initLinux()
+	a.Linux.Scheduler = sch
+}
+
 //
 // Initializing a container adjustment and container update.
 //

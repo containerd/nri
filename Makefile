@@ -190,11 +190,17 @@ validate-repo-no-changes:
 # golang generation targets
 #
 
-generate-golang: pkg/api/api-v1alpha1.go pkg/api/api-v1alpha1-wasm.go
+generate-golang: \
+	pkg/api/api-v1alpha1.go pkg/api/api-v1alpha1-wasm.go \
+	pkg/stub/stub-v1alpha1.go
 
 pkg/api/api-v1alpha1.go pkg/api/api-v1alpha1-wasm.go: pkg/api/v1alpha1/api.proto pkg/api/doc.go
 	$(Q)echo "Regenerating $@..."; \
 	$(GO_CMD) generate ./pkg/api
+
+pkg/stub/stub-v1alpha1.go: pkg/stub/doc.go
+	$(Q)echo "Regenerating $@..."; \
+	$(GO_CMD) generate ./pkg/stub
 
 #
 # targets for installing dependencies

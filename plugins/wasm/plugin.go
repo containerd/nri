@@ -24,9 +24,11 @@ import (
 
 type plugin struct{}
 
-func main() {
+func init() {
 	api.RegisterPlugin(&plugin{})
 }
+
+func main() {}
 
 func log(ctx context.Context, msg string) {
 	api.NewHostFunctions().Log(ctx, &api.LogRequest{

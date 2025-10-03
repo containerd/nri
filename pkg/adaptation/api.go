@@ -17,7 +17,7 @@
 package adaptation
 
 import (
-	"github.com/containerd/nri/pkg/api"
+	api "github.com/containerd/nri/pkg/api/v1beta1"
 )
 
 //
@@ -29,7 +29,7 @@ import (
 //nolint:revive // revive thinks the comment is for the exported type below
 type (
 	RegisterPluginRequest    = api.RegisterPluginRequest
-	RegisterPluginResponse   = api.Empty
+	RegisterPluginResponse   = api.RegisterPluginResponse
 	UpdateContainersRequest  = api.UpdateContainersRequest
 	UpdateContainersResponse = api.UpdateContainersResponse
 
@@ -38,35 +38,36 @@ type (
 	SynchronizeRequest  = api.SynchronizeRequest
 	SynchronizeResponse = api.SynchronizeResponse
 
-	ShutdownRequest  = api.Empty
-	ShutdownResponse = api.Empty
+	ShutdownRequest  = api.ShutdownRequest
+	ShutdownResponse = api.ShutdownResponse
 
-	CreateContainerRequest  = api.CreateContainerRequest
-	CreateContainerResponse = api.CreateContainerResponse
-	UpdateContainerRequest  = api.UpdateContainerRequest
-	UpdateContainerResponse = api.UpdateContainerResponse
-	StopContainerRequest    = api.StopContainerRequest
-	StopContainerResponse   = api.StopContainerResponse
-
-	StateChangeEvent             = api.StateChangeEvent
-	StateChangeResponse          = api.StateChangeResponse
 	RunPodSandboxRequest         = api.RunPodSandboxRequest
+	RunPodSandboxResponse        = api.RunPodSandboxResponse
 	UpdatePodSandboxRequest      = api.UpdatePodSandboxRequest
 	UpdatePodSandboxResponse     = api.UpdatePodSandboxResponse
-	StopPodSandboxRequest        = api.StopPodSandboxRequest
-	RemovePodSandboxRequest      = api.RemovePodSandboxRequest
 	PostUpdatePodSandboxRequest  = api.PostUpdatePodSandboxRequest
 	PostUpdatePodSandboxResponse = api.PostUpdatePodSandboxResponse
-	StartContainerRequest        = api.StartContainerRequest
-	StartContainerResponse       = api.StartContainerResponse
-	RemoveContainerRequest       = api.RemoveContainerRequest
-	RemoveContainerResponse      = api.RemoveContainerResponse
-	PostCreateContainerRequest   = api.PostCreateContainerRequest
-	PostCreateContainerResponse  = api.PostCreateContainerResponse
-	PostStartContainerRequest    = api.PostStartContainerRequest
-	PostStartContainerResponse   = api.PostStartContainerResponse
-	PostUpdateContainerRequest   = api.PostUpdateContainerRequest
-	PostUpdateContainerResponse  = api.PostUpdateContainerResponse
+	StopPodSandboxRequest        = api.StopPodSandboxRequest
+	StopPodSandboxResponse       = api.StopPodSandboxResponse
+	RemovePodSandboxRequest      = api.RemovePodSandboxRequest
+	RemovePodSandboxResponse     = api.RemovePodSandboxResponse
+
+	CreateContainerRequest      = api.CreateContainerRequest
+	CreateContainerResponse     = api.CreateContainerResponse
+	PostCreateContainerRequest  = api.PostCreateContainerRequest
+	PostCreateContainerResponse = api.PostCreateContainerResponse
+	StartContainerRequest       = api.StartContainerRequest
+	StartContainerResponse      = api.StartContainerResponse
+	PostStartContainerRequest   = api.PostStartContainerRequest
+	PostStartContainerResponse  = api.PostStartContainerResponse
+	UpdateContainerRequest      = api.UpdateContainerRequest
+	UpdateContainerResponse     = api.UpdateContainerResponse
+	PostUpdateContainerRequest  = api.PostUpdateContainerRequest
+	PostUpdateContainerResponse = api.PostUpdateContainerResponse
+	StopContainerRequest        = api.StopContainerRequest
+	StopContainerResponse       = api.StopContainerResponse
+	RemoveContainerRequest      = api.RemoveContainerRequest
+	RemoveContainerResponse     = api.RemoveContainerResponse
 
 	ValidateContainerAdjustmentRequest  = api.ValidateContainerAdjustmentRequest
 	ValidateContainerAdjustmentResponse = api.ValidateContainerAdjustmentResponse

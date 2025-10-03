@@ -14,4 +14,7 @@
    limitations under the License.
 */
 
+//go:generate go build -C ../../hack/gen-pkg-alias
+//go:generate ../../hack/gen-pkg-alias/gen-pkg-alias -src ../../pkg/api/v1alpha1 -dst ../../pkg/api -rm -out api-v1alpha1.go -b !wasip1 -l ../../hack/license-header
+//go:generate env GOOS=wasip1 GOARCH=wasm ../../hack/gen-pkg-alias/gen-pkg-alias -src ../../pkg/api/v1alpha1 -dst ../../pkg/api -rm -out api-v1alpha1-wasm.go -b wasip1 -l ../../hack/license-header
 package api

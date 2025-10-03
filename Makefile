@@ -73,6 +73,8 @@ allclean: clean clean-cache
 
 test: test-gopkgs
 
+generate: generate-golang
+
 FORCE:
 
 #
@@ -80,10 +82,15 @@ FORCE:
 #
 
 build-proto: check-protoc install-ttrpc-plugin install-wasm-plugin install-protoc-dependencies
-	for src in $(PROTO_SOURCES); do \
-		$(PROTO_COMPILE) $$src; \
+	$(Q)for src in $(PROTO_SOURCES); do \
+		echo "Proto-compiling $$src..."; \
+		$(PROTO_COMPILE) $$src || exit 1; \
+		ttrpc=$$(dirname $$src)/api_ttrpc.pb.go && \
+		if [ -f "$$ttrpc" ]; then \
+			echo "Patching $$ttrpc..."; \
+			sed -i '1s;^;//go:build !wasip1\n\n;' $$ttrpc; \
+		fi; \
 	done
-	sed -i '1s;^;//go:build !wasip1\n\n;' pkg/api/api_ttrpc.pb.go
 
 .PHONY: build-proto-dockerized
 build-proto-dockerized:
@@ -178,6 +185,22 @@ validate-repo-no-changes:
 		echo "Please make sure to commit all changes, including generated files."; \
 		exit 1; \
 	}
+
+#
+# golang generation targets
+#
+
+generate-golang: \
+	pkg/api/api-v1alpha1.go pkg/api/api-v1alpha1-wasm.go \
+	pkg/stub/stub-v1alpha1.go
+
+pkg/api/api-v1alpha1.go pkg/api/api-v1alpha1-wasm.go: pkg/api/v1alpha1/api.proto pkg/api/doc.go
+	$(Q)echo "Regenerating $@..."; \
+	$(GO_CMD) generate ./pkg/api
+
+pkg/stub/stub-v1alpha1.go: pkg/stub/doc.go
+	$(Q)echo "Regenerating $@..."; \
+	$(GO_CMD) generate ./pkg/stub
 
 #
 # targets for installing dependencies

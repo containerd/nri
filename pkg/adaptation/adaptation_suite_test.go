@@ -35,7 +35,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	nri "github.com/containerd/nri/pkg/adaptation"
-	"github.com/containerd/nri/pkg/api"
+	api "github.com/containerd/nri/pkg/api/v1beta1"
 	"github.com/containerd/nri/pkg/plugin"
 	validator "github.com/containerd/nri/plugins/default-validator/builtin"
 	rspec "github.com/opencontainers/runtime-spec/specs-go"
@@ -3186,6 +3186,62 @@ var _ = Describe("Plugin configuration request", func() {
 			Expect(s.plugins[0].stub.RequestTimeout()).To(Equal(requestTimeout))
 		})
 	})
+})
+
+var _ = Describe("Plugin shutdown request", func() {
+	var (
+		s = &Suite{}
+	)
+
+	AfterEach(func() {
+		s.Cleanup()
+	})
+
+	BeforeEach(func() {
+		s.Prepare(&mockRuntime{}, &mockPlugin{idx: "00", name: "test"})
+	})
+
+	It("should be able to shut down plugins with a reason", func() {
+		var (
+			reason  = "test-shutdown-reason"
+			timeout = 2 * time.Second
+		)
+
+		s.Startup()
+
+		s.ShutdownPlugin(s.plugins[0], reason)
+		e, err := s.plugins[0].EventQ().Wait(PluginShutdown, time.After(timeout))
+		Expect(err).To(BeNil())
+		Expect(e.Reason).To(Equal(reason))
+	})
+
+	It("plugin that times out should be shut down with a reason", func() {
+		var (
+			reason  = nri.ShutdownRequestTimeout
+			timeout = 2 * time.Second
+		)
+
+		pod := &api.PodSandbox{
+			Id:        "pod0",
+			Name:      "pod0",
+			Uid:       "uid0",
+			Namespace: "default",
+		}
+		podReq := &api.RunPodSandboxRequest{Pod: pod}
+
+		s.plugins[0].runPodSandbox = func(_ *mockPlugin, _ *api.PodSandbox) error {
+			time.Sleep(3 * time.Second)
+			return nil
+		}
+
+		s.Startup()
+		Expect(s.runtime.RunPodSandbox(context.Background(), podReq)).To(Succeed())
+
+		e, err := s.plugins[0].EventQ().Wait(PluginShutdown, time.After(timeout))
+		Expect(err).To(BeNil())
+		Expect(e.Reason).To(Equal(reason))
+	})
+
 })
 
 func protoDiff(a, b proto.Message) string {

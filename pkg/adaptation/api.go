@@ -92,6 +92,9 @@ type (
 	LinuxDeviceCgroup        = api.LinuxDeviceCgroup
 	LinuxIOPriority          = api.LinuxIOPriority
 	LinuxSeccomp             = api.LinuxSeccomp
+	LinuxScheduler           = api.LinuxScheduler
+	LinuxSchedulerPolicy     = api.LinuxSchedulerPolicy
+	LinuxSchedulerFlag       = api.LinuxSchedulerFlag
 	CDIDevice                = api.CDIDevice
 	HugepageLimit            = api.HugepageLimit
 	Hooks                    = api.Hooks

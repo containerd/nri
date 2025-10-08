@@ -584,6 +584,12 @@ func (stub *stub) register(ctx context.Context) error {
 
 // Handle a lost connection.
 func (stub *stub) connClosed() {
+	select {
+	// if our connection gets closed before we get Configure()'d, let Start() know
+	case stub.cfgErrC <- ttrpc.ErrClosed:
+	default:
+	}
+
 	stub.Lock()
 	stub.close()
 	stub.Unlock()
@@ -628,7 +634,10 @@ func (stub *stub) Configure(ctx context.Context, req *api.ConfigureRequest) (rpl
 	stub.requestTimeout = time.Duration(req.RequestTimeout * int64(time.Millisecond))
 
 	defer func() {
-		stub.cfgErrC <- retErr
+		select {
+		case stub.cfgErrC <- retErr:
+		default:
+		}
 	}()
 
 	if handler := stub.handlers.Configure; handler == nil {

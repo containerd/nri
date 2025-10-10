@@ -325,11 +325,6 @@ func (p *plugin) start(name, version string) (err error) {
 	// skip start for WASM and builtin plugins and head right to the registration for
 	// events config
 	if p.impl.isTtrpc() {
-		var (
-			err     error
-			timeout = getPluginRegistrationTimeout()
-		)
-
 		go func() {
 			err := p.rpcs.Serve(context.Background(), p.rpcl)
 			if err != ttrpc.ErrServerClosed {
@@ -341,21 +336,22 @@ func (p *plugin) start(name, version string) (err error) {
 		p.mux.Unblock()
 
 		select {
-		case err = <-p.regC:
+		case err := <-p.regC:
 			if err != nil {
 				p.delayedClose(shutdownDelay)
 				return fmt.Errorf("failed to register plugin: %w", err)
 			}
 		case <-p.closeC:
 			return fmt.Errorf("failed to register plugin, connection closed")
-		case <-time.After(timeout):
+		case <-time.After(getPluginRegistrationTimeout()):
 			p.shutdown("plugin registration timed out")
 			return errors.New("plugin registration timed out")
 		}
 	}
 
-	err = p.configure(context.Background(), name, version, p.cfg)
-	if err != nil {
+	ctx, cancel := context.WithTimeout(context.Background(), getPluginRequestTimeout())
+	defer cancel()
+	if err := p.configure(ctx, name, version, p.cfg); err != nil {
 		p.delayedClose(shutdownDelay)
 		return err
 	}

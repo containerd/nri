@@ -5,7 +5,7 @@ go 1.24.0
 require (
 	github.com/containerd/cgroups v1.0.3
 	github.com/containerd/nri v0.1.0
-	github.com/opencontainers/runtime-spec v1.1.0
+	github.com/opencontainers/runtime-spec v1.2.2-0.20250401095657-e935f995dd67
 	github.com/sirupsen/logrus v1.9.3
 )
 

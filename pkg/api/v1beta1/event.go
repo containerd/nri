@@ -29,6 +29,11 @@ const (
 // EventMask corresponds to a set of enumerated Events.
 type EventMask int32
 
+// Mask returns the EventMask for the given Event.
+func (e Event) Mask() EventMask {
+	return EventMask(1 << (e - 1))
+}
+
 // ParseEventMask parses a string representation into an EventMask.
 func ParseEventMask(events ...string) (EventMask, error) {
 	var mask EventMask
@@ -133,7 +138,7 @@ func (m *EventMask) PrettyString() string {
 // Set sets the given Events in the mask.
 func (m *EventMask) Set(events ...Event) *EventMask {
 	for _, e := range events {
-		*m |= (1 << (e - 1))
+		*m |= e.Mask()
 	}
 	return m
 }
@@ -141,12 +146,12 @@ func (m *EventMask) Set(events ...Event) *EventMask {
 // Clear clears the given Events in the mask.
 func (m *EventMask) Clear(events ...Event) *EventMask {
 	for _, e := range events {
-		*m &^= (1 << (e - 1))
+		*m &^= e.Mask()
 	}
 	return m
 }
 
 // IsSet check if the given Event is set in the mask.
 func (m *EventMask) IsSet(e Event) bool {
-	return *m&(1<<(e-1)) != 0
+	return *m&(e.Mask()) != 0
 }

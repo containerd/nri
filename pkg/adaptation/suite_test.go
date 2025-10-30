@@ -247,8 +247,8 @@ type MarkerEvent struct {
 }
 
 var (
-	EndMarker = NewMarkerEvent("end")
-	UntilEnd  = EndMarker
+	EndMarker      = NewMarkerEvent("end")
+	UntilEndMarker = EndMarker
 )
 
 func UntilMarker(marker string) *MarkerEvent {

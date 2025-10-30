@@ -330,7 +330,7 @@ func TestPluginConfiguration(t *testing.T) {
 				EventOccurred(
 					tc.expect,
 				),
-				UntilEnd,
+				UntilEndMarker,
 			)
 			require.True(t, occurred, "plugin configured as expected")
 		})
@@ -870,7 +870,7 @@ func TestEventSubscription(t *testing.T) {
 					for _, expected := range tc.expect {
 						_, occurred := evt.Search(
 							EventOccurred(expected),
-							UntilEnd,
+							UntilEndMarker,
 						)
 						require.True(t, occurred, "expected event %s occurred", expected)
 					}
@@ -878,7 +878,7 @@ func TestEventSubscription(t *testing.T) {
 					for _, rejected := range tc.reject {
 						_, occurred := evt.Search(
 							EventOccurred(rejected),
-							UntilEnd,
+							UntilEndMarker,
 						)
 						require.False(t, occurred, "unexpected event %s occurred", rejected)
 					}

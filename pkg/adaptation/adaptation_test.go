@@ -3388,6 +3388,42 @@ func TestContainerAdjustmentValidation(t *testing.T) {
 	}
 }
 
+func TestPluginInstanceUpdate(t *testing.T) {
+	var (
+		sut *Suite
+		evt *EventCollector
+		tc  = &testbase{
+			plugins: map[string][]PluginOption{
+				"00-test": {},
+			},
+		}
+	)
+
+	sut, evt = tc.Setup(t)
+	sut.Start(WithWaitForPluginsToStart())
+
+	p := NewPlugin(t, sut.Dir(), evt.Channel(),
+		WithPluginIndex("00"),
+		WithPluginName("test"),
+	)
+
+	p.Start()
+	_, started := evt.Search(
+		EventOccurred(PluginSynchronized(p.ID(), nil, nil)),
+		UntilTimeout(1*time.Second),
+	)
+	require.True(t, started, "start new plugin instance")
+
+	_, shutdown := evt.Search(
+		EventOccurred(PluginShutdown("00-test", api.ShutdownByOtherInstance)),
+		UntilTimeout(1*time.Second),
+	)
+	require.True(t, shutdown, "old instance shut down by new instance")
+
+	sut.Stop()
+	evt.Stop()
+}
+
 func protoDiff(a, b proto.Message) string {
 	return cmp.Diff(a, b, protocmp.Transform())
 }

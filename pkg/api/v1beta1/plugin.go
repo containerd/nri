@@ -30,6 +30,10 @@ const (
 	PluginNameEnvVar = "NRI_PLUGIN_NAME"
 	// PluginIdxEnvVar is used to inform NRI-launched plugins about their ID.
 	PluginIdxEnvVar = "NRI_PLUGIN_IDX"
+
+	// ShutdownByOtherInstance indicates that the plugin was shut down because
+	// another instance of the same plugin was registered.
+	ShutdownByOtherInstance = "other plugin instance registered"
 )
 
 // ParsePluginName parses the (file)name of a plugin into an index and a base.

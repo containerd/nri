@@ -242,7 +242,7 @@ func (r *Adaptation) ShutdownPlugins(reason, pattern string) {
 func (r *Adaptation) RunPodSandbox(ctx context.Context, req *RunPodSandboxRequest) error {
 	r.Lock()
 	defer r.Unlock()
-	defer r.removeClosedPlugins()
+	defer r.removeClosedPlugins(nil)
 
 	for _, plugin := range r.plugins {
 		_, err := plugin.runPodSandbox(ctx, req)
@@ -258,7 +258,7 @@ func (r *Adaptation) RunPodSandbox(ctx context.Context, req *RunPodSandboxReques
 func (r *Adaptation) UpdatePodSandbox(ctx context.Context, req *UpdatePodSandboxRequest) (*UpdatePodSandboxResponse, error) {
 	r.Lock()
 	defer r.Unlock()
-	defer r.removeClosedPlugins()
+	defer r.removeClosedPlugins(nil)
 
 	for _, plugin := range r.plugins {
 		_, err := plugin.updatePodSandbox(ctx, req)
@@ -274,7 +274,7 @@ func (r *Adaptation) UpdatePodSandbox(ctx context.Context, req *UpdatePodSandbox
 func (r *Adaptation) PostUpdatePodSandbox(ctx context.Context, req *PostUpdatePodSandboxRequest) error {
 	r.Lock()
 	defer r.Unlock()
-	defer r.removeClosedPlugins()
+	defer r.removeClosedPlugins(nil)
 
 	for _, plugin := range r.plugins {
 		_, err := plugin.postUpdatePodSandbox(ctx, req)
@@ -290,7 +290,7 @@ func (r *Adaptation) PostUpdatePodSandbox(ctx context.Context, req *PostUpdatePo
 func (r *Adaptation) StopPodSandbox(ctx context.Context, req *StopPodSandboxRequest) error {
 	r.Lock()
 	defer r.Unlock()
-	defer r.removeClosedPlugins()
+	defer r.removeClosedPlugins(nil)
 
 	for _, plugin := range r.plugins {
 		_, err := plugin.stopPodSandbox(ctx, req)
@@ -306,7 +306,7 @@ func (r *Adaptation) StopPodSandbox(ctx context.Context, req *StopPodSandboxRequ
 func (r *Adaptation) RemovePodSandbox(ctx context.Context, req *RemovePodSandboxRequest) error {
 	r.Lock()
 	defer r.Unlock()
-	defer r.removeClosedPlugins()
+	defer r.removeClosedPlugins(nil)
 
 	for _, plugin := range r.plugins {
 		_, err := plugin.removePodSandbox(ctx, req)
@@ -322,7 +322,7 @@ func (r *Adaptation) RemovePodSandbox(ctx context.Context, req *RemovePodSandbox
 func (r *Adaptation) CreateContainer(ctx context.Context, req *CreateContainerRequest) (*CreateContainerResponse, error) {
 	r.Lock()
 	defer r.Unlock()
-	defer r.removeClosedPlugins()
+	defer r.removeClosedPlugins(nil)
 
 	var (
 		result   = collectCreateContainerResult(req)
@@ -357,7 +357,7 @@ func (r *Adaptation) CreateContainer(ctx context.Context, req *CreateContainerRe
 func (r *Adaptation) PostCreateContainer(ctx context.Context, req *PostCreateContainerRequest) error {
 	r.Lock()
 	defer r.Unlock()
-	defer r.removeClosedPlugins()
+	defer r.removeClosedPlugins(nil)
 
 	for _, plugin := range r.plugins {
 		_, err := plugin.postCreateContainer(ctx, req)
@@ -373,7 +373,7 @@ func (r *Adaptation) PostCreateContainer(ctx context.Context, req *PostCreateCon
 func (r *Adaptation) StartContainer(ctx context.Context, req *StartContainerRequest) error {
 	r.Lock()
 	defer r.Unlock()
-	defer r.removeClosedPlugins()
+	defer r.removeClosedPlugins(nil)
 
 	for _, plugin := range r.plugins {
 		_, err := plugin.startContainer(ctx, req)
@@ -389,7 +389,7 @@ func (r *Adaptation) StartContainer(ctx context.Context, req *StartContainerRequ
 func (r *Adaptation) PostStartContainer(ctx context.Context, req *PostStartContainerRequest) error {
 	r.Lock()
 	defer r.Unlock()
-	defer r.removeClosedPlugins()
+	defer r.removeClosedPlugins(nil)
 
 	for _, plugin := range r.plugins {
 		_, err := plugin.postStartContainer(ctx, req)
@@ -405,7 +405,7 @@ func (r *Adaptation) PostStartContainer(ctx context.Context, req *PostStartConta
 func (r *Adaptation) UpdateContainer(ctx context.Context, req *UpdateContainerRequest) (*UpdateContainerResponse, error) {
 	r.Lock()
 	defer r.Unlock()
-	defer r.removeClosedPlugins()
+	defer r.removeClosedPlugins(nil)
 
 	result := collectUpdateContainerResult(req)
 	for _, plugin := range r.plugins {
@@ -426,7 +426,7 @@ func (r *Adaptation) UpdateContainer(ctx context.Context, req *UpdateContainerRe
 func (r *Adaptation) PostUpdateContainer(ctx context.Context, req *PostUpdateContainerRequest) error {
 	r.Lock()
 	defer r.Unlock()
-	defer r.removeClosedPlugins()
+	defer r.removeClosedPlugins(nil)
 
 	for _, plugin := range r.plugins {
 		_, err := plugin.postUpdateContainer(ctx, req)
@@ -442,7 +442,7 @@ func (r *Adaptation) PostUpdateContainer(ctx context.Context, req *PostUpdateCon
 func (r *Adaptation) StopContainer(ctx context.Context, req *StopContainerRequest) (*StopContainerResponse, error) {
 	r.Lock()
 	defer r.Unlock()
-	defer r.removeClosedPlugins()
+	defer r.removeClosedPlugins(nil)
 
 	result := collectStopContainerResult()
 	for _, plugin := range r.plugins {
@@ -463,7 +463,7 @@ func (r *Adaptation) StopContainer(ctx context.Context, req *StopContainerReques
 func (r *Adaptation) RemoveContainer(ctx context.Context, req *RemoveContainerRequest) error {
 	r.Lock()
 	defer r.Unlock()
-	defer r.removeClosedPlugins()
+	defer r.removeClosedPlugins(nil)
 
 	for _, plugin := range r.plugins {
 		_, err := plugin.removeContainer(ctx, req)
@@ -592,7 +592,7 @@ func (r *Adaptation) startPlugins() (retErr error) {
 	}
 
 	r.plugins = plugins
-	r.sortPlugins()
+	r.sortPlugins(nil)
 	return nil
 }
 
@@ -606,12 +606,19 @@ func (r *Adaptation) stopPlugins() {
 	r.plugins = nil
 }
 
-func (r *Adaptation) removeClosedPlugins() {
-	var active, closed, validators []*plugin
+func (r *Adaptation) removeClosedPlugins(newPlugin *plugin) *plugin {
+	var (
+		active, closed, validators []*plugin
+		old                        *plugin
+	)
+
 	for _, p := range r.plugins {
-		if p.isClosed() {
+		switch {
+		case p.isClosed():
 			closed = append(closed, p)
-		} else {
+		case isSameExternalInstance(p, newPlugin):
+			old = p
+		default:
 			active = append(active, p)
 			if p.isContainerAdjustmentValidator() {
 				validators = append(validators, p)
@@ -629,6 +636,7 @@ func (r *Adaptation) removeClosedPlugins() {
 
 	r.plugins = active
 	r.validators = validators
+	return old
 }
 
 func (r *Adaptation) startListener() error {
@@ -695,8 +703,11 @@ func (r *Adaptation) acceptPluginConnections(l net.Listener) error {
 				if p.isContainerAdjustmentValidator() {
 					r.validators = append(r.validators, p)
 				}
-				r.sortPlugins()
+				old := r.sortPlugins(p)
 				r.Unlock()
+				if old != nil {
+					old.shutdown(api.ShutdownByOtherInstance)
+				}
 				log.Infof(ctx, "plugin %q connected and synchronized", p.name())
 			}
 
@@ -759,8 +770,8 @@ func (r *Adaptation) discoverPlugins() ([]string, []string, []string, error) {
 	return indices, plugins, configs, nil
 }
 
-func (r *Adaptation) sortPlugins() {
-	r.removeClosedPlugins()
+func (r *Adaptation) sortPlugins(newPlugin *plugin) *plugin {
+	oldInstance := r.removeClosedPlugins(newPlugin)
 	sort.Slice(r.plugins, func(i, j int) bool {
 		return r.plugins[i].idx < r.plugins[j].idx
 	})
@@ -779,6 +790,20 @@ func (r *Adaptation) sortPlugins() {
 			log.Infof(noCtx, "  %q (%s)", p.name(), p.qualifiedName())
 		}
 	}
+	return oldInstance
+}
+
+func isSameExternalInstance(p1, p2 *plugin) bool {
+	if p1 == nil || p2 == nil {
+		return false
+	}
+	if !p1.isExternal() || !p2.isExternal() {
+		return false
+	}
+	if p1.idx != p2.idx || p1.base != p2.base {
+		return false
+	}
+	return p1 != p2
 }
 
 func (r *Adaptation) hasValidators() bool {

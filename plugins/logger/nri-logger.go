@@ -26,8 +26,8 @@ import (
 	"github.com/sirupsen/logrus"
 	"sigs.k8s.io/yaml"
 
-	"github.com/containerd/nri/pkg/api"
-	"github.com/containerd/nri/pkg/stub"
+	api "github.com/containerd/nri/pkg/api/v1beta1"
+	stub "github.com/containerd/nri/pkg/stub/v1beta1"
 )
 
 type config struct {
@@ -84,8 +84,9 @@ func (p *plugin) Synchronize(_ context.Context, pods []*api.PodSandbox, containe
 	return nil, nil
 }
 
-func (p *plugin) Shutdown() {
-	dump("Shutdown")
+func (p *plugin) Shutdown(_ context.Context, reason string) {
+	dump("Shutdown", "reason", reason)
+	os.Exit(0)
 }
 
 func (p *plugin) RunPodSandbox(_ context.Context, pod *api.PodSandbox) error {

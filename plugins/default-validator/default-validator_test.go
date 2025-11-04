@@ -19,7 +19,7 @@ package validator
 import (
 	"testing"
 
-	"github.com/containerd/nri/pkg/api"
+	api "github.com/containerd/nri/pkg/api/v1beta1"
 	"github.com/stretchr/testify/require"
 )
 

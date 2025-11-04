@@ -29,6 +29,11 @@ import (
 	nri "github.com/containerd/nri/pkg/api"
 )
 
+const (
+	// UnlimitedPidsLimit indicates unlimited Linux PIDs limit.
+	UnlimitedPidsLimit = -1
+)
+
 // GeneratorOption is an option for Generator().
 type GeneratorOption func(*Generator)
 
@@ -609,6 +614,21 @@ func (g *Generator) SetProcessIOPriority(ioprio *rspec.LinuxIOPriority) {
 		ioprio = nil
 	}
 	g.Config.Process.IOPriority = ioprio
+}
+
+// SetLinuxResourcesPidsLimit sets Linux PID limit. Starting with
+// v1.3.0 opencontainers/runtime-spec switched the PID limit to
+// *int64 from int64 with nil meaning "unlimited". We don't want
+// to change our API types though, so instead we use a dedicated
+// value for unlimited.
+func (g *Generator) SetLinuxResourcesPidsLimit(limit int64) {
+	g.initConfigLinuxResources()
+	if g.Config.Linux.Resources.Pids == nil {
+		g.Config.Linux.Resources.Pids = &rspec.LinuxPids{}
+	}
+	if limit > UnlimitedPidsLimit {
+		g.Config.Linux.Resources.Pids.Limit = &limit
+	}
 }
 
 func (g *Generator) initConfig() {

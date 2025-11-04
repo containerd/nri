@@ -565,7 +565,7 @@ func withPidsLimit(v int64) specOption {
 			spec.Linux.Resources = &rspec.LinuxResources{}
 		}
 		spec.Linux.Resources.Pids = &rspec.LinuxPids{
-			Limit: v,
+			Limit: &v,
 		}
 	}
 }
@@ -605,7 +605,7 @@ func makeSpec(options ...specOption) *rspec.Spec {
 					Mems:   "0-4",
 				},
 				Pids: &rspec.LinuxPids{
-					Limit: 1,
+					Limit: func(v int64) *int64 { return &v }(1),
 				},
 			},
 		},

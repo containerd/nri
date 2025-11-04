@@ -25,7 +25,6 @@ GO_BUILD_FLAGS ?=
 GO_MODULES := $(shell $(GO_CMD) list ./...)
 
 GOLANG_CILINT := golangci-lint
-GINKGO        := ginkgo
 
 RESOLVED_PWD  := $(shell realpath $(shell pwd))
 BUILD_PATH    := $(RESOLVED_PWD)/build
@@ -71,7 +70,7 @@ clean: clean-plugins
 
 allclean: clean clean-cache
 
-test: test-gopkgs
+test: test-gopkgs test-plugins
 
 generate: generate-golang
 
@@ -135,23 +134,20 @@ $(BIN_PATH)/wasm build/bin/wasm: FORCE
 # test targets
 #
 
-test-gopkgs: ginkgo-tests test-ulimits
+test-gopkgs:
+	$(Q)mkdir -p $(COVERAGE_PATH) && \
+	  $(GO_TEST) \
+	    -race \
+	    -cover \
+	    -covermode=atomic \
+	    -coverprofile coverprofile \
+	    -outputdir $(COVERAGE_PATH) \
+	    ./pkg/... && \
+	  $(GO_CMD) tool cover \
+	    -html=$(COVERAGE_PATH)/coverprofile \
+	    -o $(COVERAGE_PATH)/coverage.html
 
-SKIPPED_PKGS="ulimit-adjuster,device-injector"
-
-ginkgo-tests:
-	$(Q)$(GINKGO) run \
-	    --race \
-	    --trace \
-	    --cover \
-	    --covermode atomic \
-	    --output-dir $(COVERAGE_PATH) \
-	    --junit-report junit.xml \
-	    --coverprofile coverprofile \
-	    --succinct \
-	    --skip-package $(SKIPPED_PKGS) \
-	    -r && \
-	$(GO_CMD) tool cover -html=$(COVERAGE_PATH)/coverprofile -o $(COVERAGE_PATH)/coverage.html
+test-plugins: test-ulimits test-device-injector
 
 test-ulimits:
 	$(Q)cd ./plugins/ulimit-adjuster && $(GO_TEST) -v
@@ -229,6 +225,3 @@ install-wasm-plugin:
 
 install-protoc-dependencies:
 	$(Q)GOBIN="$(PROTOC_PATH)/bin" $(GO_INSTALL) google.golang.org/protobuf/cmd/protoc-gen-go
-
-install-ginkgo:
-	$(Q)$(GO_INSTALL) -mod=mod github.com/onsi/ginkgo/v2/ginkgo

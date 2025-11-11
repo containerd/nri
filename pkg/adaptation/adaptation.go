@@ -58,7 +58,7 @@ type UpdateFn func(context.Context, []*ContainerUpdate) ([]*ContainerUpdate, err
 
 // Adaptation is the NRI abstraction for container runtime NRI adaptation/integration.
 type Adaptation struct {
-	sync.Mutex
+	locker      locker
 	name        string
 	version     string
 	dropinPath  string
@@ -144,6 +144,16 @@ func WithDefaultValidator(cfg *validator.DefaultValidatorConfig) Option {
 	}
 }
 
+// WithPodLocking enables the per-Pod locking strategy instead of the default global lock.
+// WARNING: This is ONLY safe if the consumer guarantees that no plugin
+// will ever request cross-Pod container updates in its responses.
+func WithPodLocking() Option {
+	return func(r *Adaptation) error {
+		r.locker = newPodLocker()
+		return nil
+	}
+}
+
 // New creates a new NRI Runtime.
 func New(name, version string, syncFn SyncFn, updateFn UpdateFn, opts ...Option) (*Adaptation, error) {
 	var err error
@@ -175,6 +185,7 @@ func New(name, version string, syncFn SyncFn, updateFn UpdateFn, opts ...Option)
 	}
 
 	r := &Adaptation{
+		locker:      newGlobalLocker(),
 		name:        name,
 		version:     version,
 		syncFn:      syncFn,
@@ -192,7 +203,7 @@ func New(name, version string, syncFn SyncFn, updateFn UpdateFn, opts ...Option)
 		}
 	}
 
-	log.Infof(noCtx, "runtime interface created")
+	log.Infof(noCtx, "runtime interface created, using locker: %T", r.locker)
 
 	return r, nil
 }
@@ -201,8 +212,8 @@ func New(name, version string, syncFn SyncFn, updateFn UpdateFn, opts ...Option)
 func (r *Adaptation) Start() error {
 	log.Infof(noCtx, "runtime interface starting up...")
 
-	r.Lock()
-	defer r.Unlock()
+	unlock := r.locker.Lock(noCtx)
+	defer unlock()
 
 	if err := r.startPlugins(); err != nil {
 		return err
@@ -219,8 +230,8 @@ func (r *Adaptation) Start() error {
 func (r *Adaptation) Stop() {
 	log.Infof(noCtx, "runtime interface shutting down...")
 
-	r.Lock()
-	defer r.Unlock()
+	unlock := r.locker.Lock(noCtx)
+	defer unlock()
 
 	r.stopListener()
 	r.stopPlugins()
@@ -234,8 +245,9 @@ func (r *Adaptation) RunPodSandbox(ctx context.Context, evt *StateChangeEvent) e
 
 // UpdatePodSandbox relays the corresponding CRI request to plugins.
 func (r *Adaptation) UpdatePodSandbox(ctx context.Context, req *UpdatePodSandboxRequest) (*UpdatePodSandboxResponse, error) {
-	r.Lock()
-	defer r.Unlock()
+	podUID := req.GetPod().GetId()
+	unlock := r.locker.LockPod(ctx, podUID)
+	defer unlock()
 	defer r.removeClosedPlugins()
 
 	for _, plugin := range r.plugins {
@@ -268,8 +280,9 @@ func (r *Adaptation) RemovePodSandbox(ctx context.Context, evt *StateChangeEvent
 
 // CreateContainer relays the corresponding CRI request to plugins.
 func (r *Adaptation) CreateContainer(ctx context.Context, req *CreateContainerRequest) (*CreateContainerResponse, error) {
-	r.Lock()
-	defer r.Unlock()
+	podUID := req.GetPod().GetId()
+	unlock := r.locker.LockPod(ctx, podUID)
+	defer unlock()
 	defer r.removeClosedPlugins()
 
 	var (
@@ -321,8 +334,9 @@ func (r *Adaptation) PostStartContainer(ctx context.Context, evt *StateChangeEve
 
 // UpdateContainer relays the corresponding CRI request to plugins.
 func (r *Adaptation) UpdateContainer(ctx context.Context, req *UpdateContainerRequest) (*UpdateContainerResponse, error) {
-	r.Lock()
-	defer r.Unlock()
+	podUID := req.GetPod().GetId()
+	unlock := r.locker.LockPod(ctx, podUID)
+	defer unlock()
 	defer r.removeClosedPlugins()
 
 	result := collectUpdateContainerResult(req)
@@ -348,8 +362,9 @@ func (r *Adaptation) PostUpdateContainer(ctx context.Context, evt *StateChangeEv
 
 // StopContainer relays the corresponding CRI request to plugins.
 func (r *Adaptation) StopContainer(ctx context.Context, req *StopContainerRequest) (*StopContainerResponse, error) {
-	r.Lock()
-	defer r.Unlock()
+	podUID := req.GetPod().GetId()
+	unlock := r.locker.LockPod(ctx, podUID)
+	defer unlock()
 	defer r.removeClosedPlugins()
 
 	result := collectStopContainerResult()
@@ -379,15 +394,30 @@ func (r *Adaptation) StateChange(ctx context.Context, evt *StateChangeEvent) err
 		return errors.New("invalid (unset) event in state change notification")
 	}
 
-	r.Lock()
-	defer r.Unlock()
-	defer r.removeClosedPlugins()
+	defer func() {
+		unlock := r.locker.Lock(ctx)
+		r.removeClosedPlugins()
+		unlock()
+	}()
 
-	for _, plugin := range r.plugins {
-		err := plugin.StateChange(ctx, evt)
-		if err != nil {
-			return err
+	podUID := evt.GetPod().GetId()
+	if err := func() error {
+		unlock := r.locker.LockPod(ctx, podUID)
+		defer unlock()
+		for _, plugin := range r.plugins {
+			err := plugin.StateChange(ctx, evt)
+			if err != nil {
+				return err
+			}
 		}
+		return nil
+	}(); err != nil {
+		return err
+	}
+
+	// Cleanup pod lock resources if this is the removal event
+	if evt.Event == Event_REMOVE_POD_SANDBOX {
+		r.locker.CleanupPod(ctx, podUID)
 	}
 
 	return nil
@@ -395,8 +425,8 @@ func (r *Adaptation) StateChange(ctx context.Context, evt *StateChangeEvent) err
 
 // Perform a set of unsolicited container updates requested by a plugin.
 func (r *Adaptation) updateContainers(ctx context.Context, req []*ContainerUpdate) ([]*ContainerUpdate, error) {
-	r.Lock()
-	defer r.Unlock()
+	unlock := r.locker.Lock(ctx)
+	defer unlock()
 
 	return r.updateFn(ctx, req)
 }
@@ -608,13 +638,13 @@ func (r *Adaptation) acceptPluginConnections(l net.Listener) error {
 			if err != nil {
 				log.Infof(ctx, "failed to synchronize plugin: %v", err)
 			} else {
-				r.Lock()
+				unlock := r.locker.Lock(ctx)
 				r.plugins = append(r.plugins, p)
 				if p.isContainerAdjustmentValidator() {
 					r.validators = append(r.validators, p)
 				}
 				r.sortPlugins()
-				r.Unlock()
+				unlock()
 				log.Infof(ctx, "plugin %q connected and synchronized", p.name())
 			}
 

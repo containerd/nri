@@ -1,11 +1,14 @@
 module github.com/containerd/nri/plugins/v010-adapter
 
-go 1.24.0
+go 1.24.3
 
 require (
 	github.com/containerd/containerd v1.7.28
 	github.com/containerd/containerd/api v1.8.0
-	github.com/containerd/nri v0.8.0
+	// Note: unlike with the rest of the plugins, we keep this one
+	// locked to v0.10.0. Consequently, we don't have a replace to
+	// point NRI at ../.. either.
+	github.com/containerd/nri v0.10.0
 	github.com/opencontainers/runtime-spec v1.1.0
 	github.com/sirupsen/logrus v1.9.3
 )
@@ -36,7 +39,7 @@ require (
 	github.com/klauspost/compress v1.16.7 // indirect
 	github.com/knqyf263/go-plugin v0.9.0 // indirect
 	github.com/moby/locker v1.0.1 // indirect
-	github.com/moby/sys/mountinfo v0.6.2 // indirect
+	github.com/moby/sys/mountinfo v0.7.2 // indirect
 	github.com/moby/sys/sequential v0.5.0 // indirect
 	github.com/moby/sys/signal v0.7.0 // indirect
 	github.com/moby/sys/user v0.3.0 // indirect
@@ -60,5 +63,3 @@ require (
 	google.golang.org/grpc v1.59.0 // indirect
 	google.golang.org/protobuf v1.35.2 // indirect
 )
-
-replace github.com/containerd/nri => ../..

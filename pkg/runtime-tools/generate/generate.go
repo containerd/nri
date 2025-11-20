@@ -24,7 +24,6 @@ import (
 	"strings"
 
 	rspec "github.com/opencontainers/runtime-spec/specs-go"
-	"github.com/opencontainers/runtime-tools/generate"
 
 	nri "github.com/containerd/nri/pkg/api"
 )
@@ -34,13 +33,51 @@ const (
 	UnlimitedPidsLimit = -1
 )
 
+// UnderlyingGenerator is the interface for
+// [github.com/opencontainers/runtime-tools/generate.Generator].
+type UnderlyingGenerator interface {
+	AddAnnotation(key, value string)
+	AddDevice(device rspec.LinuxDevice)
+	AddOrReplaceLinuxNamespace(ns string, path string) error
+	AddPostStartHook(postStartHook rspec.Hook)
+	AddPostStopHook(postStopHook rspec.Hook)
+	AddPreStartHook(preStartHook rspec.Hook)
+	AddProcessEnv(name, value string)
+	AddLinuxResourcesDevice(allow bool, devType string, major, minor *int64, access string)
+	AddLinuxResourcesHugepageLimit(pageSize string, limit uint64)
+	AddLinuxResourcesUnified(key, val string)
+	AddMount(mnt rspec.Mount)
+	ClearMounts()
+	ClearProcessEnv()
+	Mounts() []rspec.Mount
+	RemoveAnnotation(key string)
+	RemoveDevice(path string)
+	RemoveLinuxNamespace(ns string) error
+	RemoveMount(dest string)
+	SetProcessArgs(args []string)
+	SetLinuxCgroupsPath(path string)
+	SetLinuxResourcesCPUCpus(cpus string)
+	SetLinuxResourcesCPUMems(mems string)
+	SetLinuxResourcesCPUPeriod(period uint64)
+	SetLinuxResourcesCPUQuota(quota int64)
+	SetLinuxResourcesCPURealtimePeriod(period uint64)
+	SetLinuxResourcesCPURealtimeRuntime(time int64)
+	SetLinuxResourcesCPUShares(shares uint64)
+	SetLinuxResourcesMemoryLimit(limit int64)
+	SetLinuxResourcesMemorySwap(swap int64)
+	SetLinuxRootPropagation(rp string) error
+	SetProcessOOMScoreAdj(adj int)
+	Spec() *rspec.Spec
+}
+
 // GeneratorOption is an option for Generator().
 type GeneratorOption func(*Generator)
 
 // Generator extends a stock runtime-tools Generator and extends it with
 // a few functions for handling NRI container adjustment.
 type Generator struct {
-	*generate.Generator
+	UnderlyingGenerator
+	Config            *rspec.Spec
 	filterLabels      func(map[string]string) (map[string]string, error)
 	filterAnnotations func(map[string]string) (map[string]string, error)
 	resolveBlockIO    func(string) (*rspec.LinuxBlockIO, error)
@@ -50,9 +87,10 @@ type Generator struct {
 }
 
 // SpecGenerator returns a wrapped OCI Spec Generator.
-func SpecGenerator(gg *generate.Generator, opts ...GeneratorOption) *Generator {
+func SpecGenerator(gg UnderlyingGenerator, opts ...GeneratorOption) *Generator {
 	g := &Generator{
-		Generator: gg,
+		UnderlyingGenerator: gg,
+		Config:              gg.Spec(),
 	}
 	g.filterLabels = nopFilter
 	g.filterAnnotations = nopFilter

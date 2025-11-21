@@ -132,9 +132,7 @@ func injectDevices(pod *api.PodSandbox, ctr *api.Container, a *api.ContainerAdju
 
 	for _, d := range devices {
 		a.AddDevice(d.toNRI())
-		if !verbose {
-			log.Infof("%s: injected device %q...", containerName(pod, ctr), d.Path)
-		}
+		log.Infof("%s: injected device %q...", containerName(pod, ctr), d.Path)
 	}
 
 	return nil
@@ -178,9 +176,7 @@ func injectCDIDevices(pod *api.PodSandbox, ctr *api.Container, a *api.ContainerA
 				Name: name,
 			},
 		)
-		if !verbose {
-			log.Infof("%s: injected CDI device %q...", containerName(pod, ctr), name)
-		}
+		log.Infof("%s: injected CDI device %q...", containerName(pod, ctr), name)
 	}
 
 	return nil
@@ -220,10 +216,8 @@ func injectMounts(pod *api.PodSandbox, ctr *api.Container, a *api.ContainerAdjus
 
 	for _, m := range mounts {
 		a.AddMount(m.toNRI())
-		if !verbose {
-			log.Infof("%s: injected mount %q -> %q...", containerName(pod, ctr),
-				m.Source, m.Destination)
-		}
+		log.Infof("%s: injected mount %q -> %q...", containerName(pod, ctr),
+			m.Source, m.Destination)
 	}
 
 	return nil
@@ -262,9 +256,7 @@ func setIOPriority(pod *api.PodSandbox, ctr *api.Container, a *api.ContainerAdju
 	}
 
 	a.SetLinuxIOPriority(priority.toNRI())
-	if !verbose {
-		log.Infof("%s: injected I/O priority %+v...", containerName(pod, ctr), priority)
-	}
+	log.Infof("%s: injected I/O priority %+v...", containerName(pod, ctr), priority)
 
 	return nil
 }

@@ -377,6 +377,7 @@ message LinuxContainer {
   LinuxIOPriority io_priority = 6;
   SecurityProfile seccomp_profile = 7;
   LinuxSeccomp seccomp_policy = 8;
+  map<string, string> sysctl = 9;
 }
 
 // A linux namespace.
@@ -516,6 +517,7 @@ message LinuxContainerAdjustment {
   LinuxIOPriority io_priority = 5;
   LinuxSeccomp seccomp_policy = 6;
   repeated LinuxNamespace namespaces = 7;
+  map<string, string> sysctl = 8;
 }
 
 message LinuxSeccomp {
@@ -673,4 +675,5 @@ enum Field {
     IoPriority = 31;
     SeccompPolicy = 32;
     Namespace = 33;
+    Sysctl = 34;
 }

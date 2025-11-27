@@ -310,6 +310,15 @@ func (a *ContainerAdjustment) SetLinuxSeccompPolicy(seccomp *LinuxSeccomp) {
 	a.Linux.SeccompPolicy = seccomp
 }
 
+// SetLinuxSysctl records setting a sysctl for a container.
+func (a *ContainerAdjustment) SetLinuxSysctl(key, value string) {
+	a.initLinux()
+	if a.Linux.Sysctl == nil {
+		a.Linux.Sysctl = make(map[string]string)
+	}
+	a.Linux.Sysctl[key] = value
+}
+
 //
 // Initializing a container adjustment and container update.
 //

@@ -429,6 +429,34 @@ var _ = Describe("Adjustment", func() {
 		})
 	})
 
+	When("has a sysctl adjustment", func() {
+		It("adjusts Spec correctly", func() {
+			var (
+				spec   = makeSpec()
+				adjust = &api.ContainerAdjustment{
+					Linux: &api.LinuxContainerAdjustment{
+						Sysctl: map[string]string{
+							"net.ipv4.ip_forward":           "1",
+							api.MarkForRemoval("delete.me"): "",
+						},
+					},
+				}
+			)
+			spec.Linux.Sysctl = map[string]string{
+				"delete.me": "foobar",
+			}
+			rg := &rgen.Generator{Config: spec}
+			xg := xgen.SpecGenerator(rg)
+
+			Expect(xg).ToNot(BeNil())
+			Expect(xg.Adjust(adjust)).To(Succeed())
+			Expect(spec.Linux.Sysctl).To(Equal(map[string]string{
+				"net.ipv4.ip_forward": "1",
+			}))
+
+		})
+	})
+
 })
 
 type specOption func(*rspec.Spec)

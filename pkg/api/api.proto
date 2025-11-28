@@ -377,6 +377,7 @@ message LinuxContainer {
   LinuxIOPriority io_priority = 6;
   SecurityProfile seccomp_profile = 7;
   LinuxSeccomp seccomp_policy = 8;
+  LinuxRdt rdt = 9;
 }
 
 // A linux namespace.
@@ -516,6 +517,7 @@ message LinuxContainerAdjustment {
   LinuxIOPriority io_priority = 5;
   LinuxSeccomp seccomp_policy = 6;
   repeated LinuxNamespace namespaces = 7;
+  LinuxRdt rdt = 8;
 }
 
 message LinuxSeccomp {
@@ -562,6 +564,14 @@ message ContainerEviction {
   string reason = 2;
 }
 
+message LinuxRdt {
+  OptionalString clos_id = 1;
+  OptionalRepeatedString schemata = 2;
+  OptionalBool enable_monitoring = 3;
+  // NRI specific field to mark the RDT config for removal.
+  bool remove = 4;
+}
+
 // KeyValue represents an environment variable.
 message KeyValue {
   string key = 1;
@@ -571,6 +581,11 @@ message KeyValue {
 // An optional string value.
 message OptionalString {
   string value = 1;
+}
+
+// An optional collection of strings.
+message OptionalRepeatedString {
+  repeated string value = 1;
 }
 
 // An optional signed integer value.
@@ -673,4 +688,7 @@ enum Field {
     IoPriority = 31;
     SeccompPolicy = 32;
     Namespace = 33;
+    RdtClosID = 34;
+    RdtSchemata = 35;
+    RdtEnableMonitoring = 36;
 }

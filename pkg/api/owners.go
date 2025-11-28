@@ -148,6 +148,18 @@ func (o *OwningPlugins) ClaimRdtClass(id, plugin string) error {
 	return o.mustOwnersFor(id).ClaimRdtClass(plugin)
 }
 
+func (o *OwningPlugins) ClaimRdtClosID(id, plugin string) error {
+	return o.mustOwnersFor(id).ClaimRdtClosID(plugin)
+}
+
+func (o *OwningPlugins) ClaimRdtSchemata(id, plugin string) error {
+	return o.mustOwnersFor(id).ClaimRdtSchemata(plugin)
+}
+
+func (o *OwningPlugins) ClaimRdtEnableMonitoring(id, plugin string) error {
+	return o.mustOwnersFor(id).ClaimRdtEnableMonitoring(plugin)
+}
+
 func (o *OwningPlugins) ClaimCgroupsUnified(id, key, plugin string) error {
 	return o.mustOwnersFor(id).ClaimCgroupsUnified(key, plugin)
 }
@@ -190,6 +202,10 @@ func (o *OwningPlugins) ClearEnv(id, key, plugin string) {
 
 func (o *OwningPlugins) ClearArgs(id, plugin string) {
 	o.mustOwnersFor(id).ClearArgs(plugin)
+}
+
+func (o *OwningPlugins) ClearRdt(id, plugin string) {
+	o.mustOwnersFor(id).ClearRdt(plugin)
 }
 
 func (o *OwningPlugins) AnnotationOwner(id, key string) (string, bool) {
@@ -298,6 +314,18 @@ func (o *OwningPlugins) BlockioClassOwner(id string) (string, bool) {
 
 func (o *OwningPlugins) RdtClassOwner(id string) (string, bool) {
 	return o.ownersFor(id).simpleOwner(Field_RdtClass.Key())
+}
+
+func (o *OwningPlugins) RdtClosIDOwner(id string) (string, bool) {
+	return o.ownersFor(id).simpleOwner(Field_RdtClosID.Key())
+}
+
+func (o *OwningPlugins) RdtSchemataOwner(id string) (string, bool) {
+	return o.ownersFor(id).simpleOwner(Field_RdtSchemata.Key())
+}
+
+func (o *OwningPlugins) RdtEnableMonitoringOwner(id string) (string, bool) {
+	return o.ownersFor(id).simpleOwner(Field_RdtEnableMonitoring.Key())
 }
 
 func (o *OwningPlugins) CgroupsUnifiedOwner(id, key string) (string, bool) {
@@ -522,6 +550,18 @@ func (f *FieldOwners) ClaimRdtClass(plugin string) error {
 	return f.claimSimple(Field_RdtClass.Key(), plugin)
 }
 
+func (f *FieldOwners) ClaimRdtClosID(plugin string) error {
+	return f.claimSimple(Field_RdtClosID.Key(), plugin)
+}
+
+func (f *FieldOwners) ClaimRdtSchemata(plugin string) error {
+	return f.claimSimple(Field_RdtSchemata.Key(), plugin)
+}
+
+func (f *FieldOwners) ClaimRdtEnableMonitoring(plugin string) error {
+	return f.claimSimple(Field_RdtEnableMonitoring.Key(), plugin)
+}
+
 func (f *FieldOwners) ClaimCgroupsUnified(key, plugin string) error {
 	return f.claimCompound(Field_CgroupsUnified.Key(), key, plugin)
 }
@@ -578,6 +618,12 @@ func (f *FieldOwners) ClearEnv(name, plugin string) {
 
 func (f *FieldOwners) ClearArgs(plugin string) {
 	f.clearSimple(Field_Args.Key(), plugin)
+}
+
+func (f *FieldOwners) ClearRdt(plugin string) {
+	f.clearSimple(Field_RdtClosID.Key(), plugin)
+	f.clearSimple(Field_RdtSchemata.Key(), plugin)
+	f.clearSimple(Field_RdtEnableMonitoring.Key(), plugin)
 }
 
 func (f *FieldOwners) Conflict(field int32, plugin, other string, qualifiers ...string) error {
@@ -719,6 +765,14 @@ func (f *FieldOwners) BlockioClassOwner() (string, bool) {
 
 func (f *FieldOwners) RdtClassOwner() (string, bool) {
 	return f.simpleOwner(Field_RdtClass.Key())
+}
+
+func (f *FieldOwners) RdtSchemataOwner() (string, bool) {
+	return f.simpleOwner(Field_RdtSchemata.Key())
+}
+
+func (f *FieldOwners) RdtEnableMonitoringOwner() (string, bool) {
+	return f.simpleOwner(Field_RdtEnableMonitoring.Key())
 }
 
 func (f *FieldOwners) CgroupsUnifiedOwner(key string) (string, bool) {

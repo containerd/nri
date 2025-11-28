@@ -18,6 +18,7 @@ package adaptation_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -38,6 +39,7 @@ import (
 	"github.com/containerd/nri/pkg/api"
 	"github.com/containerd/nri/pkg/plugin"
 	validator "github.com/containerd/nri/plugins/default-validator/builtin"
+	"github.com/containerd/ttrpc"
 	rspec "github.com/opencontainers/runtime-spec/specs-go"
 )
 
@@ -92,6 +94,51 @@ var _ = Describe("Configuration", func() {
 			)
 			Expect(runtime.Start(s.dir)).To(Succeed())
 			Expect(plugin.Start(s.dir)).ToNot(Succeed())
+		})
+	})
+
+	When("early connection loss during plugin startup", func() {
+		BeforeEach(func() {
+			nri.SetPluginRegistrationTimeout(1 * time.Nanosecond)
+
+			s.Prepare(
+				&mockRuntime{},
+				&mockPlugin{
+					idx:  "00",
+					name: "test",
+				},
+			)
+		})
+
+		AfterEach(func() {
+			nri.SetPluginRegistrationTimeout(nri.DefaultPluginRegistrationTimeout)
+		})
+
+		It("should not cause a plugin to get stuck", func() {
+			var (
+				runtime = s.runtime
+				plugin  = s.plugins[0]
+				errCh   = make(chan error, 1)
+				err     error
+			)
+
+			Expect(runtime.Start(s.dir)).To(Succeed())
+
+			go func() {
+				err := plugin.Start(s.dir)
+				errCh <- err
+			}()
+
+			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+			defer cancel()
+
+			select {
+			case <-ctx.Done():
+				err = ctx.Err()
+			case err = <-errCh:
+			}
+
+			Expect(errors.Is(err, ttrpc.ErrClosed)).To(BeTrue())
 		})
 	})
 })

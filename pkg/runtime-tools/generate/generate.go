@@ -47,6 +47,7 @@ type UnderlyingGenerator interface {
 	AddLinuxResourcesHugepageLimit(pageSize string, limit uint64)
 	AddLinuxResourcesUnified(key, val string)
 	AddMount(mnt rspec.Mount)
+	AddLinuxSysctl(key, value string)
 	ClearMounts()
 	ClearProcessEnv()
 	Mounts() []rspec.Mount
@@ -54,6 +55,7 @@ type UnderlyingGenerator interface {
 	RemoveDevice(path string)
 	RemoveLinuxNamespace(ns string) error
 	RemoveMount(dest string)
+	RemoveLinuxSysctl(key string)
 	SetProcessArgs(args []string)
 	SetLinuxCgroupsPath(path string)
 	SetLinuxResourcesCPUCpus(cpus string)
@@ -80,6 +82,7 @@ type Generator struct {
 	Config            *rspec.Spec
 	filterLabels      func(map[string]string) (map[string]string, error)
 	filterAnnotations func(map[string]string) (map[string]string, error)
+	filterSysctl      func(map[string]string) (map[string]string, error)
 	resolveBlockIO    func(string) (*rspec.LinuxBlockIO, error)
 	resolveRdt        func(string) (*rspec.LinuxIntelRdt, error)
 	injectCDIDevices  func(*rspec.Spec, []string) error
@@ -94,6 +97,7 @@ func SpecGenerator(gg UnderlyingGenerator, opts ...GeneratorOption) *Generator {
 	}
 	g.filterLabels = nopFilter
 	g.filterAnnotations = nopFilter
+	g.filterSysctl = nopFilter
 	for _, o := range opts {
 		o(g)
 	}
@@ -167,6 +171,9 @@ func (g *Generator) Adjust(adjust *nri.ContainerAdjustment) error {
 		return err
 	}
 	if err := g.AdjustNamespaces(adjust.GetLinux().GetNamespaces()); err != nil {
+		return err
+	}
+	if err := g.AdjustSysctl(adjust.GetLinux().GetSysctl()); err != nil {
 		return err
 	}
 
@@ -454,6 +461,24 @@ func (g *Generator) AdjustNamespaces(namespaces []*nri.LinuxNamespace) error {
 			}
 		}
 	}
+	return nil
+}
+
+// AdjustSysctl adds, replaces, or removes the sysctl settings in the OCI Spec.
+func (g *Generator) AdjustSysctl(sysctl map[string]string) error {
+	var err error
+
+	if sysctl, err = g.filterSysctl(sysctl); err != nil {
+		return err
+	}
+	for k, v := range sysctl {
+		if key, marked := nri.IsMarkedForRemoval(k); marked {
+			g.RemoveLinuxSysctl(key)
+		} else {
+			g.AddLinuxSysctl(k, v)
+		}
+	}
+
 	return nil
 }
 

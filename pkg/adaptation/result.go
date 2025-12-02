@@ -235,6 +235,9 @@ func (r *result) adjust(rpl *ContainerAdjustment, plugin string) error {
 		if err := r.adjustNamespaces(rpl.Linux.Namespaces, plugin); err != nil {
 			return err
 		}
+		if err := r.adjustSysctl(rpl.Linux.Sysctl, plugin); err != nil {
+			return err
+		}
 	}
 	if err := r.adjustRlimits(rpl.Rlimits, plugin); err != nil {
 		return err
@@ -447,6 +450,41 @@ func (r *result) adjustNamespaces(namespaces []*LinuxNamespace, plugin string) e
 	}
 
 	create.Container.Linux.Namespaces = slices.Collect(maps.Values(creatensmap))
+
+	return nil
+}
+
+func (r *result) adjustSysctl(sysctl map[string]string, plugin string) error {
+	if len(sysctl) == 0 {
+		return nil
+	}
+
+	create, id := r.request.create, r.request.create.Container.Id
+	del := map[string]struct{}{}
+	for k := range sysctl {
+		if key, marked := IsMarkedForRemoval(k); marked {
+			del[key] = struct{}{}
+			delete(sysctl, k)
+		}
+	}
+
+	for k, v := range sysctl {
+		if _, ok := del[k]; ok {
+			r.owners.ClearSysctl(id, k, plugin)
+			delete(create.Container.Linux.Sysctl, k)
+			r.reply.adjust.Linux.Sysctl[MarkForRemoval(k)] = ""
+		}
+		if err := r.owners.ClaimSysctl(id, k, plugin); err != nil {
+			return err
+		}
+		create.Container.Linux.Sysctl[k] = v
+		r.reply.adjust.Linux.Sysctl[k] = v
+		delete(del, k)
+	}
+
+	for k := range del {
+		r.reply.adjust.Annotations[MarkForRemoval(k)] = ""
+	}
 
 	return nil
 }

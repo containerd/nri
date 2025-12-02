@@ -19,11 +19,12 @@ package validator
 import (
 	"testing"
 
-	"github.com/containerd/nri/pkg/api"
 	"github.com/stretchr/testify/require"
+
+	"github.com/containerd/nri/pkg/api"
 )
 
-func TestValidateReqiredPlugins(t *testing.T) {
+func TestValidateRequiredPlugins(t *testing.T) {
 	type testCase struct {
 		name      string
 		cfg       *DefaultValidatorConfig
@@ -252,5 +253,82 @@ func TestValidateReqiredPlugins(t *testing.T) {
 			}
 		})
 	}
+}
 
+func TestValidateSysctl(t *testing.T) {
+	type testCase struct {
+		name      string
+		cfg       *DefaultValidatorConfig
+		pod       *api.PodSandbox
+		container *api.Container
+		plugins   []*api.PluginInstance
+		adjust    *api.ContainerAdjustment
+		claim     func(f *api.FieldOwners) error
+		fail      bool
+	}
+
+	for _, tc := range []*testCase{
+		{
+			name: "disallowed sysctl adjustment",
+			cfg: &DefaultValidatorConfig{
+				Enable:                 true,
+				RejectSysctlAdjustment: true,
+			},
+			pod: &api.PodSandbox{
+				Id:        "pod-id",
+				Name:      "pod-name",
+				Namespace: "pod-namespace",
+			},
+			container: &api.Container{
+				Id:   "container-id",
+				Name: "container-name",
+			},
+			plugins: []*api.PluginInstance{
+				{
+					Name:  "plugin2",
+					Index: "00",
+				},
+			},
+			adjust: &api.ContainerAdjustment{
+				Linux: &api.LinuxContainerAdjustment{
+					Sysctl: map[string]string{
+						"foo": "bar",
+					},
+				},
+			},
+			claim: func(f *api.FieldOwners) error {
+				return f.ClaimSysctl("foo", "plugin2")
+			},
+			fail: true,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			v := NewDefaultValidator(tc.cfg)
+			owners := &api.OwningPlugins{
+				Owners: make(map[string]*api.FieldOwners),
+			}
+			owners.Owners[tc.container.Id] = &api.FieldOwners{
+				Simple:   make(map[int32]string),
+				Compound: make(map[int32]*api.CompoundFieldOwners),
+			}
+			if tc.claim != nil {
+				require.NoError(t, tc.claim(owners.Owners[tc.container.Id]))
+			}
+
+			req := &api.ValidateContainerAdjustmentRequest{
+				Pod:       tc.pod,
+				Container: tc.container,
+				Plugins:   tc.plugins,
+				Adjust:    tc.adjust,
+				Owners:    owners,
+			}
+
+			err := v.validateSysctl(req)
+			if tc.fail {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
 }

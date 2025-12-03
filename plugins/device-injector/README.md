@@ -101,6 +101,33 @@ The annotation value syntax for mount injection is
     ...
 ```
 
+### Network Device Annotations
+
+Network devices are annotated in a similar manner to devices, but using the
+`network-devices.noderesource.dev` annotation key prefix. As with devices, the
+`network-devices.nri.io` annotation key prefix is also supported.
+
+The annotation value for network devices is the list of host network interfaces
+to inject, together with their container interface names
+
+For instance, the following annotation
+
+```
+metadata:
+  name: net-dev-test
+  annotations:
+    network-devices.noderesource.dev/container.c0: |
+      - hostIf: ens2.100
+        Name: netdev0
+    network-devices.noderesource.dev/container.c1: |
+      - hostIf: ens2.101
+        Name: netdev1
+```
+
+requests the injection of the host network interface `ens2.100` into container `c0`
+as the network interface `netdev0`, and the host network interface `ens2.101` into
+container `c1` as the network interface `netdev1`.
+
 ## Deployment
 
 The NRI repository contains minimal kustomize overlays for this plugin at

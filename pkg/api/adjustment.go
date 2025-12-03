@@ -162,6 +162,24 @@ func (a *ContainerAdjustment) RemoveNamespace(n *LinuxNamespace) {
 	})
 }
 
+// AddLinuxNetDevice records the addition of the given network device to a container.
+func (a *ContainerAdjustment) AddLinuxNetDevice(hostDev string, d *LinuxNetDevice) {
+	if d == nil {
+		return
+	}
+	a.initLinuxNetDevices()
+	a.Linux.NetDevices[hostDev] = d
+}
+
+// RemoveLinuxNetDevice records the removal of a network device from a container.
+// Normally it is an error for a plugin to try and alter a network device
+// touched by another container. However, this is not an error if
+// the plugin removes that device prior to touching it.
+func (a *ContainerAdjustment) RemoveLinuxNetDevice(hostDev string) {
+	a.initLinuxNetDevices()
+	a.Linux.NetDevices[MarkForRemoval(hostDev)] = nil
+}
+
 // SetLinuxMemoryLimit records setting the memory limit for a container.
 func (a *ContainerAdjustment) SetLinuxMemoryLimit(value int64) {
 	a.initLinuxResourcesMemory()
@@ -386,5 +404,12 @@ func (a *ContainerAdjustment) initLinuxResourcesUnified() {
 	a.initLinuxResources()
 	if a.Linux.Resources.Unified == nil {
 		a.Linux.Resources.Unified = make(map[string]string)
+	}
+}
+
+func (a *ContainerAdjustment) initLinuxNetDevices() {
+	a.initLinux()
+	if a.Linux.NetDevices == nil {
+		a.Linux.NetDevices = make(map[string]*LinuxNetDevice)
 	}
 }

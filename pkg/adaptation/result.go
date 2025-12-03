@@ -82,6 +82,9 @@ func collectCreateContainerResult(request *CreateContainerRequest) *result {
 	if request.Container.Linux.Namespaces == nil {
 		request.Container.Linux.Namespaces = []*LinuxNamespace{}
 	}
+	if request.Container.Linux.NetDevices == nil {
+		request.Container.Linux.NetDevices = map[string]*LinuxNetDevice{}
+	}
 
 	return &result{
 		request: resultRequest{
@@ -104,6 +107,7 @@ func collectCreateContainerResult(request *CreateContainerRequest) *result {
 						Unified:        map[string]string{},
 					},
 					Namespaces: []*LinuxNamespace{},
+					NetDevices: map[string]*LinuxNetDevice{},
 				},
 			},
 		},
@@ -236,6 +240,9 @@ func (r *result) adjust(rpl *ContainerAdjustment, plugin string) error {
 			return err
 		}
 		if err := r.adjustSysctl(rpl.Linux.Sysctl, plugin); err != nil {
+			return err
+		}
+		if err := r.adjustLinuxNetDevices(rpl.Linux.NetDevices, plugin); err != nil {
 			return err
 		}
 	}
@@ -957,6 +964,41 @@ func (r *result) adjustRlimits(rlimits []*POSIXRlimit, plugin string) error {
 		create.Container.Rlimits = append(create.Container.Rlimits, l)
 		adjust.Rlimits = append(adjust.Rlimits, l)
 	}
+	return nil
+}
+
+func (r *result) adjustLinuxNetDevices(devices map[string]*LinuxNetDevice, plugin string) error {
+	if len(devices) == 0 {
+		return nil
+	}
+
+	create, id := r.request.create, r.request.create.Container.Id
+	del := map[string]struct{}{}
+	for k := range devices {
+		if key, marked := IsMarkedForRemoval(k); marked {
+			del[key] = struct{}{}
+			delete(devices, k)
+		}
+	}
+
+	for k, v := range devices {
+		if _, ok := del[k]; ok {
+			r.owners.ClearLinuxNetDevice(id, k, plugin)
+			delete(create.Container.Linux.NetDevices, k)
+			r.reply.adjust.Linux.NetDevices[MarkForRemoval(k)] = nil
+		}
+		if err := r.owners.ClaimLinuxNetDevice(id, k, plugin); err != nil {
+			return err
+		}
+		create.Container.Linux.NetDevices[k] = v
+		r.reply.adjust.Linux.NetDevices[k] = v
+		delete(del, k)
+	}
+
+	for k := range del {
+		r.reply.adjust.Linux.NetDevices[MarkForRemoval(k)] = nil
+	}
+
 	return nil
 }
 

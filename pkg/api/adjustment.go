@@ -337,6 +337,12 @@ func (a *ContainerAdjustment) SetLinuxSysctl(key, value string) {
 	a.Linux.Sysctl[key] = value
 }
 
+// SetLinuxScheduler records setting the Linux scheduler attributes for a container.
+func (a *ContainerAdjustment) SetLinuxScheduler(sch *LinuxScheduler) {
+	a.initLinux()
+	a.Linux.Scheduler = sch
+}
+
 //
 // Initializing a container adjustment and container update.
 //

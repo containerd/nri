@@ -195,8 +195,9 @@ func namespacesToSlice(namespaces []*api.LinuxNamespace) []oci.LinuxNamespace {
 
 func main() {
 	var (
-		pluginIdx string
-		err       error
+		pluginIdx  string
+		socketPath string
+		err        error
 	)
 
 	log = logrus.StandardLogger()
@@ -205,6 +206,7 @@ func main() {
 	})
 
 	flag.StringVar(&pluginIdx, "idx", "", "plugin index to register to NRI")
+	flag.StringVar(&socketPath, "socket", "", "path to NRI socket")
 	flag.Parse()
 
 	p := &plugin{}
@@ -213,6 +215,9 @@ func main() {
 	}
 	if pluginIdx != "" {
 		opts = append(opts, stub.WithPluginIdx(pluginIdx))
+	}
+	if socketPath != "" {
+		opts = append(opts, stub.WithSocketPath(socketPath))
 	}
 
 	if p.stub, err = stub.New(p, opts...); err != nil {

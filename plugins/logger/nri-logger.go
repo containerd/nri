@@ -217,10 +217,11 @@ func dump(args ...interface{}) {
 
 func main() {
 	var (
-		pluginIdx string
-		events    string
-		opts      []stub.Option
-		err       error
+		pluginIdx  string
+		socketPath string
+		events     string
+		opts       []stub.Option
+		err        error
 	)
 
 	log = logrus.StandardLogger()
@@ -229,6 +230,7 @@ func main() {
 	})
 
 	flag.StringVar(&pluginIdx, "idx", "", "plugin index to register to NRI")
+	flag.StringVar(&socketPath, "socket-path", "", "path of the NRI socket file")
 	flag.StringVar(&events, "events", "", "comma-separated list of events to subscribe for")
 	flag.StringVar(&cfg.LogFile, "log-file", "", "logfile name, if logging to a file")
 	flag.StringVar(&cfg.AddAnnotation, "add-annotation", "", "add this annotation to containers")
@@ -247,6 +249,10 @@ func main() {
 
 	if pluginIdx != "" {
 		opts = append(opts, stub.WithPluginIdx(pluginIdx))
+	}
+
+	if socketPath != "" {
+		opts = append(opts, stub.WithSocketPath(socketPath))
 	}
 
 	p := &plugin{}

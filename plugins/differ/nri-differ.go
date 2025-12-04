@@ -38,6 +38,7 @@ import (
 type config struct {
 	Indices      string `json:"indices"`
 	LogFile      string `json:"logFile"`
+	SocketPath   string `json:"socketPath"`
 	VerboseLevel int    `json:"verboseLevel"`
 	Yaml         bool   `json:"yaml"`
 }
@@ -339,7 +340,7 @@ func (p *plugin) printYamlDiff(apifunc string, obj string, origValue interface{}
 	}
 }
 
-func startPlugin(wg *sync.WaitGroup, pluginIdx int) {
+func startPlugin(wg *sync.WaitGroup, pluginIdx int, socketPath string) {
 	var (
 		opts []stub.Option
 		err  error
@@ -351,6 +352,10 @@ func startPlugin(wg *sync.WaitGroup, pluginIdx int) {
 
 	if idxStr != "" {
 		opts = append(opts, stub.WithPluginIdx(idxStr))
+	}
+
+	if socketPath != "" {
+		opts = append(opts, stub.WithSocketPath(socketPath))
 	}
 
 	p := &plugin{}
@@ -391,6 +396,7 @@ func main() {
 			"indices 45, 50 and 80. Note that this plugin will install itself to index 0 and 99\n"+
 			"if this parameter is not given.")
 	flag.BoolVar(&cfg.Yaml, "yaml", false, "Print the diff in yaml")
+	flag.StringVar(&cfg.SocketPath, "socket-path", "", "path of the NRI socket file")
 	flag.Parse()
 
 	if cfg.LogFile != "" {
@@ -431,7 +437,7 @@ func main() {
 
 		wg.Add(1)
 
-		go startPlugin(wg, idx)
+		go startPlugin(wg, idx, cfg.SocketPath)
 	}
 
 	entry := indices[prevIndex]

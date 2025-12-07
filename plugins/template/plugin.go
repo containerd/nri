@@ -169,6 +169,7 @@ func main() {
 	var (
 		pluginName string
 		pluginIdx  string
+		socketPath string
 		err        error
 	)
 
@@ -179,6 +180,7 @@ func main() {
 
 	flag.StringVar(&pluginName, "name", "", "plugin name to register to NRI")
 	flag.StringVar(&pluginIdx, "idx", "", "plugin index to register to NRI")
+	flag.StringVar(&socketPath, "socket", "", "path to the plugin socket")
 	flag.Parse()
 
 	p := &plugin{}
@@ -190,6 +192,9 @@ func main() {
 	}
 	if pluginIdx != "" {
 		opts = append(opts, stub.WithPluginIdx(pluginIdx))
+	}
+	if socketPath != "" {
+		opts = append(opts, stub.WithSocketPath(socketPath))
 	}
 
 	if p.stub, err = stub.New(p, opts...); err != nil {

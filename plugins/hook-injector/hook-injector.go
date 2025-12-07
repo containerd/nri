@@ -136,6 +136,7 @@ func dump(args ...interface{}) {
 func main() {
 	var (
 		pluginIdx    string
+		socketPath   string
 		disableWatch bool
 		opts         []stub.Option
 		mgr          *hooks.Manager
@@ -148,12 +149,17 @@ func main() {
 	})
 
 	flag.StringVar(&pluginIdx, "idx", "", "plugin index to register to NRI")
+	flag.StringVar(&socketPath, "socket-path", "", "path of the NRI socket file")
 	flag.BoolVar(&verbose, "verbose", false, "enable (more) verbose logging")
 	flag.BoolVar(&disableWatch, "disableWatch", false, "disable watching hook directories for new hooks")
 	flag.Parse()
 
 	if pluginIdx != "" {
 		opts = append(opts, stub.WithPluginIdx(pluginIdx))
+	}
+
+	if socketPath != "" {
+		opts = append(opts, stub.WithSocketPath(socketPath))
 	}
 
 	if verbose {

@@ -563,9 +563,10 @@ func dump(args ...interface{}) {
 
 func main() {
 	var (
-		pluginIdx string
-		opts      []stub.Option
-		err       error
+		pluginIdx  string
+		socketPath string
+		opts       []stub.Option
+		err        error
 	)
 
 	log = logrus.StandardLogger()
@@ -574,11 +575,16 @@ func main() {
 	})
 
 	flag.StringVar(&pluginIdx, "idx", "", "plugin index to register to NRI")
+	flag.StringVar(&socketPath, "socket-path", "", "path of the NRI socket file")
 	flag.BoolVar(&verbose, "verbose", false, "enable (more) verbose logging")
 	flag.Parse()
 
 	if pluginIdx != "" {
 		opts = append(opts, stub.WithPluginIdx(pluginIdx))
+	}
+
+	if socketPath != "" {
+		opts = append(opts, stub.WithSocketPath(socketPath))
 	}
 
 	p := &plugin{}

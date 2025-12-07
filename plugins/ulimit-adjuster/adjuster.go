@@ -62,6 +62,7 @@ func main() {
 	var (
 		pluginName string
 		pluginIdx  string
+		socketPath string
 		verbose    bool
 		opts       []stub.Option
 	)
@@ -73,6 +74,7 @@ func main() {
 
 	flag.StringVar(&pluginName, "name", "", "plugin name to register to NRI")
 	flag.StringVar(&pluginIdx, "idx", "", "plugin index to register to NRI")
+	flag.StringVar(&socketPath, "socket", "", "path to the plugin socket")
 	flag.BoolVar(&verbose, "verbose", false, "enable (more) verbose logging")
 	flag.Parse()
 	ctx := log.WithLogger(context.Background(), l.WithField("name", pluginName).WithField("idx", pluginIdx))
@@ -87,6 +89,9 @@ func main() {
 	}
 	if pluginIdx != "" {
 		opts = append(opts, stub.WithPluginIdx(pluginIdx))
+	}
+	if socketPath != "" {
+		opts = append(opts, stub.WithSocketPath(socketPath))
 	}
 
 	p := &plugin{l: log.G(ctx)}

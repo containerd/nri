@@ -570,6 +570,11 @@ var _ = Describe("Plugin container creation adjustments", func() {
 		case "linux sysctl":
 			a.SetLinuxSysctl("net.core.somaxconn", "256")
 
+		case "linux memory policy":
+			a.SetLinuxMemoryPolicy(
+				api.MpolMode_MPOL_INTERLEAVE, "0,1", api.MpolFlag_MPOL_F_STATIC_NODES,
+			)
+
 		case "resources/cpu":
 			a.SetLinuxCPUShares(123)
 			a.SetLinuxCPUQuota(456)
@@ -861,6 +866,20 @@ var _ = Describe("Plugin container creation adjustments", func() {
 					Linux: &api.LinuxContainerAdjustment{
 						Sysctl: map[string]string{
 							"net.core.somaxconn": "256",
+						},
+					},
+				},
+			),
+
+			Entry("adjust linux memory policy", "linux memory policy",
+				&api.ContainerAdjustment{
+					Linux: &api.LinuxContainerAdjustment{
+						MemoryPolicy: &api.LinuxMemoryPolicy{
+							Mode:  api.MpolMode_MPOL_INTERLEAVE,
+							Nodes: "0,1",
+							Flags: []api.MpolFlag{
+								api.MpolFlag_MPOL_F_STATIC_NODES,
+							},
 						},
 					},
 				},

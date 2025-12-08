@@ -128,6 +128,43 @@ requests the injection of the host network interface `ens2.100` into container `
 as the network interface `netdev0`, and the host network interface `ens2.101` into
 container `c1` as the network interface `netdev1`.
 
+### Linux Memory Policy Annotations
+
+Memory policies are annotated in a similar manner to devices, but using the
+`memory-policy.noderesource.dev` annotation key prefix. As with devices, the
+`memory-policy.nri.io` annotation key prefix is also supported.
+
+The annotation value syntax for memory policy adjustment is
+
+```
+  mode: <policy mode, for instance MPOL_INTERLEAVE>
+  nodes: <list of NUMA nodes as a string, for instance "2,3">
+  flags: <list of policy flags as strings, for instance [ MPOL_F_STATIC_NODES ] >
+```
+
+The supported modes are:
+
+- MPOL_DEFAULT
+- MPOL_PREFERRED
+- MPOL_BIND
+- MPOL_INTERLEAVE
+- MPOL_LOCAL
+- MPOL_PREFERRED_MANY
+- MPOL_WEIGHTED_INTERLEAVE
+
+You can omit the MPOL_ prefix and can use lowercase at will.
+
+The supported flags are:
+
+- MPOL_F_STATIC_NODES
+- MPOL_F_RELATIVE_NODES
+- MPOL_F_NUMA_BALANCING
+
+As with modes, you can omit the MPOL_F_ prefix and use lowercase at will.
+
+See man set_mempolicy(2) for a description of what the effects are of these
+settings.
+
 ## Deployment
 
 The NRI repository contains minimal kustomize overlays for this plugin at

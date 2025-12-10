@@ -28,9 +28,9 @@ import (
 	errors "errors"
 	fmt "fmt"
 	wasm "github.com/knqyf263/go-plugin/wasm"
-	wazero "github.com/tetratelabs/wazero"
-	api "github.com/tetratelabs/wazero/api"
-	sys "github.com/tetratelabs/wazero/sys"
+	wazero "github.com/containerd/nri/pkg/adaptation/wazero"
+	api "github.com/containerd/nri/pkg/adaptation/wazero/api"
+	sys "github.com/containerd/nri/pkg/adaptation/wazero/sys"
 	os "os"
 )
 

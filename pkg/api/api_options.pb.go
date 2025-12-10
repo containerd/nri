@@ -25,7 +25,7 @@ package api
 
 import (
 	context "context"
-	wazero "github.com/tetratelabs/wazero"
+	wazero "github.com/containerd/nri/pkg/adaptation/wazero"
 	wasi_snapshot_preview1 "github.com/tetratelabs/wazero/imports/wasi_snapshot_preview1"
 )
 

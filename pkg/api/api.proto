@@ -560,6 +560,7 @@ message LinuxContainerAdjustment {
   map<string, string> sysctl = 8;
   map<string,LinuxNetDevice> net_devices = 9;
   LinuxScheduler scheduler = 10;
+  LinuxMemoryPolicy memory_policy = 11;
 }
 
 message LinuxSeccomp {
@@ -584,6 +585,29 @@ message LinuxSeccompArg {
   uint64 value = 2;
   uint64 value_two = 3;
   string op = 4;
+}
+
+// Memory policy of a container being created.
+message LinuxMemoryPolicy {
+  MpolMode mode = 1;
+  string nodes = 2;
+  repeated MpolFlag flags = 3;
+}
+
+enum MpolMode {
+    MPOL_DEFAULT = 0;
+    MPOL_PREFERRED = 1;
+    MPOL_BIND = 2;
+    MPOL_INTERLEAVE = 3;
+    MPOL_LOCAL = 4;
+    MPOL_PREFERRED_MANY = 5;
+    MPOL_WEIGHTED_INTERLEAVE = 6;
+}
+
+enum MpolFlag {
+    MPOL_F_STATIC_NODES = 0;
+    MPOL_F_RELATIVE_NODES = 1;
+    MPOL_F_NUMA_BALANCING = 2;
 }
 
 // Requested update to an already created container.
@@ -726,4 +750,5 @@ enum Field {
     LinuxNetDevices = 35;
     // protoc scoping rules: calling this LinuxScheduler would conflict with message.
     LinuxSched = 36;
+    MemoryPolicy = 37;
 }

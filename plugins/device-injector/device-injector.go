@@ -55,6 +55,10 @@ const (
 	schedulerKey = "scheduling-policy.noderesource.dev"
 	// Deprecated: Prefix of the key used for scheduler attribute adjustment.
 	oldSchedulerKey = "scheduling-policy.nri.io"
+	// Prefix of the key used for memory policy adjustment.
+	memoryPolicyKey = "memory-policy.noderesource.dev"
+	// Deprecated: Prefix of the key used for memory policy adjustment.
+	oldMemoryPolicyKey = "memory-policy.nri.io"
 )
 
 var (
@@ -104,6 +108,13 @@ type scheduler struct {
 	Period   uint64   `json:"period"`
 }
 
+// memoryPolicy adjustment
+type memoryPolicy struct {
+	Mode  string   `json:"mode"`
+	Nodes string   `json:"nodes"`
+	Flags []string `json:"flags"`
+}
+
 // our injector plugin
 type plugin struct {
 	stub stub.Stub
@@ -133,6 +144,9 @@ func (p *plugin) CreateContainer(_ context.Context, pod *api.PodSandbox, ctr *ap
 		return nil, nil, err
 	}
 	if err := adjustScheduler(pod, ctr, adjust); err != nil {
+		return nil, nil, err
+	}
+	if err := adjustMemoryPolicy(pod, ctr, adjust); err != nil {
 		return nil, nil, err
 	}
 
@@ -395,6 +409,53 @@ func parseScheduler(ctr string, annotations map[string]string) (*scheduler, erro
 	return sch, nil
 }
 
+func adjustMemoryPolicy(pod *api.PodSandbox, ctr *api.Container, a *api.ContainerAdjustment) error {
+	pol, err := parseMemoryPolicy(ctr.Name, pod.Annotations)
+	if err != nil {
+		log.Errorf("%s: invalid memory policy annotation: %v",
+			containerName(pod, ctr), err)
+		return err
+	}
+
+	if pol == nil {
+		log.Debugf("%s: no memory policy annotated...", containerName(pod, ctr))
+		return nil
+	}
+
+	if verbose {
+		dump(containerName(pod, ctr), "annotated memory policy", pol)
+	}
+
+	amp, err := pol.ToNRI()
+	if err != nil {
+		log.Errorf("%s: invalid memory policy annotation: %v",
+			containerName(pod, ctr), err)
+		return fmt.Errorf("invalid memory policy: %w", err)
+	}
+
+	a.SetLinuxMemoryPolicy(amp.Mode, amp.Nodes, amp.Flags...)
+	log.Infof("%s: adjusted memory policy to %s...", containerName(pod, ctr), amp)
+
+	return nil
+}
+
+func parseMemoryPolicy(ctr string, annotations map[string]string) (*memoryPolicy, error) {
+	var (
+		policy = &memoryPolicy{}
+	)
+
+	annotation := getAnnotation(annotations, memoryPolicyKey, oldMemoryPolicyKey, ctr)
+	if annotation == nil {
+		return nil, nil
+	}
+
+	if err := yaml.Unmarshal(annotation, policy); err != nil {
+		return nil, fmt.Errorf("invalid memory policy annotation %q: %w", string(annotation), err)
+	}
+
+	return policy, nil
+}
+
 func getAnnotation(annotations map[string]string, mainKey, oldKey, ctr string) []byte {
 	for _, key := range []string{
 		mainKey + "/container." + ctr,
@@ -513,6 +574,46 @@ func (sc *scheduler) String() string {
 	}
 	if len(sc.Flags) > 0 {
 		s += fmt.Sprintf(", flags=%v", sc.Flags)
+	}
+	s += ">"
+
+	return s
+}
+
+// Convert memoryPolicy to the NRI API representation.
+func (mp *memoryPolicy) ToNRI() (*api.LinuxMemoryPolicy, error) {
+	apiPol := &api.LinuxMemoryPolicy{
+		Nodes: mp.Nodes,
+	}
+
+	mode, ok := api.MpolMode_value[mp.Mode]
+	if !ok {
+		return nil, fmt.Errorf("invalid memory policy mode %q", mp.Mode)
+	}
+	apiPol.Mode = api.MpolMode(mode)
+
+	for _, f := range mp.Flags {
+		flag, ok := api.MpolFlag_value[f]
+		if !ok {
+			return nil, fmt.Errorf("invalid memory policy flag %q", f)
+		}
+		apiPol.Flags = append(apiPol.Flags, api.MpolFlag(flag))
+	}
+
+	return apiPol, nil
+}
+
+func (mp *memoryPolicy) String() string {
+	if mp == nil {
+		return "<no memory policy>"
+	}
+
+	s := fmt.Sprintf("<memory policy mode=%s", mp.Mode)
+	if mp.Nodes != "" {
+		s += fmt.Sprintf(", nodes=%s", mp.Nodes)
+	}
+	if len(mp.Flags) > 0 {
+		s += fmt.Sprintf(", flags=%v", mp.Flags)
 	}
 	s += ">"
 

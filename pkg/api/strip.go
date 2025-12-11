@@ -112,6 +112,10 @@ func (l *LinuxContainerAdjustment) Strip() *LinuxContainerAdjustment {
 		empty = false
 	}
 
+	if l.MemoryPolicy = l.MemoryPolicy.Strip(); l.MemoryPolicy != nil {
+		empty = false
+	}
+
 	if empty {
 		return nil
 	}
@@ -286,6 +290,37 @@ func (m *LinuxMemory) Strip() *LinuxMemory {
 		empty = false
 	}
 	if m.UseHierarchy != nil {
+		empty = false
+	}
+
+	if empty {
+		return nil
+	}
+
+	return m
+}
+
+// Strip empty fields from linux scheduler attributes, reducing a fully empty
+// one to nil. Strip allows comparison of two sets of attributes for semantic
+// equality using go-cmp.
+func (m *LinuxMemoryPolicy) Strip() *LinuxMemoryPolicy {
+	if m == nil {
+		return nil
+	}
+
+	empty := true //nolint:staticcheck // could merge conditional assignment below to variable definition
+
+	if m.Mode != 0 {
+		empty = false
+	}
+
+	if m.Nodes != "" {
+		empty = false
+	}
+
+	if len(m.Flags) == 0 {
+		m.Flags = nil
+	} else {
 		empty = false
 	}
 

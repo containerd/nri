@@ -455,6 +455,9 @@ the WebAssembly plugin is required, then the NRI provides a host function helper
 [`Log`](https://github.com/containerd/nri/blob/8ebdb076ea6aa524094a7f1c2c9ca31c30852328/plugins/wasm/plugin.go#L31-L36)
 for that.
 
+WebAssembly support is enabled by default. It can be disabled at compile
+time using the `nri_no_wasm` build tag.
+
 ## Security Considerations
 
 From a security perspective NRI plugins should be considered part of the

@@ -448,7 +448,19 @@ var _ = Describe("Plugin container creation adjustments", func() {
 	adjust := func(subject string, p *mockPlugin, _ *api.PodSandbox, c *api.Container, overwrite bool) (*api.ContainerAdjustment, []*api.ContainerUpdate, error) {
 		plugin := p.idx + "-" + p.name
 		a := &api.ContainerAdjustment{}
+		if plugin == "00-all-nil-adjust" {
+			return nil, nil, nil
+		}
 		switch subject {
+		case "all-nil-adjustment":
+			return nil, nil, nil
+
+		case "00-nil-adjustment", "10-nil-adjustment":
+			if subject[:2] == p.idx {
+				return nil, nil, nil
+			}
+			a.AddAnnotation("non-nil-adjustment", p.idx+"-"+p.name)
+
 		case "annotation":
 			if overwrite {
 				a.RemoveAnnotation("key")
@@ -626,14 +638,19 @@ var _ = Describe("Plugin container creation adjustments", func() {
 
 	When("there is a single plugin", func() {
 		BeforeEach(func() {
-			s.Prepare(&mockRuntime{}, &mockPlugin{idx: "00", name: "test"})
+
+			s.Prepare(
+				&mockRuntime{},
+				&mockPlugin{idx: "00", name: "all-nil-adjust"},
+				&mockPlugin{idx: "00", name: "test"},
+			)
 		})
 
 		DescribeTable("should be successfully collected without conflicts",
 			func(subject string, expected *api.ContainerAdjustment) {
 				var (
 					runtime = s.runtime
-					plugin  = s.plugins[0]
+					plugins = s.plugins
 					ctx     = context.Background()
 
 					pod = &api.PodSandbox{
@@ -686,7 +703,8 @@ var _ = Describe("Plugin container creation adjustments", func() {
 					return adjust(subject, p, pod, ctr, false)
 				}
 
-				plugin.createContainer = create
+				plugins[0].createContainer = create
+				plugins[1].createContainer = create
 
 				s.Startup()
 
@@ -701,6 +719,10 @@ var _ = Describe("Plugin container creation adjustments", func() {
 				Expect(protoEqual(reply.Adjust.Strip(), expected.Strip())).Should(BeTrue(),
 					protoDiff(reply.Adjust, expected))
 			},
+
+			Entry("nil adjustment", "all-nil-adjustment",
+				nil,
+			),
 
 			Entry("adjust annotations", "annotation",
 				&api.ContainerAdjustment{
@@ -973,6 +995,7 @@ var _ = Describe("Plugin container creation adjustments", func() {
 		BeforeEach(func() {
 			s.Prepare(
 				&mockRuntime{},
+				&mockPlugin{idx: "00", name: "all-nil-adjust"},
 				&mockPlugin{idx: "10", name: "foo"},
 				&mockPlugin{idx: "00", name: "bar"},
 			)
@@ -1025,11 +1048,12 @@ var _ = Describe("Plugin container creation adjustments", func() {
 				)
 
 				create := func(p *mockPlugin, pod *api.PodSandbox, ctr *api.Container) (*api.ContainerAdjustment, []*api.ContainerUpdate, error) {
-					return adjust(subject, p, pod, ctr, p == plugins[0] && remove)
+					return adjust(subject, p, pod, ctr, p == plugins[1] && remove)
 				}
 
 				plugins[0].createContainer = create
 				plugins[1].createContainer = create
+				plugins[2].createContainer = create
 
 				s.Startup()
 
@@ -1048,6 +1072,25 @@ var _ = Describe("Plugin container creation adjustments", func() {
 						protoDiff(reply.Adjust, expected))
 				}
 			},
+
+			Entry("all nil adjustment", "all-nil-adjustment", false, false,
+				nil,
+			),
+
+			Entry("00 nil adjustment", "00-nil-adjustment", false, false,
+				&api.ContainerAdjustment{
+					Annotations: map[string]string{
+						"non-nil-adjustment": "10-foo",
+					},
+				},
+			),
+			Entry("10 nil adjustment", "10-nil-adjustment", false, false,
+				&api.ContainerAdjustment{
+					Annotations: map[string]string{
+						"non-nil-adjustment": "00-bar",
+					},
+				},
+			),
 
 			Entry("adjust annotations (conflicts)", "annotation", false, true, nil),
 			Entry("adjust annotations", "annotation", true, false,
@@ -1264,6 +1307,7 @@ var _ = Describe("Plugin container creation adjustments", func() {
 						),
 					},
 				},
+				&mockPlugin{idx: "00", name: "all-nil-adjust"},
 				&mockPlugin{idx: "00", name: "foo"},
 				&mockPlugin{idx: "10", name: "validator1"},
 				&mockPlugin{idx: "20", name: "validator2"},

@@ -21,10 +21,10 @@ require (
 	github.com/mattn/go-colorable v0.1.8 // indirect
 	github.com/mattn/go-isatty v0.0.14 // indirect
 	github.com/opencontainers/runtime-spec v1.3.0 // indirect
-	github.com/tetratelabs/wazero v1.10.1 // indirect
+	github.com/tetratelabs/wazero v1.11.0 // indirect
 	github.com/vmihailenco/msgpack v4.0.4+incompatible // indirect
 	golang.org/x/net v0.43.0 // indirect
-	golang.org/x/sys v0.35.0 // indirect
+	golang.org/x/sys v0.38.0 // indirect
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20230731190214-cbb8c96f2d6d // indirect

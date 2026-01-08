@@ -361,11 +361,14 @@ policy profile, a custom policy profile, and unconfined security profiles.
 3. Reject Linux Namespace adjustment: Reject any adjustment which tries to
 alter Linux namespaces of a container.
 
-4. Verify global mandatory plugins: Verify that all configured mandatory
+4. Reject Linux sysctl adjustment: Reject any adjustment which tries to
+alter Linux sysctl settings of a container.
+
+5. Verify global mandatory plugins: Verify that all configured mandatory
 plugins are present and have processed a container. Otherwise reject the
 creation of the container.
 
-5. Verify annotated mandatory plugins: Verify that an annotated set of
+6. Verify annotated mandatory plugins: Verify that an annotated set of
 container-specific mandatory plugins are present and have processed a
 container. Otherwise reject the creation of the container.
 
@@ -374,11 +377,12 @@ allows one to deploy mandatory plugins as containers themselves.
 
 #### Default Validation Scope
 
-Currently only OCI hook injection, Linux seccomp policy and Linux namespace
-adjustment can be restricted using the default validator. However, this probably
-will change in the future. Especially when NRI is extended with control over more
-container parameters. If newly added controls will have security implications,
-expect corresponding configurable restrictions in the default validator.
+Currently only OCI hook injection, Linux seccomp policy, Linux namespace and
+Linux sysctl adjustment can be restricted using the default validator. However,
+this probably will change in the future. Especially when NRI is extended with
+control over more container parameters. If newly added controls will have
+security implications, expect corresponding configurable restrictions in the
+default validator.
 
 ## Runtime Adaptation
 

@@ -116,6 +116,12 @@ func (l *LinuxContainerAdjustment) Strip() *LinuxContainerAdjustment {
 		empty = false
 	}
 
+	if len(l.Namespaces) == 0 {
+		l.Namespaces = nil
+	} else {
+		empty = false
+	}
+
 	if empty {
 		return nil
 	}

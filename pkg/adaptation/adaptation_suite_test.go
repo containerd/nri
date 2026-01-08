@@ -34,11 +34,12 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	rspec "github.com/opencontainers/runtime-spec/specs-go"
+
 	nri "github.com/containerd/nri/pkg/adaptation"
 	"github.com/containerd/nri/pkg/api"
 	"github.com/containerd/nri/pkg/plugin"
 	validator "github.com/containerd/nri/plugins/default-validator/builtin"
-	rspec "github.com/opencontainers/runtime-spec/specs-go"
 )
 
 var _ = Describe("Configuration", func() {
@@ -508,6 +509,7 @@ var _ = Describe("Plugin container creation adjustments", func() {
 		case "namespace":
 			ns := &api.LinuxNamespace{
 				Type: "cgroup",
+				Path: "/var/run/cgroupns/replaced",
 			}
 			a.AddOrReplaceNamespace(ns)
 
@@ -678,6 +680,12 @@ var _ = Describe("Plugin container creation adjustments", func() {
 									UseHierarchy:     api.Bool(false),
 								},
 							},
+							Namespaces: []*api.LinuxNamespace{
+								{
+									Type: "cgroup",
+									Path: "/var/run/cgroupns/original",
+								},
+							},
 						},
 					}
 				)
@@ -779,6 +787,7 @@ var _ = Describe("Plugin container creation adjustments", func() {
 						Namespaces: []*api.LinuxNamespace{
 							{
 								Type: "cgroup",
+								Path: "/var/run/cgroupns/replaced",
 							},
 						},
 					},

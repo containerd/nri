@@ -17,7 +17,7 @@ The annotation syntax for ulimit adjustment is
 - type: RLIMIT_NOFILE
   soft: 1024
   hard: 4096
-- path: RLIMIT_MEMLOCK
+- type: RLIMIT_MEMLOCK
   soft: 1073741824
   hard: 1073741824
   ...

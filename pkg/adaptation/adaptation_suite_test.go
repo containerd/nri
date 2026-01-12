@@ -709,7 +709,7 @@ var _ = Describe("Plugin container creation adjustments", func() {
 				}
 				reply, err := runtime.CreateContainer(ctx, ctrReq)
 				Expect(err).To(BeNil())
-				Expect(protoEqual(reply.Adjust.Strip(), expected.Strip())).Should(BeTrue(),
+				Expect(protoEqual(reply.Adjust.Strip(), expected)).Should(BeTrue(),
 					protoDiff(reply.Adjust, expected))
 			},
 
@@ -1066,7 +1066,7 @@ var _ = Describe("Plugin container creation adjustments", func() {
 					Expect(err).ToNot(BeNil())
 				} else {
 					Expect(err).To(BeNil())
-					Expect(protoEqual(reply.Adjust.Strip(), expected.Strip())).Should(BeTrue(),
+					Expect(protoEqual(reply.Adjust.Strip(), expected)).Should(BeTrue(),
 						protoDiff(reply.Adjust, expected))
 				}
 			},
@@ -1256,7 +1256,7 @@ var _ = Describe("Plugin container creation adjustments", func() {
 					Expect(err).ToNot(BeNil())
 				} else {
 					Expect(err).To(BeNil())
-					Expect(protoEqual(reply.Adjust.Strip(), expected.Strip())).Should(BeTrue(),
+					Expect(protoEqual(reply.Adjust.Strip(), expected)).Should(BeTrue(),
 						protoDiff(reply.Adjust, expected))
 				}
 			},
@@ -2381,7 +2381,7 @@ var _ = Describe("Plugin container updates during creation", func() {
 
 				Expect(len(reply.Update)).To(Equal(1))
 				expected.ContainerId = reply.Update[0].ContainerId
-				Expect(protoEqual(reply.Update[0].Strip(), expected.Strip())).Should(BeTrue(),
+				Expect(protoEqual(reply.Update[0].Strip(), expected)).Should(BeTrue(),
 					protoDiff(reply.Update[0], expected))
 			},
 
@@ -2538,7 +2538,7 @@ var _ = Describe("Plugin container updates during creation", func() {
 					Expect(err).To(BeNil())
 					Expect(len(reply.Update)).To(Equal(1))
 					expected.ContainerId = reply.Update[0].ContainerId
-					Expect(protoEqual(reply.Update[0].Strip(), expected.Strip())).Should(BeTrue(),
+					Expect(protoEqual(reply.Update[0].Strip(), expected)).Should(BeTrue(),
 						protoDiff(reply.Update[0], expected))
 				}
 			},
@@ -2760,7 +2760,7 @@ var _ = Describe("Solicited container updates by plugins", func() {
 				Expect(len(reply.Update)).To(Equal(1))
 				Expect(err).To(BeNil())
 				expected.ContainerId = reply.Update[0].ContainerId
-				Expect(protoEqual(reply.Update[0].Strip(), expected.Strip())).Should(BeTrue(),
+				Expect(protoEqual(reply.Update[0].Strip(), expected)).Should(BeTrue(),
 					protoDiff(reply.Update[0], expected))
 			},
 
@@ -3002,7 +3002,7 @@ var _ = Describe("Solicited container updates by plugins", func() {
 					Expect(err).To(BeNil())
 					Expect(len(reply.Update)).To(Equal(1))
 					expected.ContainerId = reply.Update[0].ContainerId
-					Expect(protoEqual(reply.Update[0].Strip(), expected.Strip())).Should(BeTrue(),
+					Expect(protoEqual(reply.Update[0].Strip(), expected)).Should(BeTrue(),
 						protoDiff(reply.Update[0], expected))
 
 				}

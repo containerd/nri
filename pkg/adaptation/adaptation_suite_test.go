@@ -529,11 +529,6 @@ var _ = Describe("Plugin container creation adjustments", func() {
 				Priority: 5,
 			})
 
-		case "clear I/O priority":
-			a.SetLinuxIOPriority(&nri.LinuxIOPriority{
-				Class: api.IOPrioClass_IOPRIO_CLASS_NONE,
-			})
-
 		case "linux net device":
 			if overwrite {
 				a.RemoveLinuxNetDevice("hostIf")
@@ -552,11 +547,6 @@ var _ = Describe("Plugin container creation adjustments", func() {
 				Flags: []api.LinuxSchedulerFlag{
 					api.LinuxSchedulerFlag_SCHED_FLAG_RESET_ON_FORK,
 				},
-			})
-
-		case "clear linux scheduler":
-			a.SetLinuxScheduler(&api.LinuxScheduler{
-				Policy: api.LinuxSchedulerPolicy_SCHED_NONE,
 			})
 
 		case "linux sysctl":
@@ -843,23 +833,6 @@ var _ = Describe("Plugin container creation adjustments", func() {
 							Flags: []api.LinuxSchedulerFlag{
 								api.LinuxSchedulerFlag_SCHED_FLAG_RESET_ON_FORK,
 							},
-						},
-					},
-				},
-			),
-
-			Entry("clear I/O priority", "clear I/O priority",
-				&api.ContainerAdjustment{
-					Linux: &api.LinuxContainerAdjustment{
-						IoPriority: &api.LinuxIOPriority{},
-					},
-				},
-			),
-			Entry("clear linux scheduler", "clear linux scheduler",
-				&api.ContainerAdjustment{
-					Linux: &api.LinuxContainerAdjustment{
-						Scheduler: &api.LinuxScheduler{
-							Policy: api.LinuxSchedulerPolicy_SCHED_NONE,
 						},
 					},
 				},

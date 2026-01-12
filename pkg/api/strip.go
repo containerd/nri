@@ -122,6 +122,12 @@ func (l *LinuxContainerAdjustment) Strip() *LinuxContainerAdjustment {
 		empty = false
 	}
 
+	if len(l.Sysctl) == 0 {
+		l.Sysctl = nil
+	} else {
+		empty = false
+	}
+
 	if empty {
 		return nil
 	}

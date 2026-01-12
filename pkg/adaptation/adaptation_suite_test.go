@@ -559,6 +559,9 @@ var _ = Describe("Plugin container creation adjustments", func() {
 				Policy: api.LinuxSchedulerPolicy_SCHED_NONE,
 			})
 
+		case "linux sysctl":
+			a.SetLinuxSysctl("net.core.somaxconn", "256")
+
 		case "resources/cpu":
 			a.SetLinuxCPUShares(123)
 			a.SetLinuxCPUQuota(456)
@@ -857,6 +860,16 @@ var _ = Describe("Plugin container creation adjustments", func() {
 					Linux: &api.LinuxContainerAdjustment{
 						Scheduler: &api.LinuxScheduler{
 							Policy: api.LinuxSchedulerPolicy_SCHED_NONE,
+						},
+					},
+				},
+			),
+
+			Entry("adjust linux sysctl settings", "linux sysctl",
+				&api.ContainerAdjustment{
+					Linux: &api.LinuxContainerAdjustment{
+						Sysctl: map[string]string{
+							"net.core.somaxconn": "256",
 						},
 					},
 				},

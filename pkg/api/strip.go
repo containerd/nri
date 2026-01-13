@@ -30,6 +30,241 @@ package api
 //     beyond 1.35.2 yet, before all supported release branches of our
 //     downstream dependencies have bumped their direct dependencies.
 
+// Strip empty fields from Hooks, reducing a fully empty one to nil. Strip
+// allows comparison of two Hooks for semantic equality using go-cmp.
+func (h *Hooks) Strip() *Hooks {
+	if h == nil {
+		return nil
+	}
+
+	empty := true
+
+	if len(h.Prestart) == 0 {
+		h.Prestart = nil
+	} else {
+		empty = false
+	}
+	if len(h.CreateRuntime) == 0 {
+		h.CreateRuntime = nil
+	} else {
+		empty = false
+	}
+	if len(h.CreateContainer) == 0 {
+		h.CreateContainer = nil
+	} else {
+		empty = false
+	}
+	if len(h.StartContainer) == 0 {
+		h.StartContainer = nil
+	} else {
+		empty = false
+	}
+	if len(h.Poststart) == 0 {
+		h.Poststart = nil
+	} else {
+		empty = false
+	}
+	if len(h.Poststop) == 0 {
+		h.Poststop = nil
+	} else {
+		empty = false
+	}
+
+	if empty {
+		return nil
+	}
+
+	return h
+}
+
+// Strip empty fields from a linux resources, reducing a fully empty one
+// to nil. Strip allows comparison of two sets of resources for semantic
+// equality using go-cmp.
+func (r *LinuxResources) Strip() *LinuxResources {
+	if r == nil {
+		return nil
+	}
+
+	empty := true
+
+	if r.Memory = r.Memory.Strip(); r.Memory != nil {
+		empty = false
+	}
+	if r.Cpu = r.Cpu.Strip(); r.Cpu != nil {
+		empty = false
+	}
+	if len(r.HugepageLimits) == 0 {
+		r.HugepageLimits = nil
+	} else {
+		empty = false
+	}
+
+	if r.BlockioClass != nil {
+		empty = false
+	}
+	if r.RdtClass != nil {
+		empty = false
+	}
+	if len(r.Unified) == 0 {
+		r.Unified = nil
+	} else {
+		empty = false
+	}
+	if len(r.Devices) == 0 {
+		r.Devices = nil
+	} else {
+		empty = false
+	}
+	if r.Pids != nil {
+		empty = false
+	}
+
+	if empty {
+		return nil
+	}
+
+	return r
+}
+
+// Strip empty fields from linux memory attributes, reducing a fully empty
+// one to nil. Strip allows comparison of two sets of attributes for semantic
+// equality using go-cmp.
+func (m *LinuxMemory) Strip() *LinuxMemory {
+	if m == nil {
+		return nil
+	}
+
+	empty := true //nolint:staticcheck // could merge conditional assignment below to variable definition
+
+	if m.Limit != nil {
+		empty = false
+	}
+	if m.Reservation != nil {
+		empty = false
+	}
+	if m.Swap != nil {
+		empty = false
+	}
+	if m.Kernel != nil {
+		empty = false
+	}
+	if m.KernelTcp != nil {
+		empty = false
+	}
+	if m.Swappiness != nil {
+		empty = false
+	}
+	if m.DisableOomKiller != nil {
+		empty = false
+	}
+	if m.UseHierarchy != nil {
+		empty = false
+	}
+
+	if empty {
+		return nil
+	}
+
+	return m
+}
+
+// Strip empty fields from linux CPU attributes, reducing a fully empty one
+// to nil. Strip allows comparison of two sets of attributes for semantic
+// equality using go-cmp.
+func (c *LinuxCPU) Strip() *LinuxCPU {
+	if c == nil {
+		return nil
+	}
+
+	empty := true //nolint:staticcheck // could merge conditional assignment below to variable definition
+
+	if c.Shares != nil {
+		empty = false
+	}
+	if c.Quota != nil {
+		empty = false
+	}
+	if c.Period != nil {
+		empty = false
+	}
+	if c.RealtimeRuntime != nil {
+		empty = false
+	}
+	if c.RealtimePeriod != nil {
+		empty = false
+	}
+	if c.Cpus != "" {
+		empty = false
+	}
+	if c.Mems != "" {
+		empty = false
+	}
+
+	if empty {
+		return nil
+	}
+
+	return c
+}
+
+// Strip empty fields from a linux IO priority attributes, reducing a fully
+// empty one to nil. Strip allows comparison of two sets of attributes for
+// semantic equality using go-cmp.
+func (i *LinuxIOPriority) Strip() *LinuxIOPriority {
+	if i == nil {
+		return nil
+	}
+
+	if i.Class != 0 {
+		return i
+	}
+
+	if i.Priority != 0 {
+		return i
+	}
+
+	return nil
+}
+
+// Strip empty fields from a linux scheduler attributes, reducing a fully empty
+// one to nil. Strip allows comparison of two sets of attributes for semantic
+// equality using go-cmp.
+func (s *LinuxScheduler) Strip() *LinuxScheduler {
+	if s == nil {
+		return nil
+	}
+
+	if len(s.Flags) == 0 {
+		s.Flags = nil
+	}
+
+	if s.Policy != 0 {
+		return s
+	}
+
+	if s.Nice != 0 {
+		return s
+	}
+
+	if s.Priority != 0 {
+		return s
+	}
+
+	if s.Runtime != 0 {
+		return s
+	}
+
+	if s.Deadline != 0 {
+		return s
+	}
+
+	if s.Period != 0 {
+		return s
+	}
+
+	return nil
+}
+
 // Strip empty fields from a container adjustment, reducing a fully empty
 // one to nil. Strip allows comparison of two adjustments for semantic
 // equality using go-cmp.
@@ -149,258 +384,6 @@ func (l *LinuxContainerAdjustment) Strip() *LinuxContainerAdjustment {
 	return l
 }
 
-// Strip empty fields from Hooks, reducing a fully empty one to nil. Strip
-// allows comparison of two Hooks for semantic equality using go-cmp.
-func (h *Hooks) Strip() *Hooks {
-	if h == nil {
-		return nil
-	}
-
-	empty := true
-
-	if len(h.Prestart) == 0 {
-		h.Prestart = nil
-	} else {
-		empty = false
-	}
-	if len(h.CreateRuntime) == 0 {
-		h.CreateRuntime = nil
-	} else {
-		empty = false
-	}
-	if len(h.CreateContainer) == 0 {
-		h.CreateContainer = nil
-	} else {
-		empty = false
-	}
-	if len(h.StartContainer) == 0 {
-		h.StartContainer = nil
-	} else {
-		empty = false
-	}
-	if len(h.Poststart) == 0 {
-		h.Poststart = nil
-	} else {
-		empty = false
-	}
-	if len(h.Poststop) == 0 {
-		h.Poststop = nil
-	} else {
-		empty = false
-	}
-
-	if empty {
-		return nil
-	}
-
-	return h
-}
-
-// Strip empty fields from a linux resources, reducing a fully empty one
-// to nil. Strip allows comparison of two sets of resources for semantic
-// equality using go-cmp.
-func (r *LinuxResources) Strip() *LinuxResources {
-	if r == nil {
-		return nil
-	}
-
-	empty := true
-
-	if r.Memory = r.Memory.Strip(); r.Memory != nil {
-		empty = false
-	}
-	if r.Cpu = r.Cpu.Strip(); r.Cpu != nil {
-		empty = false
-	}
-	if len(r.HugepageLimits) == 0 {
-		r.HugepageLimits = nil
-	} else {
-		empty = false
-	}
-
-	if r.BlockioClass != nil {
-		empty = false
-	}
-	if r.RdtClass != nil {
-		empty = false
-	}
-	if len(r.Unified) == 0 {
-		r.Unified = nil
-	} else {
-		empty = false
-	}
-	if len(r.Devices) == 0 {
-		r.Devices = nil
-	} else {
-		empty = false
-	}
-	if r.Pids != nil {
-		empty = false
-	}
-
-	if empty {
-		return nil
-	}
-
-	return r
-}
-
-// Strip empty fields from linux CPU attributes, reducing a fully empty one
-// to nil. Strip allows comparison of two sets of attributes for semantic
-// equality using go-cmp.
-func (c *LinuxCPU) Strip() *LinuxCPU {
-	if c == nil {
-		return nil
-	}
-
-	empty := true //nolint:staticcheck // could merge conditional assignment below to variable definition
-
-	if c.Shares != nil {
-		empty = false
-	}
-	if c.Quota != nil {
-		empty = false
-	}
-	if c.Period != nil {
-		empty = false
-	}
-	if c.RealtimeRuntime != nil {
-		empty = false
-	}
-	if c.RealtimePeriod != nil {
-		empty = false
-	}
-	if c.Cpus != "" {
-		empty = false
-	}
-	if c.Mems != "" {
-		empty = false
-	}
-
-	if empty {
-		return nil
-	}
-
-	return c
-}
-
-// Strip empty fields from linux memory attributes, reducing a fully empty
-// one to nil. Strip allows comparison of two sets of attributes for semantic
-// equality using go-cmp.
-func (m *LinuxMemory) Strip() *LinuxMemory {
-	if m == nil {
-		return nil
-	}
-
-	empty := true //nolint:staticcheck // could merge conditional assignment below to variable definition
-
-	if m.Limit != nil {
-		empty = false
-	}
-	if m.Reservation != nil {
-		empty = false
-	}
-	if m.Swap != nil {
-		empty = false
-	}
-	if m.Kernel != nil {
-		empty = false
-	}
-	if m.KernelTcp != nil {
-		empty = false
-	}
-	if m.Swappiness != nil {
-		empty = false
-	}
-	if m.DisableOomKiller != nil {
-		empty = false
-	}
-	if m.UseHierarchy != nil {
-		empty = false
-	}
-
-	if empty {
-		return nil
-	}
-
-	return m
-}
-
-// Strip empty fields from a linux RDT configuration, reducing a fully empty one
-// to nil. Strip allows comparison of two sets of resources for semantic
-// equality using go-cmp.
-func (r *LinuxRdt) Strip() *LinuxRdt {
-	if r == nil {
-		return nil
-	}
-
-	switch {
-	case r.ClosId != nil, r.Schemata != nil, r.EnableMonitoring != nil:
-		// non-empty
-		return r
-	}
-
-	return nil
-}
-
-// Strip empty fields from a linux scheduler attributes, reducing a fully empty
-// one to nil. Strip allows comparison of two sets of attributes for semantic
-// equality using go-cmp.
-func (s *LinuxScheduler) Strip() *LinuxScheduler {
-	if s == nil {
-		return nil
-	}
-
-	if len(s.Flags) == 0 {
-		s.Flags = nil
-	}
-
-	if s.Policy != 0 {
-		return s
-	}
-
-	if s.Nice != 0 {
-		return s
-	}
-
-	if s.Priority != 0 {
-		return s
-	}
-
-	if s.Runtime != 0 {
-		return s
-	}
-
-	if s.Deadline != 0 {
-		return s
-	}
-
-	if s.Period != 0 {
-		return s
-	}
-
-	return nil
-}
-
-// Strip empty fields from a linux IO priority attributes, reducing a fully
-// empty one to nil. Strip allows comparison of two sets of attributes for
-// semantic equality using go-cmp.
-func (i *LinuxIOPriority) Strip() *LinuxIOPriority {
-	if i == nil {
-		return nil
-	}
-
-	if i.Class != 0 {
-		return i
-	}
-
-	if i.Priority != 0 {
-		return i
-	}
-
-	return nil
-}
-
 // Strip empty fields from a linux seccomp attributes, reducing a fully
 // empty one to nil. Strip allows comparison of two sets of attributes for
 // semantic equality using go-cmp.
@@ -488,4 +471,21 @@ func (l *LinuxContainerUpdate) Strip() *LinuxContainerUpdate {
 	}
 
 	return l
+}
+
+// Strip empty fields from a linux RDT configuration, reducing a fully empty one
+// to nil. Strip allows comparison of two sets of resources for semantic
+// equality using go-cmp.
+func (r *LinuxRdt) Strip() *LinuxRdt {
+	if r == nil {
+		return nil
+	}
+
+	switch {
+	case r.ClosId != nil, r.Schemata != nil, r.EnableMonitoring != nil:
+		// non-empty
+		return r
+	}
+
+	return nil
 }

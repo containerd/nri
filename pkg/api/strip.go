@@ -122,9 +122,23 @@ func (l *LinuxContainerAdjustment) Strip() *LinuxContainerAdjustment {
 		empty = false
 	}
 
-	if len(l.Sysctl) == 0 {
-		l.Sysctl = nil
-	} else {
+	if l.Scheduler = l.Scheduler.Strip(); l.Scheduler != nil {
+		empty = false
+	}
+
+	if l.IoPriority = l.IoPriority.Strip(); l.IoPriority != nil {
+		empty = false
+	}
+
+	if l.SeccompPolicy = l.SeccompPolicy.Strip(); l.SeccompPolicy != nil {
+		empty = false
+	}
+
+	if len(l.Sysctl) != 0 {
+		empty = false
+	}
+
+	if len(l.NetDevices) != 0 {
 		empty = false
 	}
 
@@ -324,6 +338,107 @@ func (r *LinuxRdt) Strip() *LinuxRdt {
 	case r.ClosId != nil, r.Schemata != nil, r.EnableMonitoring != nil:
 		// non-empty
 		return r
+	}
+
+	return nil
+}
+
+// Strip empty fields from a linux scheduler attributes, reducing a fully empty
+// one to nil. Strip allows comparison of two sets of attributes for semantic
+// equality using go-cmp.
+func (s *LinuxScheduler) Strip() *LinuxScheduler {
+	if s == nil {
+		return nil
+	}
+
+	if len(s.Flags) == 0 {
+		s.Flags = nil
+	}
+
+	if s.Policy != 0 {
+		return s
+	}
+
+	if s.Nice != 0 {
+		return s
+	}
+
+	if s.Priority != 0 {
+		return s
+	}
+
+	if s.Runtime != 0 {
+		return s
+	}
+
+	if s.Deadline != 0 {
+		return s
+	}
+
+	if s.Period != 0 {
+		return s
+	}
+
+	return nil
+}
+
+// Strip empty fields from a linux IO priority attributes, reducing a fully
+// empty one to nil. Strip allows comparison of two sets of attributes for
+// semantic equality using go-cmp.
+func (i *LinuxIOPriority) Strip() *LinuxIOPriority {
+	if i == nil {
+		return nil
+	}
+
+	if i.Class != 0 {
+		return i
+	}
+
+	if i.Priority != 0 {
+		return i
+	}
+
+	return nil
+}
+
+// Strip empty fields from a linux seccomp attributes, reducing a fully
+// empty one to nil. Strip allows comparison of two sets of attributes for
+// semantic equality using go-cmp.
+func (s *LinuxSeccomp) Strip() *LinuxSeccomp {
+	if s == nil {
+		return nil
+	}
+
+	if len(s.Architectures) == 0 {
+		s.Architectures = nil
+	}
+
+	if len(s.Flags) == 0 {
+		s.Flags = nil
+	}
+
+	if len(s.Syscalls) == 0 {
+		s.Syscalls = nil
+	}
+
+	if s.Architectures != nil || s.Flags != nil || s.Syscalls != nil {
+		return s
+	}
+
+	if s.DefaultAction != "" {
+		return s
+	}
+
+	if s.DefaultErrno != nil {
+		return s
+	}
+
+	if s.ListenerPath != "" {
+		return s
+	}
+
+	if s.ListenerMetadata != "" {
+		return s
 	}
 
 	return nil

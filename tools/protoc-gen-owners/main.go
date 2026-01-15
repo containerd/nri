@@ -124,10 +124,6 @@ func generateFile(gen *protogen.Plugin, file *protogen.File) *protogen.Generated
 	return g
 }
 
-var skipFields = map[string]bool{
-	"OciHooks": true,
-}
-
 var nameOverrides = map[string]string{
 	"Annotations":     "Annotation",
 	"Mounts":          "Mount",
@@ -147,9 +143,6 @@ func generateOwnerFuncs(g *protogen.GeneratedFile, fieldEnum *protogen.Enum) {
 			continue
 		}
 		originalFieldName := strings.TrimPrefix(enumValueName, "Field_")
-		if skipFields[originalFieldName] {
-			continue
-		}
 		fieldName := originalFieldName
 		if override, ok := nameOverrides[originalFieldName]; ok {
 			fieldName = override

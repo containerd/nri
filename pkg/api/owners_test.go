@@ -28,7 +28,7 @@ func TestSimpleClaims(t *testing.T) {
 	o := api.NewOwningPlugins()
 
 	// claim hooks
-	err := o.ClaimHooks("ctr0", "test0")
+	err := o.ClaimOciHooks("ctr0", "test0")
 	require.NoError(t, err, "hooks")
 
 	// claim memory limit

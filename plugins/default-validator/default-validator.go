@@ -135,7 +135,7 @@ func (v *DefaultValidator) validateOCIHooks(req *api.ValidateContainerAdjustment
 		return nil
 	}
 
-	owners, claimed := req.Owners.HooksOwner(req.Container.Id)
+	owners, claimed := req.Owners.OciHooksOwner(req.Container.Id)
 	if !claimed {
 		return nil
 	}

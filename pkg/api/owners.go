@@ -40,21 +40,26 @@ func NewOwningPlugins() *OwningPlugins {
 	}
 }
 
-// Note: ClaimHooks, HooksOwner, ClearHooks, and ClearRdt are handwritten
-// functions as they did not match the pattern used to generate the rest of the
-// functions.
+// Note: ClaimHooks, HooksOwner, and ClearHooks are deprecated as the name does
+// not match the proto field name
 
+// Deprecated: Use ClaimOciHooks
 func (o *OwningPlugins) ClaimHooks(id, plugin string) error {
-	return o.mustOwnersFor(id).ClaimHooks(plugin)
+	return o.ClaimOciHooks(id, plugin)
 }
 
+// Deprecated: Use OciHooksOwner
 func (o *OwningPlugins) HooksOwner(id string) (string, bool) {
-	return o.ownersFor(id).simpleOwner(Field_OciHooks.Key())
+	return o.OciHooksOwner(id)
 }
 
+// Deprecated: Use ClearOciHooks
 func (o *OwningPlugins) ClearHooks(id, plugin string) {
-	o.mustOwnersFor(id).ClearHooks(plugin)
+	o.ClearOciHooks(id, plugin)
 }
+
+// Note: ClearRdt is a handwritten function as it did not match the pattern
+// used to generate the rest of the functions.
 
 func (o *OwningPlugins) ClearRdt(id, plugin string) {
 	o.mustOwnersFor(id).ClearRdt(plugin)

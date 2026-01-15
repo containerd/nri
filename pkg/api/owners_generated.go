@@ -69,6 +69,30 @@ func (f *FieldOwners) ClearMount(destination, plugin string) {
 	f.clearCompound(Field_Mounts.Key(), destination, plugin)
 }
 
+func (o *OwningPlugins) ClaimOciHooks(id, plugin string) error {
+	return o.mustOwnersFor(id).ClaimOciHooks(plugin)
+}
+
+func (f *FieldOwners) ClaimOciHooks(plugin string) error {
+	return f.claimSimple(Field_OciHooks.Key(), plugin)
+}
+
+func (o *OwningPlugins) OciHooksOwner(id string) (string, bool) {
+	return o.ownersFor(id).simpleOwner(Field_OciHooks.Key())
+}
+
+func (f *FieldOwners) OciHooksOwner() (string, bool) {
+	return f.simpleOwner(Field_OciHooks.Key())
+}
+
+func (o *OwningPlugins) ClearOciHooks(id, plugin string) {
+	o.mustOwnersFor(id).ClearOciHooks(plugin)
+}
+
+func (f *FieldOwners) ClearOciHooks(plugin string) {
+	f.clearSimple(Field_OciHooks.Key(), plugin)
+}
+
 func (o *OwningPlugins) ClaimDevice(id, path, plugin string) error {
 	return o.mustOwnersFor(id).ClaimDevice(path, plugin)
 }

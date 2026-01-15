@@ -714,7 +714,7 @@ func (r *result) adjustHooks(hooks *Hooks, plugin string) error {
 	}
 
 	if claim {
-		r.owners.ClaimHooks(container.Id, plugin)
+		r.owners.ClaimOciHooks(container.Id, plugin)
 	}
 
 	return nil

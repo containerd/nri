@@ -475,14 +475,7 @@ func (f *FieldOwners) ClaimMount(destination, plugin string) error {
 }
 
 func (f *FieldOwners) ClaimHooks(plugin string) error {
-	plugins := plugin
-
-	if current, ok := f.simpleOwner(Field_OciHooks.Key()); ok {
-		f.clearSimple(Field_OciHooks.Key(), plugin)
-		plugins = current + "," + plugin
-	}
-
-	f.claimSimple(Field_OciHooks.Key(), plugins)
+	f.accumulateSimple(Field_OciHooks.Key(), plugin)
 	return nil
 }
 
@@ -676,6 +669,14 @@ func (f *FieldOwners) ClearRdt(plugin string) {
 	f.clearSimple(Field_RdtClosID.Key(), plugin)
 	f.clearSimple(Field_RdtSchemata.Key(), plugin)
 	f.clearSimple(Field_RdtEnableMonitoring.Key(), plugin)
+}
+
+func (f *FieldOwners) accumulateSimple(field int32, plugin string) {
+	old, ok := f.simpleOwner(field)
+	if ok {
+		plugin = old + "," + plugin
+	}
+	f.Simple[field] = plugin
 }
 
 func (f *FieldOwners) Conflict(field int32, plugin, other string, qualifiers ...string) error {

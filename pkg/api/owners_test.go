@@ -113,3 +113,24 @@ func TestCompoundClaims(t *testing.T) {
 
 	require.Equal(t, api.Field_Annotations.String(), "Annotations", "annotation field name")
 }
+
+func TestAccumulatingOwnership(t *testing.T) {
+	o := api.NewOwningPlugins()
+
+	// claim OCI hooks of ctr0
+	err := o.ClaimHooks("ctr0", "plugin0")
+	require.NoError(t, err, "ctr0 OCI hooks by plugin0")
+
+	// claim OCI hooks of ctr0
+	err = o.ClaimHooks("ctr0", "plugin1")
+	require.NoError(t, err, "ctr0 OCI hooks by plugin1")
+
+	// claim OCI hooks of ctr0
+	err = o.ClaimHooks("ctr0", "plugin2")
+	require.NoError(t, err, "ctr0 OCI hooks by plugin2")
+
+	owners, ok := o.HooksOwner("ctr0")
+	require.True(t, ok, "ctr0 has hooks owners")
+	require.Equal(t, "plugin0,plugin1,plugin2", owners, "ctr0 hooks owners")
+
+}

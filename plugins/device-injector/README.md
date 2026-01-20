@@ -1,7 +1,14 @@
 ## Device Injector Plugin
 
-This sample plugin can inject Linux device nodes, CDI devices, and mounts into
-containers using pod annotations.
+This sample plugin can be used to adjust selected container properties
+prior to the creation of a container. The desired adjustments happen
+based on pod annotations. The possible adjustments include
+
+  - injection of Linux device nodes,
+  - injection of mounts,
+  - injection of CDI devices,
+  - injection of network devices,
+  - adjustments to sysctl settings
 
 ### Device Annotations
 
@@ -127,6 +134,29 @@ metadata:
 requests the injection of the host network interface `ens2.100` into container `c0`
 as the network interface `netdev0`, and the host network interface `ens2.101` into
 container `c1` as the network interface `netdev1`.
+
+### Sysctl Annotations
+
+Sysctl settings are annotated in a similar manner to devices, but using the
+`sysctl.noderesource.dev` annotation key prefix.
+
+The annotation value for sysctls is a map of sysctl keys to adjusted values.
+For instance, the following annotation
+
+```
+metadata:
+  name: sysctl-test
+  annotations:
+    sysctl.noderesource.dev/container.c0: |
+      net.core.somaxconn: "256"
+```
+
+will adjust the maximum number of queued TCP connections for a socket to 256.
+
+WARNING: Note that many of the sysctl settings are effective for the full pod
+instead of a single container. Also many of the settings are not namespaced at
+all. Trying to adjust such a setting will result in an error and a failure to
+create the container.
 
 ## Deployment
 

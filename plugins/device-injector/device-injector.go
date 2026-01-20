@@ -55,6 +55,8 @@ const (
 	schedulerKey = "scheduling-policy.noderesource.dev"
 	// Deprecated: Prefix of the key used for scheduler attribute adjustment.
 	oldSchedulerKey = "scheduling-policy.nri.io"
+	// Prefix of the key used for sysctl adjustment.
+	sysctlKey = "sysctl.noderesource.dev"
 )
 
 var (
@@ -137,6 +139,10 @@ func (p *plugin) CreateContainer(_ context.Context, pod *api.PodSandbox, ctr *ap
 	}
 
 	if err := injectNetDevices(pod, ctr, adjust); err != nil {
+		return nil, nil, err
+	}
+
+	if err := adjustSysctl(pod, ctr, adjust); err != nil {
 		return nil, nil, err
 	}
 
@@ -395,6 +401,48 @@ func parseScheduler(ctr string, annotations map[string]string) (*scheduler, erro
 	return sch, nil
 }
 
+func adjustSysctl(pod *api.PodSandbox, ctr *api.Container, a *api.ContainerAdjustment) error {
+	sysctl, err := parseSysctl(ctr.Name, pod.Annotations)
+	if err != nil {
+		return err
+	}
+
+	if len(sysctl) == 0 {
+		log.Debugf("%s: no sysctl adjustment annotated...", containerName(pod, ctr))
+		return nil
+	}
+
+	if verbose {
+		dump(containerName(pod, ctr), "annotated sysctl adjustment", sysctl)
+	}
+
+	for ctl, val := range sysctl {
+		a.SetLinuxSysctl(ctl, val)
+		if !verbose {
+			log.Infof("%s: adjusted sysctl %s=%s...", containerName(pod, ctr), ctl, val)
+		}
+	}
+
+	return nil
+}
+
+func parseSysctl(ctr string, annotations map[string]string) (map[string]string, error) {
+	var (
+		sysctl map[string]string
+	)
+
+	annotation := getAnnotation(annotations, sysctlKey, "", ctr)
+	if annotation == nil {
+		return nil, nil
+	}
+
+	if err := yaml.Unmarshal(annotation, &sysctl); err != nil {
+		return nil, fmt.Errorf("invalid sysctl annotation %q: %w", string(annotation), err)
+	}
+
+	return sysctl, nil
+}
+
 func getAnnotation(annotations map[string]string, mainKey, oldKey, ctr string) []byte {
 	for _, key := range []string{
 		mainKey + "/container." + ctr,
@@ -404,6 +452,9 @@ func getAnnotation(annotations map[string]string, mainKey, oldKey, ctr string) [
 		mainKey,
 		oldKey,
 	} {
+		if key == "" || key[0] == '/' {
+			continue
+		}
 		if value, ok := annotations[key]; ok {
 			return []byte(value)
 		}

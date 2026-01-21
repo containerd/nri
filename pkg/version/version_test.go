@@ -58,6 +58,21 @@ func TestStripGitSuffix(t *testing.T) {
 			version:  "v0.11.0-37-g41b9c58",
 			expected: "v0.11.0",
 		},
+		{
+			name:     "prerelease version",
+			version:  "v1.2.3-45",
+			expected: "v1.2.3-45",
+		},
+		{
+			name:     "prerelease version, looking more like a git suffix",
+			version:  "v1.2.3-45-g",
+			expected: "v1.2.3-45-g",
+		},
+		{
+			name:     "another prerelease version",
+			version:  "v1.2.3-45-gz",
+			expected: "v1.2.3-45-gz",
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			stripped := stripGitSuffix(tc.version)
@@ -146,6 +161,12 @@ func TestFindClosestMatch(t *testing.T) {
 		{
 			name:       "closest match for a working tree version",
 			version:    "v0.11.0-37-g41b9c58",
+			candidates: candidates,
+			expected:   "v0.10.9",
+		},
+		{
+			name:       "another closest match for a working tree version",
+			version:    "v0.10.9-37-g41b9c58",
 			candidates: candidates,
 			expected:   "v0.10.9",
 		},

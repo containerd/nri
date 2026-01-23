@@ -217,10 +217,9 @@ NRI, containerd and CRI-O versions each property was first available in.
 | Linux PID limit                        | v0.7.0    | v2.0.0        | v1.32.0       |
 | Linux OOM score adjustment             | v0.7.0    | v2.0.0        | v1.32.0       |
 | CDI devices                            | v0.10.0   | unimplemented | unimplemented |
-| Linux security profile                 | v0.10.0   | v2.2.0        | unimplemented |
+| Linux security profile                 | v0.10.0   | v2.2.1        | unimplemented |
 | Linux seccomp policy                   | v0.10.0   | unimplemented | unimplemented |
 | Linux I/O priority                     | v0.10.0   | v2.2.1        | v1.35.0       |
-| Linux security profile                 | v0.10.0   | v2.2.1        | unimplemented |
 | Linux scheduling policy                | v0.11.0   | v2.2.1        | v1.35.0       |
 | Linux network devices                  | v0.11.0   | v2.2.1        | v1.35.0       |
 | Linux RDT CLOS                         | v0.11.0   | v2.2.1        | v1.35.0       |
@@ -267,7 +266,7 @@ property was first available in.
 | POSIX rlimits                         | v0.4.0    | v1.7.7     | v1.29.0 |
 | Linux PID limits                      | v0.7.0    | v2.0.0     | v1.32.0 |
 | Linux OOM score adjustment            | v0.7.0    | v2.0.0     | v1.32.0 |
-| CDI device injection                  | v0.7.0    | v2.0.0     | v1.32.0 |
+| CDI device injection                  | v0.7.0    | v2.1.0     | v1.34.0 |
 | Linux namespaces                      | v0.10.0   | v2.2.0     | v1.34.0 |
 | Linux seccomp policy                  | v0.10.0   | v2.2.0     | v1.34.0 |
 | Linux I/O priority                    | v0.10.0   | v2.2.0     | v1.34.0 |

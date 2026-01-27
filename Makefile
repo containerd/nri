@@ -138,9 +138,9 @@ $(BIN_PATH)/wasm build/bin/wasm: FORCE
 # test targets
 #
 
-test-gopkgs: ginkgo-tests test-ulimits test-rdt
+test-gopkgs: ginkgo-tests test-ulimits test-rdt test-hook-injector
 
-SKIPPED_PKGS="ulimit-adjuster,device-injector,rdt"
+SKIPPED_PKGS="ulimit-adjuster,device-injector,rdt,hook-injector"
 
 ginkgo-tests:
 	$(Q)$(GINKGO) run \
@@ -164,6 +164,9 @@ test-device-injector:
 
 test-rdt:
 	$(Q)cd ./plugins/rdt && $(GO_TEST) -v
+
+test-hook-injector:
+	$(Q)cd ./plugins/hook-injector && $(GO_TEST) -v
 
 codecov: SHELL := $(shell which bash)
 codecov:

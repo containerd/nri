@@ -123,6 +123,19 @@ func (p *pluginType) UpdatePodSandbox(ctx context.Context, req *UpdatePodSandbox
 	return nil, errUnknownImpl
 }
 
+func (p *pluginType) PodSandboxStatus(ctx context.Context, req *PodSandboxStatusRequest) (*PodSandboxStatusResponse, error) {
+	switch {
+	case p.ttrpcImpl != nil:
+		return p.ttrpcImpl.PodSandboxStatus(ctx, req)
+	case p.builtinImpl != nil:
+		return p.builtinImpl.PodSandboxStatus(ctx, req)
+	case p.wasmImpl != nil:
+		return p.wasmImpl.PodSandboxStatus(ctx, req)
+	}
+
+	return nil, errUnknownImpl
+}
+
 func (p *pluginType) StateChange(ctx context.Context, req *StateChangeEvent) (err error) {
 	switch {
 	case p.ttrpcImpl != nil:

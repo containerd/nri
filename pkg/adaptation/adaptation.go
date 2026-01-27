@@ -238,6 +238,47 @@ func (r *Adaptation) UpdatePodSandbox(ctx context.Context, req *UpdatePodSandbox
 	return &UpdatePodSandboxResponse{}, nil
 }
 
+// PodSandboxStatus relays the corresponding CRI request to plugins.
+// If a plugin returns IP addresses, those will be returned to the caller.
+// An error is returned if multiple plugins attempt to set the same field.
+func (r *Adaptation) PodSandboxStatus(ctx context.Context, req *PodSandboxStatusRequest) (*PodSandboxStatusResponse, error) {
+	r.Lock()
+	defer r.Unlock()
+	defer r.removeClosedPlugins()
+
+	var (
+		rsp                = &PodSandboxStatusResponse{}
+		ipOwner            = ""
+		additionalIpsOwner = ""
+	)
+
+	for _, plugin := range r.plugins {
+		pluginRsp, err := plugin.podSandboxStatus(ctx, req)
+		if err != nil {
+			return nil, err
+		}
+		if pluginRsp == nil || (pluginRsp.Ip == "" && len(pluginRsp.AdditionalIps) == 0) {
+			continue
+		}
+		if pluginRsp.Ip != "" {
+			if ipOwner != "" {
+				return nil, fmt.Errorf("plugins %q and %q both tried to set PodSandboxStatus IP address field", ipOwner, plugin.name())
+			}
+			rsp.Ip = pluginRsp.Ip
+			ipOwner = plugin.name()
+		}
+		if len(pluginRsp.AdditionalIps) > 0 {
+			if additionalIpsOwner != "" {
+				return nil, fmt.Errorf("plugins %q and %q both tried to set PodSandboxStatus additional IP addresses field", additionalIpsOwner, plugin.name())
+			}
+			rsp.AdditionalIps = pluginRsp.AdditionalIps
+			additionalIpsOwner = plugin.name()
+		}
+	}
+
+	return rsp, nil
+}
+
 // PostUpdatePodSandbox relays the corresponding CRI event to plugins.
 func (r *Adaptation) PostUpdatePodSandbox(ctx context.Context, evt *StateChangeEvent) error {
 	evt.Event = Event_POST_UPDATE_POD_SANDBOX

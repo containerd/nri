@@ -93,6 +93,14 @@ type PostUpdatePodInterface interface {
 	PostUpdatePodSandbox(context.Context, *api.PodSandbox) error
 }
 
+// PodSandboxStatusInterface handles PodSandboxStatus API requests.
+type PodSandboxStatusInterface interface {
+	// PodSandboxStatus relays a PodSandboxStatus request to the plugin.
+	// The plugin can return modified IP addresses for the pod sandbox
+	// in a PodSandboxStatusResponse.
+	PodSandboxStatus(context.Context, *api.PodSandbox) (*api.PodSandboxStatusResponse, error)
+}
+
 // CreateContainerInterface handles CreateContainer API requests.
 type CreateContainerInterface interface {
 	// CreateContainer relays a CreateContainer request to the plugin.
@@ -316,6 +324,7 @@ type handlers struct {
 	StopPodSandbox              func(context.Context, *api.PodSandbox) error
 	RemovePodSandbox            func(context.Context, *api.PodSandbox) error
 	PostUpdatePodSandbox        func(context.Context, *api.PodSandbox) error
+	PodSandboxStatus            func(context.Context, *api.PodSandbox) (*api.PodSandboxStatusResponse, error)
 	CreateContainer             func(context.Context, *api.PodSandbox, *api.Container) (*api.ContainerAdjustment, []*api.ContainerUpdate, error)
 	StartContainer              func(context.Context, *api.PodSandbox, *api.Container) error
 	UpdateContainer             func(context.Context, *api.PodSandbox, *api.Container, *api.LinuxResources) ([]*api.ContainerUpdate, error)
@@ -782,6 +791,16 @@ func (stub *stub) UpdatePodSandbox(ctx context.Context, req *api.UpdatePodSandbo
 	return &api.UpdatePodSandboxResponse{}, err
 }
 
+// PodSandboxStatus request handler.
+func (stub *stub) PodSandboxStatus(ctx context.Context, req *api.PodSandboxStatusRequest) (*api.PodSandboxStatusResponse, error) {
+	handler := stub.handlers.PodSandboxStatus
+	if handler == nil {
+		return &api.PodSandboxStatusResponse{}, nil
+	}
+
+	return handler(ctx, req.Pod)
+}
+
 // StateChange event handler.
 func (stub *stub) StateChange(ctx context.Context, evt *api.StateChangeEvent) (*api.Empty, error) {
 	var err error
@@ -896,6 +915,10 @@ func (stub *stub) setupHandlers() error {
 	if plugin, ok := stub.plugin.(PostUpdatePodInterface); ok {
 		stub.handlers.PostUpdatePodSandbox = plugin.PostUpdatePodSandbox
 		stub.events.Set(api.Event_POST_UPDATE_POD_SANDBOX)
+	}
+	if plugin, ok := stub.plugin.(PodSandboxStatusInterface); ok {
+		stub.handlers.PodSandboxStatus = plugin.PodSandboxStatus
+		stub.events.Set(api.Event_POD_SANDBOX_STATUS)
 	}
 	if plugin, ok := stub.plugin.(CreateContainerInterface); ok {
 		stub.handlers.CreateContainer = plugin.CreateContainer

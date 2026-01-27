@@ -23,9 +23,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/containers/common/pkg/hooks"
 	rspec "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/sirupsen/logrus"
+	"go.podman.io/common/pkg/hooks"
 	"sigs.k8s.io/yaml"
 
 	"github.com/containerd/nri/pkg/api"

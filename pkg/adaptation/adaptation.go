@@ -58,23 +58,24 @@ type UpdateFn func(context.Context, []*ContainerUpdate) ([]*ContainerUpdate, err
 // Adaptation is the NRI abstraction for container runtime NRI adaptation/integration.
 type Adaptation struct {
 	sync.Mutex
-	name        string
-	version     string
-	nriVersion  string
-	dropinPath  string
-	pluginPath  string
-	socketPath  string
-	dontListen  bool
-	syncFn      SyncFn
-	updateFn    UpdateFn
-	clientOpts  []ttrpc.ClientOpts
-	serverOpts  []ttrpc.ServerOpt
-	listener    net.Listener
-	plugins     []*plugin
-	validators  []*plugin
-	builtin     []*builtin.BuiltinPlugin
-	syncLock    sync.RWMutex
-	wasmService *api.PluginPlugin
+	name         string
+	version      string
+	nriVersion   string
+	dropinPath   string
+	pluginPath   string
+	socketPath   string
+	dontListen   bool
+	syncFn       SyncFn
+	updateFn     UpdateFn
+	clientOpts   []ttrpc.ClientOpts
+	serverOpts   []ttrpc.ServerOpt
+	listener     net.Listener
+	plugins      []*plugin
+	validators   []*plugin
+	builtin      []*builtin.BuiltinPlugin
+	syncLock     sync.RWMutex
+	wasmService  *api.PluginPlugin
+	capabilities CapabilityMask
 }
 
 var (
@@ -143,6 +144,14 @@ func WithDefaultValidator(cfg *validator.DefaultValidatorConfig) Option {
 		if plugin := validator.GetDefaultValidator(cfg); plugin != nil {
 			r.builtin = append([]*builtin.BuiltinPlugin{plugin}, r.builtin...)
 		}
+		return nil
+	}
+}
+
+// WithSupportedCapabilities sets up the supported capabilities reported to plugins.
+func WithSupportedCapabilities(capabilities CapabilityMask) Option {
+	return func(r *Adaptation) error {
+		r.capabilities = capabilities.Clone()
 		return nil
 	}
 }

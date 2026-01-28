@@ -136,6 +136,34 @@ message LogRequest {
   Level level = 2;
 }
 
+enum Capability {
+  ADJUST_POSIX_RLIMITS = 0;
+  INPUT_POSIX_RLIMITS = 1;
+  ADJUST_LINUX_PID_LIMIT = 2;
+  ADJUST_LINUX_OOM_SCORE = 3;
+  INPUT_LINUX_OOM_SCORE = 4;
+  INPUT_IP_ADDRESSES = 5;
+  ADJUST_CDI_DEVICES = 6;
+  INPUT_CDI_DEVICES = 7;
+  INPUT_LINUX_SECURITY_PROFILE = 8;
+  ADJUST_LINUX_NAMESPACES = 9;
+  ADJUST_LINUX_SECCOMP_POLICY = 10;
+  INPUT_LINUX_SECCOMP_POLICY = 11;
+  ADJUST_LINUX_IO_PRIORITY = 12;
+  INPUT_LINUX_IO_PRIORITY = 13;
+  ADJUST_LINUX_CONTAINER_ARGS = 14;
+  ADJUST_LINUX_SCHEDULING_POLICY = 15;
+  INPUT_LINUX_SCHEDULING_POLICY = 16;
+  ADJUST_LINUX_NETWORK_DEVICES = 17;
+  INPUT_LINUX_NETWORK_DEVICES = 18;
+  ADJUST_LINUX_RDT_CLOS = 19;
+  INPUT_LINUX_RDT_CLOS = 20;
+  ADJUST_LINUX_SYSCTL = 21;
+  INPUT_LINUX_SYSCTL = 22;
+  EXTRA_CONTAINER_STATUS = 23;
+  INPUT_UID_AND_GIDS = 24;
+}
+
 message ConfigureRequest {
   // Any plugin-specific data, if present among the NRI configuration.
   string config = 1;
@@ -149,6 +177,8 @@ message ConfigureRequest {
   int64 request_timeout = 5;
   // Version of NRI used by the runtime.
   string NRI_version = 6;
+  // Capabilities describe NRI features supported by the runtime.
+  repeated uint64 capabilities = 7;
 }
 
 message ConfigureResponse {

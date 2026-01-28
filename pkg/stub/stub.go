@@ -23,6 +23,7 @@ import (
 	stdnet "net"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"sync"
 	"time"
@@ -187,6 +188,9 @@ type Stub interface {
 	RuntimeNRIVersion() string
 	// PluignNRIVersion returns the NRI version used in the plugin/stub.
 	PluginNRIVersion() string
+
+	// RuntimeCapabilities returns the capabilities reported by the runtime.
+	RuntimeCapabilities() api.CapabilityMask
 }
 
 const (
@@ -282,33 +286,46 @@ func WithLogger(logger nrilog.Logger) Option {
 	}
 }
 
+// WithRequiredCapabilities sets the capabilities the plugin requires from the runtime.
+func WithRequiredCapabilities(required ...api.Capability) Option {
+	return func(s *stub) error {
+		mask := api.NewCapabilityMask(required...)
+		s.requiredCaps = &mask
+		return nil
+	}
+}
+
 // stub implements Stub.
 type stub struct {
 	sync.Mutex
-	plugin     interface{}
-	handlers   handlers
-	events     api.EventMask
-	name       string
-	idx        string
-	socketPath string
-	dialer     func(string) (stdnet.Conn, error)
-	conn       stdnet.Conn
-	onClose    func()
-	serverOpts []ttrpc.ServerOpt
-	clientOpts []ttrpc.ClientOpts
-	rpcm       multiplex.Mux
-	rpcl       stdnet.Listener
-	rpcs       *ttrpc.Server
-	rpcc       *ttrpc.Client
-	runtime    api.RuntimeService
-	started    bool
-	doneC      chan struct{}
-	srvErrC    chan error
-	cfgErrC    chan error
-	syncReq    *api.SynchronizeRequest
+	plugin       interface{}
+	handlers     handlers
+	events       api.EventMask
+	name         string
+	idx          string
+	socketPath   string
+	dialer       func(string) (stdnet.Conn, error)
+	conn         stdnet.Conn
+	onClose      func()
+	serverOpts   []ttrpc.ServerOpt
+	clientOpts   []ttrpc.ClientOpts
+	requiredCaps *api.CapabilityMask
+	rpcm         multiplex.Mux
+	rpcl         stdnet.Listener
+	rpcs         *ttrpc.Server
+	rpcc         *ttrpc.Client
+	runtime      api.RuntimeService
+	started      bool
+	doneC        chan struct{}
+	srvErrC      chan error
+	cfgErrC      chan error
+	syncReq      *api.SynchronizeRequest
 
 	registrationTimeout time.Duration
 	requestTimeout      time.Duration
+	runtimeName         string
+	runtimeVersion      string
+	runtimeCaps         api.CapabilityMask
 	runtimeNRIVersion   string
 	pluginNRIVersion    string
 	logger              nrilog.Logger
@@ -557,6 +574,10 @@ func (stub *stub) RuntimeNRIVersion() string {
 	return stub.runtimeNRIVersion
 }
 
+func (stub *stub) RuntimeCapabilities() api.CapabilityMask {
+	return stub.runtimeCaps.Clone()
+}
+
 func (stub *stub) PluginNRIVersion() string {
 	if stub.pluginNRIVersion == "" {
 		stub.pluginNRIVersion = version.GetFromBuildInfo()
@@ -630,6 +651,21 @@ func (stub *stub) connClosed() {
 	}
 }
 
+// Verify runtime supported capabilities against plugin requirements.
+func (stub *stub) checkCapabilities() error {
+	if stub.requiredCaps == nil {
+		stub.logger.Infof(noCtx, "skipping capability check: no required ones...")
+		return nil
+	}
+
+	if !stub.requiredCaps.IsSubsetOf(stub.runtimeCaps) {
+		missing := stub.requiredCaps.Difference(stub.runtimeCaps)
+		return fmt.Errorf("runtime lacks required capabilities %s", missing.String())
+	}
+
+	return nil
+}
+
 //
 // plugin event and request handlers
 //
@@ -661,6 +697,11 @@ func (stub *stub) Configure(ctx context.Context, req *api.ConfigureRequest) (rpl
 	stub.logger.Infof(ctx, "Configuring plugin %s for runtime %s/%s (NRI version %s)...",
 		stub.Name(), req.RuntimeName, req.RuntimeVersion, req.NRIVersion)
 
+	stub.registrationTimeout = time.Duration(req.RegistrationTimeout * int64(time.Millisecond))
+	stub.requestTimeout = time.Duration(req.RequestTimeout * int64(time.Millisecond))
+	stub.runtimeName = req.RuntimeName
+	stub.runtimeVersion = req.RuntimeVersion
+
 	switch req.NRIVersion {
 	case "", api.DevelVersion, api.UnknownVersion:
 		inferred, err := api.InferVersionFromRuntime(req.RuntimeName, req.RuntimeVersion)
@@ -668,17 +709,32 @@ func (stub *stub) Configure(ctx context.Context, req *api.ConfigureRequest) (rpl
 			stub.logger.Warnf(ctx, "failed to infer runtime NRI version: %v", err)
 		} else {
 			stub.logger.Infof(ctx, "inferred runtime NRI version: %s", inferred)
-			req.NRIVersion = inferred
+			stub.runtimeNRIVersion = inferred
 		}
+	default:
+		stub.runtimeNRIVersion = req.NRIVersion
 	}
 
-	stub.registrationTimeout = time.Duration(req.RegistrationTimeout * int64(time.Millisecond))
-	stub.requestTimeout = time.Duration(req.RequestTimeout * int64(time.Millisecond))
-	stub.runtimeNRIVersion = req.NRIVersion
+	if req.Capabilities == nil {
+		stub.runtimeCaps = api.InferRuntimeCapabilities(
+			stub.runtimeNRIVersion,
+			stub.runtimeName,
+			stub.runtimeVersion,
+		)
+		stub.logger.Warnf(noCtx, "inferred runtime capabilities: %s", stub.runtimeCaps)
+	} else {
+		stub.runtimeCaps = slices.Clone(req.Capabilities)
+		stub.logger.Infof(noCtx, "reported runtime capabilities: %s", stub.runtimeCaps)
+	}
 
 	defer func() {
 		stub.cfgErrC <- retErr
 	}()
+
+	if err := stub.checkCapabilities(); err != nil {
+		stub.logger.Errorf(ctx, "NRI capability verification failed: %v", err)
+		return nil, err
+	}
 
 	if handler := stub.handlers.Configure; handler == nil {
 		events = stub.events

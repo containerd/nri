@@ -238,6 +238,29 @@ func (r *Adaptation) UpdatePodSandbox(ctx context.Context, req *UpdatePodSandbox
 	return &UpdatePodSandboxResponse{}, nil
 }
 
+// PodSandboxStatus relays the corresponding CRI request to plugins.
+// If a plugin returns IP addresses, those will be returned to the caller.
+// The last plugin to return non-empty IPs wins.
+func (r *Adaptation) PodSandboxStatus(ctx context.Context, req *PodSandboxStatusRequest) (*PodSandboxStatusResponse, error) {
+	r.Lock()
+	defer r.Unlock()
+	defer r.removeClosedPlugins()
+
+	rsp := &PodSandboxStatusResponse{}
+	for _, plugin := range r.plugins {
+		pluginRsp, err := plugin.podSandboxStatus(ctx, req)
+		if err != nil {
+			return nil, err
+		}
+		// Use the last plugin's non-empty IP response
+		if pluginRsp != nil && (pluginRsp.Ip != "" || len(pluginRsp.AdditionalIps) > 0) {
+			rsp = pluginRsp
+		}
+	}
+
+	return rsp, nil
+}
+
 // PostUpdatePodSandbox relays the corresponding CRI event to plugins.
 func (r *Adaptation) PostUpdatePodSandbox(ctx context.Context, evt *StateChangeEvent) error {
 	evt.Event = Event_POST_UPDATE_POD_SANDBOX

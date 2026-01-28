@@ -201,6 +201,24 @@ var _ = Describe("Plugin connection", func() {
 		s.Cleanup()
 	})
 
+	It("should reject plugins with an invalid name", func() {
+		var (
+			validPlugin = &mockPlugin{
+				name: "abcd-0123+EFGH_4567.ijkl",
+				idx:  "05",
+			}
+			invalidPlugin = &mockPlugin{
+				name: "foo,bar",
+				idx:  "10",
+			}
+		)
+
+		s.Startup()
+
+		Expect(validPlugin.Start(s.dir)).To(Succeed())
+		Expect(invalidPlugin.Start(s.dir)).ToNot(Succeed())
+	})
+
 	It("should configure the plugin", func() {
 		var (
 			plugin = s.plugins[0]

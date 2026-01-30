@@ -43,6 +43,7 @@ type BuiltinHandlers struct {
 	RemovePodSandbox     func(context.Context, *api.RemovePodSandboxRequest) error
 	UpdatePodSandbox     func(context.Context, *api.UpdatePodSandboxRequest) (*api.UpdatePodSandboxResponse, error)
 	PostUpdatePodSandbox func(context.Context, *api.PostUpdatePodSandboxRequest) error
+	PodSandboxStatus     func(context.Context, *api.PodSandboxStatusRequest) (*api.PodSandboxStatusResponse, error)
 
 	CreateContainer             func(context.Context, *api.CreateContainerRequest) (*api.CreateContainerResponse, error)
 	PostCreateContainer         func(context.Context, *api.PostCreateContainerRequest) error
@@ -83,6 +84,9 @@ func (b *BuiltinPlugin) Configure(ctx context.Context, req *api.ConfigureRequest
 		}
 		if b.Handlers.PostUpdatePodSandbox != nil {
 			events.Set(api.Event_POST_UPDATE_POD_SANDBOX)
+		}
+		if b.Handlers.PodSandboxStatus != nil {
+			events.Set(api.Event_POD_SANDBOX_STATUS)
 		}
 		if b.Handlers.CreateContainer != nil {
 			events.Set(api.Event_CREATE_CONTAINER)
@@ -202,6 +206,14 @@ func (b *BuiltinPlugin) UpdatePodSandbox(ctx context.Context, req *api.UpdatePod
 		return b.Handlers.UpdatePodSandbox(ctx, req)
 	}
 	return &api.UpdatePodSandboxResponse{}, nil
+}
+
+// PodSandboxStatus implements PluginService of the NRI API.
+func (b *BuiltinPlugin) PodSandboxStatus(ctx context.Context, req *api.PodSandboxStatusRequest) (*api.PodSandboxStatusResponse, error) {
+	if b.Handlers.PodSandboxStatus != nil {
+		return b.Handlers.PodSandboxStatus(ctx, req)
+	}
+	return &api.PodSandboxStatusResponse{}, nil
 }
 
 // PostUpdatePodSandbox is a handler for the PostUpdatePodSandbox event.

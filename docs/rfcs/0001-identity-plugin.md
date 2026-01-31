@@ -18,19 +18,13 @@ The current way how we mount identity artifacts (X.509 SVID certificate bundle) 
 
 WIP
 
-1. Create a static spiffe-id for the plugin.
+1. Update the SPIRE Agent Configuration
 
-```
-spire-server entry create \
-    -spiffeID spiffe://example.org/nri/identity-injector \
-    -selector k8s:ns:backend \
-    -selector k8s:sa:db-writer
-```
+To authorize the NRI Identity Plugin to fetch identity artifacts, users must configure the SPIRE Agent to recognise the Spiffe-ID of the identity plugin. You do this by adding the Spiffe ID of the identity plugin to the `authorized_delegates` list in the `agent.conf` file.
 
-PENDING - what selector's will the plugin have?
+The identity plugin must have its own registration entry (Step 2, below) in the SPIRE Server so the plugin can receive its own SVID from the SPIRE Server.
 
-
-2. https://spiffe.io/docs/latest/deploying/spire_agent/#delegated-identity-api Configure the Plugin's Spiffe ID in the Agent configuration.
+When the plugin calls the Delegated Identity API, the SPIRE Agent uses plugin's own SVID to verify that plugin's SPiffe-id is in the `authorized_delegates` list.
 
 ```
 agent {
@@ -44,12 +38,38 @@ agent {
 
 ```
 
+The SPIRE Agent doesn't blindly trust this statically configured spiife-id string in the configuration. This configuration defines an intent to trust a specific spiffe-id in the configuration which the SPIRE Agent uses in its standard attestation process to verify that the process asking for that ID is actually the authorized delegate (Step 1 in the Workflow below).
 
-## How the plugin will work
+For more details, see https://spiffe.io/docs/latest/deploying/spire_agent/#delegated-identity-api 
+
+
+2. Identity Plugin Registration Entry
+
+Create a static spiffe-id for the plugin.
+
+```
+spire-server entry create \
+    -spiffeID spiffe://example.org/nri/identity-injector \
+    -selector k8s:ns:kube-system \
+    -selector k8s:sa:user-sa \
+    -selector k8s:pod-label:app.kubernetes.io/name:nri-plugin-identity \
+    -selector unix:uid:1001
+```
+
+This is basically saying that a process with the selectors from the example above should be given the spiffe-id from the example above.
+
+PENDING - can we hardcode the plugin's process id? what if the harcoded process id is not available/free?
+PENDING - what selector's will the plugin have?
+PENDING - check if all the selectors exist in the daemonset / kustomixation yamls and if they match the example above
+
+
+
+
+## Workflow: How the plugin will work
 
 WIP
 
-1. Plugin registers itself to the agent and get its spiffe id.
+1. Plugin registers itself to the agent using workload attestation API and get its spiffe id and its own identity artifacts. 
 
 2. Containerd calls the NRI plugin on CreateContainer event - PENDING fix the correct event, add details on when and which volume is mounted. The plugin receives the pod and container metadata. Using this metadata, the plugin executes step 3 below. The plugin has to ensure that the pid is a stable identifier, that the pid is not a recycled identifier. This is a platform dependent step. (e.g. by using pidfds on Linux). https://spiffe.io/docs/latest/deploying/spire_agent/#delegated-identity-api
 
@@ -157,6 +177,7 @@ spec:
     imagePullPolicy: IfNotPresent
     command:
       - sh
+      - -c
       - |
         if [ -f /var/certs/svid.pem ]; then
           echo "svid exists!"

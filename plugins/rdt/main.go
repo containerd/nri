@@ -51,7 +51,12 @@ func main() {
 		l.SetLevel(logrus.DebugLevel)
 	}
 
-	opts := []stub.Option{}
+	opts := []stub.Option{
+		stub.WithRequiredCapabilities(
+			api.Capability_ADJUST_LINUX_RDT_CLOS,
+		),
+	}
+
 	if *pluginIdx != "" {
 		opts = append(opts, stub.WithPluginIdx(*pluginIdx))
 	}

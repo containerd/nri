@@ -366,10 +366,11 @@ func (m *mockRuntime) update(ctx context.Context, updates []*nri.ContainerUpdate
 }
 
 type mockPlugin struct {
-	name string
-	idx  string
-	stub stub.Stub
-	mask stub.EventMask
+	name    string
+	idx     string
+	stub    stub.Stub
+	mask    stub.EventMask
+	options []stub.Option
 
 	runtime string
 	version string
@@ -457,10 +458,12 @@ func (m *mockPlugin) Init(dir string) error {
 	m.Log("Init()...")
 
 	m.stub, err = stub.New(m,
-		stub.WithPluginName(m.name),
-		stub.WithPluginIdx(m.idx),
-		stub.WithSocketPath(filepath.Join(dir, "nri.sock")),
-		stub.WithOnClose(m.onClose),
+		append(m.options,
+			stub.WithPluginName(m.name),
+			stub.WithPluginIdx(m.idx),
+			stub.WithSocketPath(filepath.Join(dir, "nri.sock")),
+			stub.WithOnClose(m.onClose),
+		)...,
 	)
 	if err != nil {
 		m.q.Add(PluginCreationError)
@@ -546,6 +549,20 @@ func (m *mockPlugin) RuntimeName() string {
 
 func (m *mockPlugin) RuntimeVersion() string {
 	return m.version
+}
+
+func (m *mockPlugin) RuntimeNRIVersion() string {
+	if m.stub == nil {
+		return ""
+	}
+	return m.stub.RuntimeNRIVersion()
+}
+
+func (m *mockPlugin) RuntimeCapabilities() api.CapabilityMask {
+	if m.stub == nil {
+		return api.NewCapabilityMask()
+	}
+	return m.stub.RuntimeCapabilities()
 }
 
 func (m *mockPlugin) onClose() {

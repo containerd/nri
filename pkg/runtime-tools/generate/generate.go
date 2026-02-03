@@ -44,6 +44,7 @@ type UnderlyingGenerator interface {
 	AddPostStopHook(postStopHook rspec.Hook)
 	AddPreStartHook(preStartHook rspec.Hook)
 	AddProcessEnv(name, value string)
+	AddProcessRlimits(typ string, hard, soft uint64)
 	AddLinuxResourcesDevice(allow bool, devType string, major, minor *int64, access string)
 	AddLinuxResourcesHugepageLimit(pageSize string, limit uint64)
 	AddLinuxResourcesUnified(key, val string)
@@ -88,6 +89,7 @@ type Generator struct {
 	resolveRdt        func(string) (*rspec.LinuxIntelRdt, error)
 	injectCDIDevices  func(*rspec.Spec, []string) error
 	checkResources    func(*rspec.LinuxResources) error
+	auditLogger       AuditLogger
 }
 
 // SpecGenerator returns a wrapped OCI Spec Generator.
@@ -147,6 +149,19 @@ func WithCDIDeviceInjector(fn func(*rspec.Spec, []string) error) GeneratorOption
 		g.injectCDIDevices = fn
 	}
 }
+
+// WithAuditLogger specifies a function for logging audit messages.
+func WithAuditLogger(logger AuditLogger) GeneratorOption {
+	return func(g *Generator) {
+		g.auditLogger = logger
+	}
+}
+
+// Fields can be used to pass extra information for logged audit messages.
+type Fields = map[string]any
+
+// AuditLogger is a function for logging audit messages.
+type AuditLogger = func(event string, fields Fields)
 
 // Adjust adjusts all aspects of the OCI Spec that NRI knows/cares about.
 func (g *Generator) Adjust(adjust *nri.ContainerAdjustment) error {
@@ -222,21 +237,36 @@ func (g *Generator) AdjustEnv(env []*nri.KeyValue) {
 			}
 			if m, ok := mod[keyval[0]]; ok {
 				delete(mod, keyval[0])
-				if _, marked := m.IsMarkedForRemoval(); !marked {
+				if key, marked := m.IsMarkedForRemoval(); !marked {
+					g.auditEvent(AuditAddProcessEnv, Fields{
+						"name":  m.Key,
+						"value": m.Value,
+					})
 					g.AddProcessEnv(m.Key, m.Value)
+				} else {
+					g.auditEvent(AuditRemoveProcessEnv, Fields{"name": key})
 				}
 				continue
 			}
+			g.auditEvent(AuditAddProcessEnv, Fields{
+				"name":  keyval[0],
+				"value": keyval[1],
+			})
 			g.AddProcessEnv(keyval[0], keyval[1])
 		}
 	}
 
 	// then append remaining unprocessed adjustments (new variables)
 	for _, e := range env {
-		if _, marked := e.IsMarkedForRemoval(); marked {
+		if key, marked := e.IsMarkedForRemoval(); marked {
+			g.auditEvent(AuditRemoveProcessEnv, Fields{"name": key})
 			continue
 		}
 		if _, ok := mod[e.Key]; ok {
+			g.auditEvent(AuditAddProcessEnv, Fields{
+				"name":  e.Key,
+				"value": e.Value,
+			})
 			g.AddProcessEnv(e.Key, e.Value)
 		}
 	}
@@ -245,6 +275,7 @@ func (g *Generator) AdjustEnv(env []*nri.KeyValue) {
 // AdjustArgs adjusts the process arguments in the OCI Spec.
 func (g *Generator) AdjustArgs(args []string) {
 	if len(args) != 0 {
+		g.auditEvent(AuditSetProcessArgs, Fields{"args": strings.Join(args, " ")})
 		g.SetProcessArgs(args)
 	}
 }
@@ -258,8 +289,9 @@ func (g *Generator) AdjustAnnotations(annotations map[string]string) error {
 	}
 	for k, v := range annotations {
 		if key, marked := nri.IsMarkedForRemoval(k); marked {
-			g.RemoveAnnotation(key)
+			g.auditEvent(AuditRemoveAnnotation, Fields{"key": key})
 		} else {
+			g.auditEvent(AuditSetAnnotation, Fields{"name": k, "value": v})
 			g.AddAnnotation(k, v)
 		}
 	}
@@ -273,21 +305,27 @@ func (g *Generator) AdjustHooks(hooks *nri.Hooks) {
 		return
 	}
 	for _, h := range hooks.Prestart {
+		g.auditEvent(AuditSetOCIHook, Fields{"type": "PreStart", "path": h.Path})
 		g.AddPreStartHook(h.ToOCI())
 	}
 	for _, h := range hooks.Poststart {
+		g.auditEvent(AuditSetOCIHook, Fields{"type": "PostStart", "path": h.Path})
 		g.AddPostStartHook(h.ToOCI())
 	}
 	for _, h := range hooks.Poststop {
+		g.auditEvent(AuditSetOCIHook, Fields{"type": "PostStop", "path": h.Path})
 		g.AddPostStopHook(h.ToOCI())
 	}
 	for _, h := range hooks.CreateRuntime {
+		g.auditEvent(AuditSetOCIHook, Fields{"type": "CreateRuntime", "path": h.Path})
 		g.AddCreateRuntimeHook(h.ToOCI())
 	}
 	for _, h := range hooks.CreateContainer {
+		g.auditEvent(AuditSetOCIHook, Fields{"type": "CreateContainer", "path": h.Path})
 		g.AddCreateContainerHook(h.ToOCI())
 	}
 	for _, h := range hooks.StartContainer {
+		g.auditEvent(AuditSetOCIHook, Fields{"type": "StartContainer", "path": h.Path})
 		g.AddStartContainerHook(h.ToOCI())
 	}
 }
@@ -302,43 +340,69 @@ func (g *Generator) AdjustResources(r *nri.LinuxResources) error {
 
 	if r.Cpu != nil {
 		if r.Cpu.Period != nil {
-			g.SetLinuxResourcesCPUPeriod(r.Cpu.GetPeriod().GetValue())
+			v := r.Cpu.GetPeriod().GetValue()
+			g.auditEvent(AuditSetLinuxResource, Fields{"type": "CPU period", "value": v})
+			g.SetLinuxResourcesCPUPeriod(v)
 		}
 		if r.Cpu.Quota != nil {
-			g.SetLinuxResourcesCPUQuota(r.Cpu.GetQuota().GetValue())
+			v := r.Cpu.GetQuota().GetValue()
+			g.auditEvent(AuditSetLinuxResource, Fields{"type": "CPU quota", "value": v})
+			g.SetLinuxResourcesCPUQuota(v)
 		}
 		if r.Cpu.Shares != nil {
-			g.SetLinuxResourcesCPUShares(r.Cpu.GetShares().GetValue())
+			v := r.Cpu.GetShares().GetValue()
+			g.auditEvent(AuditSetLinuxResource, Fields{"type": "CPU shares", "value": v})
+			g.SetLinuxResourcesCPUShares(v)
 		}
 		if r.Cpu.Cpus != "" {
-			g.SetLinuxResourcesCPUCpus(r.Cpu.GetCpus())
+			v := r.Cpu.GetCpus()
+			g.auditEvent(AuditSetLinuxResource, Fields{"type": "cpuset CPUs", "value": v})
+			g.SetLinuxResourcesCPUCpus(v)
 		}
 		if r.Cpu.Mems != "" {
-			g.SetLinuxResourcesCPUMems(r.Cpu.GetMems())
+			v := r.Cpu.GetMems()
+			g.auditEvent(AuditSetLinuxResource, Fields{"type": "cpuset mems", "value": v})
+			g.SetLinuxResourcesCPUMems(v)
 		}
 		if r.Cpu.RealtimeRuntime != nil {
-			g.SetLinuxResourcesCPURealtimeRuntime(r.Cpu.GetRealtimeRuntime().GetValue())
+			v := r.Cpu.GetRealtimeRuntime().GetValue()
+			g.auditEvent(AuditSetLinuxResource, Fields{"type": "CPU realtime runtime", "value": v})
+			g.SetLinuxResourcesCPURealtimeRuntime(v)
 		}
 		if r.Cpu.RealtimePeriod != nil {
-			g.SetLinuxResourcesCPURealtimePeriod(r.Cpu.GetRealtimePeriod().GetValue())
+			v := r.Cpu.GetRealtimePeriod().GetValue()
+			g.auditEvent(AuditSetLinuxResource, Fields{"type": "CPU realtime period", "value": v})
+			g.SetLinuxResourcesCPURealtimePeriod(v)
 		}
 	}
 	if r.Memory != nil {
 		if l := r.Memory.GetLimit().GetValue(); l != 0 {
+			g.auditEvent(AuditSetLinuxResource, Fields{"type": "memory limit", "value": l})
 			g.SetLinuxResourcesMemoryLimit(l)
+			g.auditEvent(AuditSetLinuxResource, Fields{"type": "swap limit", "value": l})
 			g.SetLinuxResourcesMemorySwap(l)
 		}
 	}
 	for _, l := range r.HugepageLimits {
+		g.auditEvent(AuditSetLinuxResource, Fields{"type": "hugepage limit", "pagesize": l.PageSize, "limit": l.Limit})
 		g.AddLinuxResourcesHugepageLimit(l.PageSize, l.Limit)
 	}
 	for k, v := range r.Unified {
+		g.auditEvent(AuditSetLinuxResource, Fields{"type": "unified resource", "name": k, "value": v})
 		g.AddLinuxResourcesUnified(k, v)
 	}
 	if v := r.GetPids(); v != nil {
+		g.auditEvent(AuditSetLinuxResource, Fields{"type": "PID limit", "value": v.GetLimit()})
 		g.SetLinuxResourcesPidsLimit(v.GetLimit())
 	}
 	for _, d := range r.Devices {
+		g.auditEvent(AuditAddLinuxDeviceRule, Fields{
+			"allow":  d.Allow,
+			"type":   d.Type,
+			"major":  d.Major.Get(),
+			"minor":  d.Minor.Get(),
+			"access": d.Access,
+		})
 		g.AddLinuxResourcesDevice(d.Allow, d.Type, d.Major.Get(), d.Minor.Get(), d.Access)
 	}
 	if g.checkResources != nil {
@@ -357,6 +421,7 @@ func (g *Generator) AdjustBlockIOClass(blockIOClass *string) error {
 	}
 
 	if *blockIOClass == "" {
+		g.auditEvent(AuditClearLinuxBlkio, nil)
 		g.ClearLinuxResourcesBlockIO()
 		return nil
 	}
@@ -366,6 +431,7 @@ func (g *Generator) AdjustBlockIOClass(blockIOClass *string) error {
 		return fmt.Errorf("failed to adjust BlockIO class in OCI Spec: %w", err)
 	}
 
+	g.auditEvent(AuditSetLinuxBlkio, Fields{"class": *blockIOClass})
 	g.SetLinuxResourcesBlockIO(blockIO)
 	return nil
 }
@@ -377,6 +443,7 @@ func (g *Generator) AdjustRdtClass(rdtClass *string) error {
 	}
 
 	if *rdtClass == "" {
+		g.auditEvent(AuditClearLinuxRdt, nil)
 		g.ClearLinuxIntelRdt()
 		return nil
 	}
@@ -386,6 +453,7 @@ func (g *Generator) AdjustRdtClass(rdtClass *string) error {
 		return fmt.Errorf("failed to adjust RDT class in OCI Spec: %w", err)
 	}
 
+	g.auditEvent(AuditSetLinuxRdt, Fields{"class": *rdtClass})
 	g.SetLinuxIntelRdt(rdt)
 	return nil
 }
@@ -397,6 +465,7 @@ func (g *Generator) AdjustRdt(r *nri.LinuxRdt) {
 	}
 
 	if r.Remove {
+		g.auditEvent(AuditClearLinuxRdt, nil)
 		g.ClearLinuxIntelRdt()
 	}
 
@@ -408,6 +477,7 @@ func (g *Generator) AdjustRdt(r *nri.LinuxRdt) {
 // AdjustRdtClosID adjusts the RDT CLOS id in the OCI Spec.
 func (g *Generator) AdjustRdtClosID(value *string) {
 	if value != nil {
+		g.auditEvent(AuditSetLinuxRdt, Fields{"closID": *value})
 		g.SetLinuxIntelRdtClosID(*value)
 	}
 }
@@ -415,6 +485,7 @@ func (g *Generator) AdjustRdtClosID(value *string) {
 // AdjustRdtSchemata adjusts the RDT schemata in the OCI Spec.
 func (g *Generator) AdjustRdtSchemata(value *[]string) {
 	if value != nil {
+		g.auditEvent(AuditSetLinuxRdt, Fields{"schemata": *value})
 		g.SetLinuxIntelRdtSchemata(*value)
 	}
 }
@@ -422,6 +493,7 @@ func (g *Generator) AdjustRdtSchemata(value *[]string) {
 // AdjustRdtEnableMonitoring adjusts the RDT monitoring in the OCI Spec.
 func (g *Generator) AdjustRdtEnableMonitoring(value *bool) {
 	if value != nil {
+		g.auditEvent(AuditSetLinuxRdt, Fields{"monitoring": *value})
 		g.SetLinuxIntelRdtEnableMonitoring(*value)
 	}
 }
@@ -429,6 +501,7 @@ func (g *Generator) AdjustRdtEnableMonitoring(value *bool) {
 // AdjustCgroupsPath adjusts the cgroup pseudofs path in the OCI Spec.
 func (g *Generator) AdjustCgroupsPath(path string) {
 	if path != "" {
+		g.auditEvent(AuditSetLinuxCgroupsPath, Fields{"path": path})
 		g.SetLinuxCgroupsPath(path)
 	}
 }
@@ -437,13 +510,19 @@ func (g *Generator) AdjustCgroupsPath(path string) {
 // This may override kubelet's settings for OOM score.
 func (g *Generator) AdjustOomScoreAdj(score *nri.OptionalInt) {
 	if score != nil {
-		g.SetProcessOOMScoreAdj(int(score.Value))
+		v := int(score.Value)
+		g.auditEvent(AuditSetProcessOOMScoreAdj, Fields{"value": v})
+		g.SetProcessOOMScoreAdj(v)
 	}
 }
 
 // AdjustIOPriority adjusts the IO priority of the container.
 func (g *Generator) AdjustIOPriority(ioprio *nri.LinuxIOPriority) {
 	if ioprio != nil {
+		g.auditEvent(AuditSetLinuxIOPriority, Fields{
+			"class":    ioprio.Class.String(),
+			"priority": ioprio.Priority,
+		})
 		g.SetProcessIOPriority(ioprio.ToOCI())
 	}
 }
@@ -473,6 +552,8 @@ func (g *Generator) AdjustSeccompPolicy(policy *nri.LinuxSeccomp) error {
 		flags[i] = rspec.LinuxSeccompFlag(f)
 	}
 
+	// TODO(klihub): is this enough
+	g.auditEvent(AuditSetLinuxSeccompPolicy, Fields{"defaultAction": policy.DefaultAction})
 	g.Config.Linux.Seccomp = &rspec.LinuxSeccomp{
 		DefaultAction:    rspec.LinuxSeccompAction(policy.DefaultAction),
 		Architectures:    archs,
@@ -492,10 +573,15 @@ func (g *Generator) AdjustNamespaces(namespaces []*nri.LinuxNamespace) error {
 			continue
 		}
 		if key, marked := n.IsMarkedForRemoval(); marked {
+			g.auditEvent(AuditRemoveLinuxNamespace, Fields{"type": key})
 			if err := g.RemoveLinuxNamespace(key); err != nil {
 				return err
 			}
 		} else {
+			g.auditEvent(AuditSetLinuxNamespace, Fields{
+				"type": n.Type,
+				"path": n.Path,
+			})
 			if err := g.AddOrReplaceLinuxNamespace(n.Type, n.Path); err != nil {
 				return err
 			}
@@ -513,8 +599,10 @@ func (g *Generator) AdjustSysctl(sysctl map[string]string) error {
 	}
 	for k, v := range sysctl {
 		if key, marked := nri.IsMarkedForRemoval(k); marked {
+			g.auditEvent(AuditRemoveLinuxSysctl, Fields{"key": key})
 			g.RemoveLinuxSysctl(key)
 		} else {
+			g.auditEvent(AuditSetLinuxSysctl, Fields{"key": k, "value": v})
 			g.AddLinuxSysctl(k, v)
 		}
 	}
@@ -528,19 +616,35 @@ func (g *Generator) AdjustLinuxScheduler(sch *nri.LinuxScheduler) {
 		return
 	}
 	g.initConfigProcess()
+	// TODO(klihub): is this enough ?
+	g.auditEvent(AuditSetLinuxScheduler, Fields{"policy": sch.Policy.String()})
 	g.Config.Process.Scheduler = sch.ToOCI()
 }
 
 // AdjustDevices adjusts the (Linux) devices in the OCI Spec.
 func (g *Generator) AdjustDevices(devices []*nri.LinuxDevice) {
 	for _, d := range devices {
-		key, marked := d.IsMarkedForRemoval()
-		g.RemoveDevice(key)
+		path, marked := d.IsMarkedForRemoval()
+		g.auditEvent(AuditRemoveLinuxDevice, Fields{"path": path})
+		g.RemoveDevice(path)
 		if marked {
 			continue
 		}
+		g.auditEvent(AuditAddLinuxDevice, Fields{
+			"path":  d.Path,
+			"type":  d.Type,
+			"major": d.Major,
+			"minor": d.Minor,
+		})
 		g.AddDevice(d.ToOCI())
 		major, minor, access := &d.Major, &d.Minor, d.AccessString()
+		g.auditEvent(AuditAddLinuxDeviceRule, Fields{
+			"allow":  true,
+			"type":   d.Type,
+			"major":  d.Major,
+			"minor":  d.Minor,
+			"access": access,
+		})
 		g.AddLinuxResourcesDevice(true, d.Type, major, minor, access)
 	}
 }
@@ -549,8 +653,10 @@ func (g *Generator) AdjustDevices(devices []*nri.LinuxDevice) {
 func (g *Generator) AdjustLinuxNetDevices(devices map[string]*nri.LinuxNetDevice) error {
 	for k, v := range devices {
 		if key, marked := nri.IsMarkedForRemoval(k); marked {
+			g.auditEvent(AuditRemoveLinuxNetDevice, Fields{"name": key})
 			g.RemoveLinuxNetDevice(key)
 		} else {
+			g.auditEvent(AuditAddLinuxNetDevice, Fields{"key": k, "value": v})
 			g.AddLinuxNetDevice(k, v)
 		}
 	}
@@ -572,6 +678,7 @@ func (g *Generator) InjectCDIDevices(devices []*nri.CDIDevice) error {
 		names = append(names, d.Name)
 	}
 
+	g.auditEvent(AuditInjectCDIDevices, Fields{"devices": strings.Join(names, ",")})
 	return g.injectCDIDevices(g.Config, names)
 }
 
@@ -581,11 +688,12 @@ func (g *Generator) AdjustRlimits(rlimits []*nri.POSIXRlimit) error {
 		if l == nil {
 			continue
 		}
-		g.Config.Process.Rlimits = append(g.Config.Process.Rlimits, rspec.POSIXRlimit{
-			Type: l.Type,
-			Hard: l.Hard,
-			Soft: l.Soft,
+		g.auditEvent(AuditAddProcessRlimits, Fields{
+			"type": l.Type,
+			"soft": l.Soft,
+			"hard": l.Hard,
 		})
+		g.AddProcessRlimits(l.Type, l.Hard, l.Soft)
 	}
 	return nil
 }
@@ -599,10 +707,12 @@ func (g *Generator) AdjustMounts(mounts []*nri.Mount) error {
 	propagation := ""
 	for _, m := range mounts {
 		if destination, marked := m.IsMarkedForRemoval(); marked {
+			g.auditEvent(AuditRemoveMount, Fields{"destination": destination})
 			g.RemoveMount(destination)
 			continue
 		}
 
+		g.auditEvent(AuditRemoveMount, Fields{"destination": m.Destination})
 		g.RemoveMount(m.Destination)
 
 		mnt := m.ToOCI(&propagation)
@@ -612,6 +722,7 @@ func (g *Generator) AdjustMounts(mounts []*nri.Mount) error {
 			if err := ensurePropagation(mnt.Source, "rshared"); err != nil {
 				return fmt.Errorf("failed to adjust mounts in OCI Spec: %w", err)
 			}
+			g.auditEvent(AuditSetLinuxRootPropagation, Fields{"value": "rshared"})
 			if err := g.SetLinuxRootPropagation("rshared"); err != nil {
 				return fmt.Errorf("failed to adjust rootfs propagation in OCI Spec: %w", err)
 			}
@@ -621,11 +732,17 @@ func (g *Generator) AdjustMounts(mounts []*nri.Mount) error {
 			}
 			rootProp := g.Config.Linux.RootfsPropagation
 			if rootProp != "rshared" && rootProp != "rslave" {
+				g.auditEvent(AuditSetLinuxRootPropagation, Fields{"value": "rslave"})
 				if err := g.SetLinuxRootPropagation("rslave"); err != nil {
 					return fmt.Errorf("failed to adjust rootfs propagation in OCI Spec: %w", err)
 				}
 			}
 		}
+		g.auditEvent(AuditAddMount, Fields{
+			"destination": mnt.Destination,
+			"source":      mnt.Source,
+			"type":        mnt.Type,
+		})
 		g.AddMount(mnt)
 	}
 	g.sortMounts()
@@ -836,3 +953,43 @@ func (g *Generator) initConfigLinuxIntelRdt() {
 		g.Config.Linux.IntelRdt = &rspec.LinuxIntelRdt{}
 	}
 }
+
+func (g *Generator) auditEvent(event string, fields Fields) {
+	if g.auditLogger != nil {
+		g.auditLogger(event, fields)
+	}
+}
+
+// Audit 'events' we use in logged audit messages.
+const ( //nolint:revive
+	AuditRemoveProcessEnv        = "remove environment variable"
+	AuditAddProcessEnv           = "add environment variable"
+	AuditSetProcessArgs          = "set process arguments"
+	AuditRemoveAnnotation        = "remove annotation"
+	AuditSetAnnotation           = "set annotation"
+	AuditSetOCIHook              = "set OCI hook"
+	AuditSetLinuxResource        = "set linux resource"
+	AuditClearLinuxBlkio         = "clear linux blkio"
+	AuditSetLinuxBlkio           = "set linux blkio"
+	AuditClearLinuxRdt           = "clear linux RDT"
+	AuditSetLinuxRdt             = "set linux RDT"
+	AuditSetLinuxCgroupsPath     = "set linux cgroups path"
+	AuditSetProcessOOMScoreAdj   = "set process OOM score adjustment"
+	AuditSetLinuxIOPriority      = "set process IO priority"
+	AuditSetLinuxSeccompPolicy   = "set linux seccomp policy"
+	AuditRemoveLinuxNamespace    = "remove linux namespace"
+	AuditSetLinuxNamespace       = "set linux namespace"
+	AuditRemoveLinuxSysctl       = "remove linux sysctl"
+	AuditSetLinuxSysctl          = "set linux sysctl"
+	AuditSetLinuxScheduler       = "set linux scheduler"
+	AuditRemoveLinuxDevice       = "remove linux device"
+	AuditAddLinuxDevice          = "add linux device"
+	AuditAddLinuxDeviceRule      = "add linux device rule"
+	AuditRemoveLinuxNetDevice    = "remove linux net device"
+	AuditAddLinuxNetDevice       = "add linux net device"
+	AuditInjectCDIDevices        = "inject CDI devices"
+	AuditAddProcessRlimits       = "add process rlimits"
+	AuditRemoveMount             = "remove mount"
+	AuditAddMount                = "add mount"
+	AuditSetLinuxRootPropagation = "set linux root propagation"
+)

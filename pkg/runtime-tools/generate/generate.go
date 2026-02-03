@@ -44,6 +44,7 @@ type UnderlyingGenerator interface {
 	AddPostStopHook(postStopHook rspec.Hook)
 	AddPreStartHook(preStartHook rspec.Hook)
 	AddProcessEnv(name, value string)
+	AddProcessRlimits(typ string, hard, soft uint64)
 	AddLinuxResourcesDevice(allow bool, devType string, major, minor *int64, access string)
 	AddLinuxResourcesHugepageLimit(pageSize string, limit uint64)
 	AddLinuxResourcesUnified(key, val string)
@@ -88,6 +89,8 @@ type Generator struct {
 	resolveRdt        func(string) (*rspec.LinuxIntelRdt, error)
 	injectCDIDevices  func(*rspec.Spec, []string) error
 	checkResources    func(*rspec.LinuxResources) error
+	logger            Logger
+	owners            *nri.FieldOwners
 }
 
 // SpecGenerator returns a wrapped OCI Spec Generator.
@@ -147,6 +150,20 @@ func WithCDIDeviceInjector(fn func(*rspec.Spec, []string) error) GeneratorOption
 		g.injectCDIDevices = fn
 	}
 }
+
+// WithLogger specifies a function for logging (audit) messages.
+func WithLogger(logger Logger, owners *nri.FieldOwners) GeneratorOption {
+	return func(g *Generator) {
+		g.logger = logger
+		g.owners = owners
+	}
+}
+
+// Fields can be used to pass extra information for logged messages.
+type Fields = map[string]any
+
+// Logger is a function for logging (audit) messages.
+type Logger = func(event string, fields Fields)
 
 // Adjust adjusts all aspects of the OCI Spec that NRI knows/cares about.
 func (g *Generator) Adjust(adjust *nri.ContainerAdjustment) error {
@@ -222,11 +239,30 @@ func (g *Generator) AdjustEnv(env []*nri.KeyValue) {
 			}
 			if m, ok := mod[keyval[0]]; ok {
 				delete(mod, keyval[0])
-				if _, marked := m.IsMarkedForRemoval(); !marked {
+				if key, marked := m.IsMarkedForRemoval(); !marked {
+					g.log(AuditAddProcessEnv,
+						Fields{
+							"value.name":  m.Key,
+							"value.value": "<value omitted>",
+							"nri.plugin":  g.compoundOwner(nri.Field_Env, m.Key),
+						},
+					)
 					g.AddProcessEnv(m.Key, m.Value)
+				} else {
+					g.log(AuditRemoveProcessEnv,
+						Fields{
+							"value.name": key,
+							"nri.plugin": g.compoundOwner(nri.Field_Env, key),
+						},
+					)
 				}
 				continue
 			}
+			g.log(AuditAddProcessEnv, Fields{
+				"value.name":  keyval[0],
+				"value.value": keyval[1],
+				"nri.plugin":  g.compoundOwner(nri.Field_Env, keyval[0]),
+			})
 			g.AddProcessEnv(keyval[0], keyval[1])
 		}
 	}
@@ -237,6 +273,11 @@ func (g *Generator) AdjustEnv(env []*nri.KeyValue) {
 			continue
 		}
 		if _, ok := mod[e.Key]; ok {
+			g.log(AuditAddProcessEnv, Fields{
+				"value.name":  e.Key,
+				"value.value": e.Value,
+				"nri.plugin":  g.compoundOwner(nri.Field_Env, e.Key),
+			})
 			g.AddProcessEnv(e.Key, e.Value)
 		}
 	}
@@ -245,6 +286,11 @@ func (g *Generator) AdjustEnv(env []*nri.KeyValue) {
 // AdjustArgs adjusts the process arguments in the OCI Spec.
 func (g *Generator) AdjustArgs(args []string) {
 	if len(args) != 0 {
+		g.log(AuditSetProcessArgs,
+			Fields{
+				"args":       strings.Join(args, " "),
+				"nri.plugin": g.simpleOwner(nri.Field_Args),
+			})
 		g.SetProcessArgs(args)
 	}
 }
@@ -258,8 +304,18 @@ func (g *Generator) AdjustAnnotations(annotations map[string]string) error {
 	}
 	for k, v := range annotations {
 		if key, marked := nri.IsMarkedForRemoval(k); marked {
-			g.RemoveAnnotation(key)
+			g.log(AuditRemoveAnnotation,
+				Fields{
+					"value.key":  key,
+					"nri.plugin": g.compoundOwner(nri.Field_Annotations, key),
+				})
 		} else {
+			g.log(AuditAddAnnotation,
+				Fields{
+					"value.key":   k,
+					"value.value": v,
+					"nri.plugin":  g.compoundOwner(nri.Field_Annotations, k),
+				})
 			g.AddAnnotation(k, v)
 		}
 	}
@@ -273,21 +329,57 @@ func (g *Generator) AdjustHooks(hooks *nri.Hooks) {
 		return
 	}
 	for _, h := range hooks.Prestart {
+		g.log(AuditAddOCIHook,
+			Fields{
+				"value.type": "PreStart",
+				"value.path": h.Path,
+				"nri.plugin": g.simpleOwner(nri.Field_OciHooks),
+			})
 		g.AddPreStartHook(h.ToOCI())
 	}
 	for _, h := range hooks.Poststart {
+		g.log(AuditAddOCIHook,
+			Fields{
+				"value.type": "PostStart",
+				"value.path": h.Path,
+				"nri.plugin": g.simpleOwner(nri.Field_OciHooks),
+			})
 		g.AddPostStartHook(h.ToOCI())
 	}
 	for _, h := range hooks.Poststop {
+		g.log(AuditAddOCIHook,
+			Fields{
+				"value.type": "PostStop",
+				"value.path": h.Path,
+				"nri.plugin": g.simpleOwner(nri.Field_OciHooks),
+			})
 		g.AddPostStopHook(h.ToOCI())
 	}
 	for _, h := range hooks.CreateRuntime {
+		g.log(AuditAddOCIHook,
+			Fields{
+				"value.type": "CreateRuntime",
+				"value.path": h.Path,
+				"nri.plugin": g.simpleOwner(nri.Field_OciHooks),
+			})
 		g.AddCreateRuntimeHook(h.ToOCI())
 	}
 	for _, h := range hooks.CreateContainer {
+		g.log(AuditAddOCIHook,
+			Fields{
+				"value.type": "CreateContainer",
+				"value.path": h.Path,
+				"nri.plugin": g.simpleOwner(nri.Field_OciHooks),
+			})
 		g.AddCreateContainerHook(h.ToOCI())
 	}
 	for _, h := range hooks.StartContainer {
+		g.log(AuditAddOCIHook,
+			Fields{
+				"value.type": "StartContainer",
+				"value.path": h.Path,
+				"nri.plugin": g.simpleOwner(nri.Field_OciHooks),
+			})
 		g.AddStartContainerHook(h.ToOCI())
 	}
 }
@@ -302,43 +394,124 @@ func (g *Generator) AdjustResources(r *nri.LinuxResources) error {
 
 	if r.Cpu != nil {
 		if r.Cpu.Period != nil {
-			g.SetLinuxResourcesCPUPeriod(r.Cpu.GetPeriod().GetValue())
+			v := r.Cpu.GetPeriod().GetValue()
+			g.log(AuditSetLinuxCPUPeriod,
+				Fields{
+					"value":      v,
+					"nri.plugin": g.simpleOwner(nri.Field_CPUPeriod),
+				})
+			g.SetLinuxResourcesCPUPeriod(v)
 		}
 		if r.Cpu.Quota != nil {
-			g.SetLinuxResourcesCPUQuota(r.Cpu.GetQuota().GetValue())
+			v := r.Cpu.GetQuota().GetValue()
+			g.log(AuditSetLinuxCPUQuota,
+				Fields{
+					"value":      v,
+					"nri.plugin": g.simpleOwner(nri.Field_CPUQuota),
+				})
+			g.SetLinuxResourcesCPUQuota(v)
 		}
 		if r.Cpu.Shares != nil {
-			g.SetLinuxResourcesCPUShares(r.Cpu.GetShares().GetValue())
+			v := r.Cpu.GetShares().GetValue()
+			g.log(AuditSetLinuxCPUShares,
+				Fields{
+					"value":      v,
+					"nri.plugin": g.simpleOwner(nri.Field_CPUShares),
+				})
+			g.SetLinuxResourcesCPUShares(v)
 		}
 		if r.Cpu.Cpus != "" {
-			g.SetLinuxResourcesCPUCpus(r.Cpu.GetCpus())
+			v := r.Cpu.GetCpus()
+			g.log(AuditSetLinuxCPUSetCPUs,
+				Fields{
+					"value":      v,
+					"nri.plugin": g.simpleOwner(nri.Field_CPUSetCPUs),
+				})
+			g.SetLinuxResourcesCPUCpus(v)
 		}
 		if r.Cpu.Mems != "" {
-			g.SetLinuxResourcesCPUMems(r.Cpu.GetMems())
+			v := r.Cpu.GetMems()
+			g.log(AuditSetLinuxCPUSetMems,
+				Fields{
+					"value":      v,
+					"nri.plugin": g.simpleOwner(nri.Field_CPUSetMems),
+				})
+			g.SetLinuxResourcesCPUMems(v)
 		}
 		if r.Cpu.RealtimeRuntime != nil {
-			g.SetLinuxResourcesCPURealtimeRuntime(r.Cpu.GetRealtimeRuntime().GetValue())
+			v := r.Cpu.GetRealtimeRuntime().GetValue()
+			g.log(AuditSetLinuxCPURealtimeRuntime,
+				Fields{
+					"value":      v,
+					"nri.plugin": g.simpleOwner(nri.Field_CPURealtimeRuntime),
+				})
+			g.SetLinuxResourcesCPURealtimeRuntime(v)
 		}
 		if r.Cpu.RealtimePeriod != nil {
-			g.SetLinuxResourcesCPURealtimePeriod(r.Cpu.GetRealtimePeriod().GetValue())
+			v := r.Cpu.GetRealtimePeriod().GetValue()
+			g.log(AuditSetLinuxCPURealtimePeriod,
+				Fields{
+					"value":      v,
+					"nri.plugin": g.simpleOwner(nri.Field_CPURealtimePeriod),
+				})
+			g.SetLinuxResourcesCPURealtimePeriod(v)
 		}
 	}
 	if r.Memory != nil {
 		if l := r.Memory.GetLimit().GetValue(); l != 0 {
+			g.log(AuditSetLinuxMemLimit,
+				Fields{
+					"value":      l,
+					"nri.plugin": g.simpleOwner(nri.Field_MemLimit),
+				})
 			g.SetLinuxResourcesMemoryLimit(l)
+			g.log(AuditSetLinuxMemSwapLimit,
+				Fields{
+					"value":      l,
+					"nri.plugin": g.simpleOwner(nri.Field_MemSwapLimit),
+				})
 			g.SetLinuxResourcesMemorySwap(l)
 		}
 	}
 	for _, l := range r.HugepageLimits {
+		g.log(AuditSetLinuxHugepageLimit,
+			Fields{
+				"value.pagesize": l.PageSize,
+				"value.limit":    l.Limit,
+				"nri.plugin":     g.compoundOwner(nri.Field_HugepageLimits, l.PageSize),
+			})
 		g.AddLinuxResourcesHugepageLimit(l.PageSize, l.Limit)
 	}
 	for k, v := range r.Unified {
+		g.log(AuditSetLinuxResourceUnified,
+			Fields{
+				"value.name":  k,
+				"value.value": v,
+				"nri.plugin":  g.compoundOwner(nri.Field_CgroupsUnified, k),
+			})
 		g.AddLinuxResourcesUnified(k, v)
 	}
 	if v := r.GetPids(); v != nil {
+		g.log(AuditSetLinuxPidsLimit,
+			Fields{
+				"value":      v.GetLimit(),
+				"nri.plugin": g.simpleOwner(nri.Field_PidsLimit),
+			})
 		g.SetLinuxResourcesPidsLimit(v.GetLimit())
 	}
+	// TODO(klihub): check this, I think it's input-only and therefore should be
+	// always empty. We don't provide an adjustment setter for it and we don't
+	// collect it during plugin response processing. If it is so, we should also
+	// check for any plugin trying to manually set it in the response and error
+	// out on the stub side if one does.
 	for _, d := range r.Devices {
+		g.log(AuditAddLinuxDeviceRule, Fields{
+			"value.allow":  d.Allow,
+			"value.type":   d.Type,
+			"value.major":  d.Major.Get(),
+			"value.minor":  d.Minor.Get(),
+			"value.access": d.Access,
+		})
 		g.AddLinuxResourcesDevice(d.Allow, d.Type, d.Major.Get(), d.Minor.Get(), d.Access)
 	}
 	if g.checkResources != nil {
@@ -357,6 +530,10 @@ func (g *Generator) AdjustBlockIOClass(blockIOClass *string) error {
 	}
 
 	if *blockIOClass == "" {
+		g.log(AuditClearLinuxBlkioClass,
+			Fields{
+				"nri.plugin": g.simpleOwner(nri.Field_BlockioClass),
+			})
 		g.ClearLinuxResourcesBlockIO()
 		return nil
 	}
@@ -366,6 +543,11 @@ func (g *Generator) AdjustBlockIOClass(blockIOClass *string) error {
 		return fmt.Errorf("failed to adjust BlockIO class in OCI Spec: %w", err)
 	}
 
+	g.log(AuditSetLinuxBlkioClass,
+		Fields{
+			"value":      *blockIOClass,
+			"nri.plugin": g.simpleOwner(nri.Field_BlockioClass),
+		})
 	g.SetLinuxResourcesBlockIO(blockIO)
 	return nil
 }
@@ -377,6 +559,10 @@ func (g *Generator) AdjustRdtClass(rdtClass *string) error {
 	}
 
 	if *rdtClass == "" {
+		g.log(AuditClearLinuxRdtClass,
+			Fields{
+				"nri.plugin": g.simpleOwner(nri.Field_RdtClass),
+			})
 		g.ClearLinuxIntelRdt()
 		return nil
 	}
@@ -386,6 +572,11 @@ func (g *Generator) AdjustRdtClass(rdtClass *string) error {
 		return fmt.Errorf("failed to adjust RDT class in OCI Spec: %w", err)
 	}
 
+	g.log(AuditSetLinuxRdtClass,
+		Fields{
+			"value":      *rdtClass,
+			"nri.plugin": g.simpleOwner(nri.Field_RdtClass),
+		})
 	g.SetLinuxIntelRdt(rdt)
 	return nil
 }
@@ -397,6 +588,7 @@ func (g *Generator) AdjustRdt(r *nri.LinuxRdt) {
 	}
 
 	if r.Remove {
+		g.log(AuditClearLinuxRdt, nil)
 		g.ClearLinuxIntelRdt()
 	}
 
@@ -408,6 +600,11 @@ func (g *Generator) AdjustRdt(r *nri.LinuxRdt) {
 // AdjustRdtClosID adjusts the RDT CLOS id in the OCI Spec.
 func (g *Generator) AdjustRdtClosID(value *string) {
 	if value != nil {
+		g.log(AuditSetLinuxRdtClosID,
+			Fields{
+				"value":      *value,
+				"nri.plugin": g.simpleOwner(nri.Field_RdtClosID),
+			})
 		g.SetLinuxIntelRdtClosID(*value)
 	}
 }
@@ -415,6 +612,11 @@ func (g *Generator) AdjustRdtClosID(value *string) {
 // AdjustRdtSchemata adjusts the RDT schemata in the OCI Spec.
 func (g *Generator) AdjustRdtSchemata(value *[]string) {
 	if value != nil {
+		g.log(AuditSetLinuxRdtSchemata,
+			Fields{
+				"value":      *value,
+				"nri.plugin": g.simpleOwner(nri.Field_RdtSchemata),
+			})
 		g.SetLinuxIntelRdtSchemata(*value)
 	}
 }
@@ -422,6 +624,11 @@ func (g *Generator) AdjustRdtSchemata(value *[]string) {
 // AdjustRdtEnableMonitoring adjusts the RDT monitoring in the OCI Spec.
 func (g *Generator) AdjustRdtEnableMonitoring(value *bool) {
 	if value != nil {
+		g.log(AuditSetLinuxRdtMonitoring,
+			Fields{
+				"value":      *value,
+				"nri.plugin": g.simpleOwner(nri.Field_RdtEnableMonitoring),
+			})
 		g.SetLinuxIntelRdtEnableMonitoring(*value)
 	}
 }
@@ -429,6 +636,11 @@ func (g *Generator) AdjustRdtEnableMonitoring(value *bool) {
 // AdjustCgroupsPath adjusts the cgroup pseudofs path in the OCI Spec.
 func (g *Generator) AdjustCgroupsPath(path string) {
 	if path != "" {
+		g.log(AuditSetLinuxCgroupsPath,
+			Fields{
+				"value":      path,
+				"nri.plugin": g.simpleOwner(nri.Field_CgroupsPath),
+			})
 		g.SetLinuxCgroupsPath(path)
 	}
 }
@@ -437,13 +649,24 @@ func (g *Generator) AdjustCgroupsPath(path string) {
 // This may override kubelet's settings for OOM score.
 func (g *Generator) AdjustOomScoreAdj(score *nri.OptionalInt) {
 	if score != nil {
-		g.SetProcessOOMScoreAdj(int(score.Value))
+		v := int(score.Value)
+		g.log(AuditSetProcessOOMScoreAdj,
+			Fields{
+				"value":      v,
+				"nri.plugin": g.simpleOwner(nri.Field_OomScoreAdj),
+			})
+		g.SetProcessOOMScoreAdj(v)
 	}
 }
 
 // AdjustIOPriority adjusts the IO priority of the container.
 func (g *Generator) AdjustIOPriority(ioprio *nri.LinuxIOPriority) {
 	if ioprio != nil {
+		g.log(AuditSetLinuxIOPriority, Fields{
+			"value.class":    ioprio.Class.String(),
+			"value.priority": ioprio.Priority,
+			"nri.plugin":     g.simpleOwner(nri.Field_IoPriority),
+		})
 		g.SetProcessIOPriority(ioprio.ToOCI())
 	}
 }
@@ -473,6 +696,10 @@ func (g *Generator) AdjustSeccompPolicy(policy *nri.LinuxSeccomp) error {
 		flags[i] = rspec.LinuxSeccompFlag(f)
 	}
 
+	g.log(AuditSetLinuxSeccompPolicy,
+		Fields{
+			"nri.plugin": g.simpleOwner(nri.Field_SeccompPolicy),
+		})
 	g.Config.Linux.Seccomp = &rspec.LinuxSeccomp{
 		DefaultAction:    rspec.LinuxSeccompAction(policy.DefaultAction),
 		Architectures:    archs,
@@ -492,10 +719,20 @@ func (g *Generator) AdjustNamespaces(namespaces []*nri.LinuxNamespace) error {
 			continue
 		}
 		if key, marked := n.IsMarkedForRemoval(); marked {
+			g.log(AuditRemoveLinuxNamespace,
+				Fields{
+					"value.type": key,
+					"nri.plugin": g.compoundOwner(nri.Field_Namespace, key),
+				})
 			if err := g.RemoveLinuxNamespace(key); err != nil {
 				return err
 			}
 		} else {
+			g.log(AuditSetLinuxNamespace, Fields{
+				"value.type": n.Type,
+				"value.path": n.Path,
+				"nri.plugin": g.compoundOwner(nri.Field_Namespace, n.Type),
+			})
 			if err := g.AddOrReplaceLinuxNamespace(n.Type, n.Path); err != nil {
 				return err
 			}
@@ -513,8 +750,19 @@ func (g *Generator) AdjustSysctl(sysctl map[string]string) error {
 	}
 	for k, v := range sysctl {
 		if key, marked := nri.IsMarkedForRemoval(k); marked {
+			g.log(AuditRemoveLinuxSysctl,
+				Fields{
+					"value.key":  key,
+					"nri.plugin": g.compoundOwner(nri.Field_Sysctl, key),
+				})
 			g.RemoveLinuxSysctl(key)
 		} else {
+			g.log(AuditSetLinuxSysctl,
+				Fields{
+					"value.key":   k,
+					"value.value": v,
+					"nri.plugin":  g.compoundOwner(nri.Field_Sysctl, k),
+				})
 			g.AddLinuxSysctl(k, v)
 		}
 	}
@@ -528,19 +776,49 @@ func (g *Generator) AdjustLinuxScheduler(sch *nri.LinuxScheduler) {
 		return
 	}
 	g.initConfigProcess()
+	g.log(AuditSetLinuxScheduler,
+		Fields{
+			"value.policy":   sch.Policy.String(),
+			"value.nice":     sch.Nice,
+			"value.priority": sch.Priority,
+			"value.runtime":  sch.Runtime,
+			"value.deadline": sch.Deadline,
+			"value.period":   sch.Period,
+			"nri.plugin":     g.simpleOwner(nri.Field_LinuxSched),
+		})
 	g.Config.Process.Scheduler = sch.ToOCI()
 }
 
 // AdjustDevices adjusts the (Linux) devices in the OCI Spec.
 func (g *Generator) AdjustDevices(devices []*nri.LinuxDevice) {
 	for _, d := range devices {
-		key, marked := d.IsMarkedForRemoval()
-		g.RemoveDevice(key)
+		path, marked := d.IsMarkedForRemoval()
+		g.log(AuditRemoveLinuxDevice,
+			Fields{
+				"value.path": path,
+				"nri.plugin": g.compoundOwner(nri.Field_Devices, path),
+			})
+		g.RemoveDevice(path)
 		if marked {
 			continue
 		}
+		g.log(AuditAddLinuxDevice, Fields{
+			"value.path":  d.Path,
+			"value.type":  d.Type,
+			"value.major": d.Major,
+			"value.minor": d.Minor,
+			"nri.plugin":  g.compoundOwner(nri.Field_Devices, d.Path),
+		})
 		g.AddDevice(d.ToOCI())
 		major, minor, access := &d.Major, &d.Minor, d.AccessString()
+		g.log(AuditAddLinuxDeviceRule, Fields{
+			"value.allow":  true,
+			"value.type":   d.Type,
+			"value.major":  d.Major,
+			"value.minor":  d.Minor,
+			"value.access": access,
+			"nri.plugin":   g.compoundOwner(nri.Field_Devices, d.Path),
+		})
 		g.AddLinuxResourcesDevice(true, d.Type, major, minor, access)
 	}
 }
@@ -549,8 +827,19 @@ func (g *Generator) AdjustDevices(devices []*nri.LinuxDevice) {
 func (g *Generator) AdjustLinuxNetDevices(devices map[string]*nri.LinuxNetDevice) error {
 	for k, v := range devices {
 		if key, marked := nri.IsMarkedForRemoval(k); marked {
+			g.log(AuditRemoveLinuxNetDevice,
+				Fields{
+					"value.hostif": key,
+					"nri.plugin":   g.compoundOwner(nri.Field_LinuxNetDevices, key),
+				})
 			g.RemoveLinuxNetDevice(key)
 		} else {
+			g.log(AuditAddLinuxNetDevice,
+				Fields{
+					"value.hostif":      k,
+					"value.containerif": v,
+					"nri.plugin":        g.compoundOwner(nri.Field_LinuxNetDevices, k),
+				})
 			g.AddLinuxNetDevice(k, v)
 		}
 	}
@@ -568,10 +857,17 @@ func (g *Generator) InjectCDIDevices(devices []*nri.CDIDevice) error {
 	}
 
 	names := []string{}
+	plugins := []string{}
 	for _, d := range devices {
 		names = append(names, d.Name)
+		plugins = append(plugins, g.compoundOwner(nri.Field_CdiDevices, d.Name))
 	}
 
+	g.log(AuditInjectCDIDevices,
+		Fields{
+			"value":      strings.Join(names, ","),
+			"nri.plugin": strings.Join(plugins, ","),
+		})
 	return g.injectCDIDevices(g.Config, names)
 }
 
@@ -581,11 +877,13 @@ func (g *Generator) AdjustRlimits(rlimits []*nri.POSIXRlimit) error {
 		if l == nil {
 			continue
 		}
-		g.Config.Process.Rlimits = append(g.Config.Process.Rlimits, rspec.POSIXRlimit{
-			Type: l.Type,
-			Hard: l.Hard,
-			Soft: l.Soft,
+		g.log(AuditAddProcessRlimits, Fields{
+			"value.type": l.Type,
+			"value.soft": l.Soft,
+			"value.hard": l.Hard,
+			"nri.plugin": g.compoundOwner(nri.Field_Rlimits, l.Type),
 		})
+		g.AddProcessRlimits(l.Type, l.Hard, l.Soft)
 	}
 	return nil
 }
@@ -599,10 +897,23 @@ func (g *Generator) AdjustMounts(mounts []*nri.Mount) error {
 	propagation := ""
 	for _, m := range mounts {
 		if destination, marked := m.IsMarkedForRemoval(); marked {
+			g.log(AuditRemoveMount,
+				Fields{
+					"value.destination": destination,
+					"nri.plugin":        g.compoundOwner(nri.Field_Mounts, destination),
+				},
+			)
 			g.RemoveMount(destination)
 			continue
 		}
 
+		plugin := g.compoundOwner(nri.Field_Mounts, m.Destination)
+		g.log(AuditRemoveMount,
+			Fields{
+				"value.destination": m.Destination,
+				"nri.plugin":        plugin,
+			},
+		)
 		g.RemoveMount(m.Destination)
 
 		mnt := m.ToOCI(&propagation)
@@ -612,6 +923,12 @@ func (g *Generator) AdjustMounts(mounts []*nri.Mount) error {
 			if err := ensurePropagation(mnt.Source, "rshared"); err != nil {
 				return fmt.Errorf("failed to adjust mounts in OCI Spec: %w", err)
 			}
+			g.log(AuditSetLinuxRootPropagation,
+				Fields{
+					"value":      "rshared",
+					"nri.plugin": plugin,
+				},
+			)
 			if err := g.SetLinuxRootPropagation("rshared"); err != nil {
 				return fmt.Errorf("failed to adjust rootfs propagation in OCI Spec: %w", err)
 			}
@@ -621,11 +938,23 @@ func (g *Generator) AdjustMounts(mounts []*nri.Mount) error {
 			}
 			rootProp := g.Config.Linux.RootfsPropagation
 			if rootProp != "rshared" && rootProp != "rslave" {
+				g.log(AuditSetLinuxRootPropagation,
+					Fields{
+						"value":      "rslave",
+						"nri.plugin": plugin,
+					})
 				if err := g.SetLinuxRootPropagation("rslave"); err != nil {
 					return fmt.Errorf("failed to adjust rootfs propagation in OCI Spec: %w", err)
 				}
 			}
 		}
+		g.log(AuditAddMount, Fields{
+			"value.destination": mnt.Destination,
+			"value.source":      mnt.Source,
+			"value.type":        mnt.Type,
+			"value.options":     strings.Join(mnt.Options, ","),
+			"nri.plugin":        plugin,
+		})
 		g.AddMount(mnt)
 	}
 	g.sortMounts()
@@ -836,3 +1165,78 @@ func (g *Generator) initConfigLinuxIntelRdt() {
 		g.Config.Linux.IntelRdt = &rspec.LinuxIntelRdt{}
 	}
 }
+
+func (g *Generator) log(event string, fields Fields) {
+	if g.logger != nil {
+		g.logger(event, fields)
+	}
+}
+
+func (g *Generator) simpleOwner(field nri.Field) string {
+	owner := "unknown"
+
+	if g.owners != nil {
+		owner, _ = g.owners.SimpleOwner(field.Key())
+	}
+
+	return owner
+}
+
+func (g *Generator) compoundOwner(field nri.Field, subField string) string {
+	owner := "unknown"
+
+	if g.owners != nil {
+		owner, _ = g.owners.CompoundOwner(field.Key(), subField)
+	}
+
+	return owner
+}
+
+// Audit 'events' we use in logged audit messages.
+const ( //nolint:revive
+	AuditRemoveProcessEnv           = "remove environment variable"
+	AuditAddProcessEnv              = "add environment variable"
+	AuditSetProcessArgs             = "set process arguments"
+	AuditRemoveAnnotation           = "remove annotation"
+	AuditAddAnnotation              = "add annotation"
+	AuditAddOCIHook                 = "add OCI hook"
+	AuditSetLinuxCPUPeriod          = "set linux CPU period"
+	AuditSetLinuxCPUQuota           = "set linux CPU quota"
+	AuditSetLinuxCPUShares          = "set linux CPU shares"
+	AuditSetLinuxCPUSetCPUs         = "set linux cpuset CPUs"
+	AuditSetLinuxCPUSetMems         = "set linux cpuset mems"
+	AuditSetLinuxCPURealtimeRuntime = "set linux cpuset mems"
+	AuditSetLinuxCPURealtimePeriod  = "set linux cpuset mems"
+	AuditSetLinuxMemLimit           = "set linux memory limit"
+	AuditSetLinuxMemSwapLimit       = "set linux swap limit"
+	AuditSetLinuxHugepageLimit      = "set linux hugepage limit"
+	AuditSetLinuxResourceUnified    = "set linux cgroups unified resource"
+	AuditSetLinuxPidsLimit          = "set linux PIDs limit"
+	AuditClearLinuxBlkioClass       = "clear linux blkio class"
+	AuditSetLinuxBlkioClass         = "set linux blkio class"
+	AuditClearLinuxRdtClass         = "clear linux RDT class"
+	AuditSetLinuxRdtClass           = "set linux RDT class"
+	AuditClearLinuxRdt              = "clear linux RDT"
+	AuditSetLinuxRdtClosID          = "set linux RDT CLOS ID"
+	AuditSetLinuxRdtSchemata        = "set linux RDT schemata"
+	AuditSetLinuxRdtMonitoring      = "set linux RDT monitoring"
+	AuditSetLinuxCgroupsPath        = "set linux cgroups path"
+	AuditSetProcessOOMScoreAdj      = "set process OOM score adjustment"
+	AuditSetLinuxIOPriority         = "set process IO priority"
+	AuditSetLinuxSeccompPolicy      = "set linux seccomp policy"
+	AuditRemoveLinuxNamespace       = "remove linux namespace"
+	AuditSetLinuxNamespace          = "set linux namespace"
+	AuditRemoveLinuxSysctl          = "remove linux sysctl"
+	AuditSetLinuxSysctl             = "set linux sysctl"
+	AuditSetLinuxScheduler          = "set linux scheduler"
+	AuditRemoveLinuxDevice          = "remove linux device"
+	AuditAddLinuxDevice             = "add linux device"
+	AuditAddLinuxDeviceRule         = "add linux device rule"
+	AuditRemoveLinuxNetDevice       = "remove linux net device"
+	AuditAddLinuxNetDevice          = "add linux net device"
+	AuditInjectCDIDevices           = "inject CDI devices"
+	AuditAddProcessRlimits          = "add process rlimits"
+	AuditRemoveMount                = "remove mount"
+	AuditAddMount                   = "add mount"
+	AuditSetLinuxRootPropagation    = "set linux root propagation"
+)

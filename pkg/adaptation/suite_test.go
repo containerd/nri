@@ -558,6 +558,13 @@ func (m *mockPlugin) RuntimeNRIVersion() string {
 	return m.stub.RuntimeNRIVersion()
 }
 
+func (m *mockPlugin) RuntimeCapabilities() api.CapabilityMask {
+	if m.stub == nil {
+		return api.NewCapabilityMask()
+	}
+	return m.stub.RuntimeCapabilities()
+}
+
 func (m *mockPlugin) onClose() {
 	if m.stub != nil {
 		m.stub.Stop()

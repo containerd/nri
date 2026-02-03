@@ -39,6 +39,7 @@ import (
 	nri "github.com/containerd/nri/pkg/adaptation"
 	"github.com/containerd/nri/pkg/api"
 	"github.com/containerd/nri/pkg/plugin"
+	"github.com/containerd/nri/pkg/stub"
 	validator "github.com/containerd/nri/plugins/default-validator/builtin"
 )
 
@@ -3323,6 +3324,139 @@ var _ = Describe("NRI version exchange", func() {
 		Expect(s.plugins[0].RuntimeNRIVersion()).To(Equal(nriVersion))
 	})
 
+})
+
+var _ = Describe("Advertised NRI capabilities", func() {
+	var (
+		s = &Suite{}
+	)
+
+	AfterEach(func() {
+		s.Cleanup()
+	})
+
+	BeforeEach(func() {
+		s.Prepare(&mockRuntime{})
+	})
+
+	It("should be passed to plugins", func() {
+		var (
+			runtimeName           = "test-runtime"
+			runtimeVersion        = "1.2.3"
+			supportedCapabilities = []api.Capability{
+				api.Capability_ADJUST_POSIX_RLIMITS,
+				api.Capability_INPUT_POSIX_RLIMITS,
+				api.Capability_ADJUST_LINUX_IO_PRIORITY,
+				api.Capability_INPUT_LINUX_IO_PRIORITY,
+				api.Capability_INPUT_IP_ADDRESSES,
+				api.Capability_ADJUST_LINUX_CONTAINER_ARGS,
+			}
+		)
+
+		s.runtime.name = runtimeName
+		s.runtime.version = runtimeVersion
+		s.runtime.options = append(s.runtime.options,
+			nri.WithSupportedCapabilities(
+				api.NewCapabilityMask(supportedCapabilities...),
+			),
+		)
+
+		s.Startup()
+		s.StartPlugins(&mockPlugin{idx: "00", name: "test"})
+		s.WaitForPluginsToSync(s.plugin("00-test"))
+
+		Expect(s.plugins[0].RuntimeName()).To(Equal(runtimeName))
+		Expect(s.plugins[0].RuntimeVersion()).To(Equal(runtimeVersion))
+		Expect(s.plugins[0].RuntimeCapabilities()).To(Equal(
+			api.NewCapabilityMask(supportedCapabilities...),
+		))
+	})
+
+	It("should allow startup of plugins with satisfied capability requirements", func() {
+		var (
+			runtimeName           = "test-runtime"
+			runtimeVersion        = "1.2.3"
+			supportedCapabilities = []api.Capability{
+				api.Capability_ADJUST_POSIX_RLIMITS,
+				api.Capability_INPUT_POSIX_RLIMITS,
+				api.Capability_ADJUST_LINUX_IO_PRIORITY,
+				api.Capability_INPUT_LINUX_IO_PRIORITY,
+				api.Capability_INPUT_IP_ADDRESSES,
+				api.Capability_ADJUST_LINUX_CONTAINER_ARGS,
+			}
+			subsetCapabilities = []api.Capability{
+				api.Capability_INPUT_POSIX_RLIMITS,
+				api.Capability_INPUT_IP_ADDRESSES,
+				api.Capability_ADJUST_LINUX_CONTAINER_ARGS,
+			}
+			plugins = []*mockPlugin{
+				{
+					idx:  "00",
+					name: "test",
+					options: []stub.Option{
+						stub.WithRequiredCapabilities(supportedCapabilities...),
+					},
+				},
+				{
+					idx:  "01",
+					name: "test",
+					options: []stub.Option{
+						stub.WithRequiredCapabilities(subsetCapabilities...),
+					},
+				},
+			}
+		)
+
+		s.runtime.name = runtimeName
+		s.runtime.version = runtimeVersion
+		s.runtime.options = append(s.runtime.options,
+			nri.WithSupportedCapabilities(
+				api.NewCapabilityMask(supportedCapabilities...),
+			),
+		)
+
+		s.Startup()
+		s.StartPlugins(plugins...)
+		s.WaitForPluginsToSync(plugins[0], plugins[1])
+	})
+
+	It("should prevent startup of plugins with unsatisfied capability requirements", func() {
+		var (
+			runtimeName           = "test-runtime"
+			runtimeVersion        = "1.2.3"
+			supportedCapabilities = []api.Capability{
+				api.Capability_ADJUST_POSIX_RLIMITS,
+				api.Capability_INPUT_POSIX_RLIMITS,
+				api.Capability_ADJUST_LINUX_IO_PRIORITY,
+				api.Capability_INPUT_LINUX_IO_PRIORITY,
+				api.Capability_INPUT_IP_ADDRESSES,
+				api.Capability_ADJUST_LINUX_CONTAINER_ARGS,
+			}
+			requiredCapabilities = []api.Capability{
+				api.Capability_ADJUST_LINUX_SCHEDULING_POLICY,
+			}
+			plugin = &mockPlugin{
+				idx:  "00",
+				name: "test",
+				options: []stub.Option{
+					stub.WithRequiredCapabilities(requiredCapabilities...),
+				},
+			}
+		)
+
+		s.runtime.name = runtimeName
+		s.runtime.version = runtimeVersion
+		s.runtime.options = append(s.runtime.options,
+			nri.WithSupportedCapabilities(
+				api.NewCapabilityMask(supportedCapabilities...),
+			),
+		)
+
+		s.Startup()
+		err := plugin.Start(s.dir)
+		Expect(err).ToNot(BeNil())
+		Expect(strings.Contains(err.Error(), "lacks required capabilities")).To(BeTrue())
+	})
 })
 
 func protoDiff(a, b proto.Message) string {

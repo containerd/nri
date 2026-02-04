@@ -54,7 +54,8 @@ PLUGINS := \
 	$(BIN_PATH)/wasm \
 	$(BIN_PATH)/network-device-injector \
 	$(BIN_PATH)/network-logger \
-	$(BIN_PATH)/rdt
+	$(BIN_PATH)/rdt \
+	$(BIN_PATH)/writable-cgroups
 
 ifneq ($(V),1)
   Q := @
@@ -146,9 +147,9 @@ $(BIN_PATH)/wasm build/bin/wasm: FORCE
 # test targets
 #
 
-test-gopkgs: ginkgo-tests test-ulimits test-rdt test-hook-injector
+test-gopkgs: ginkgo-tests test-ulimits test-rdt test-hook-injector test-writable-cgroups
 
-SKIPPED_PKGS="ulimit-adjuster,device-injector,rdt,hook-injector"
+SKIPPED_PKGS="ulimit-adjuster,device-injector,rdt,hook-injector,writable-cgroups"
 
 ginkgo-tests:
 	$(Q)$(GINKGO) run \
@@ -175,6 +176,9 @@ test-rdt:
 
 test-hook-injector:
 	$(Q)cd ./plugins/hook-injector && $(GO_TEST) -v
+
+test-writable-cgroups:
+	$(Q)cd ./plugins/writable-cgroups && $(GO_TEST) -v
 
 codecov: SHELL := $(shell which bash)
 codecov:

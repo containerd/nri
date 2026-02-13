@@ -229,159 +229,159 @@ func (o *OwningPlugins) ClearRdt(id, plugin string) {
 }
 
 func (o *OwningPlugins) AnnotationOwner(id, key string) (string, bool) {
-	return o.ownersFor(id).compoundOwner(Field_Annotations.Key(), key)
+	return o.ownersFor(id).CompoundOwner(Field_Annotations.Key(), key)
 }
 
 func (o *OwningPlugins) MountOwner(id, destination string) (string, bool) {
-	return o.ownersFor(id).compoundOwner(Field_Mounts.Key(), destination)
+	return o.ownersFor(id).CompoundOwner(Field_Mounts.Key(), destination)
 }
 
 func (o *OwningPlugins) HooksOwner(id string) (string, bool) {
-	return o.ownersFor(id).simpleOwner(Field_OciHooks.Key())
+	return o.ownersFor(id).SimpleOwner(Field_OciHooks.Key())
 }
 
 func (o *OwningPlugins) DeviceOwner(id, path string) (string, bool) {
-	return o.ownersFor(id).compoundOwner(Field_Devices.Key(), path)
+	return o.ownersFor(id).CompoundOwner(Field_Devices.Key(), path)
 }
 
 func (o *OwningPlugins) NamespaceOwner(id, path string) (string, bool) {
-	return o.ownersFor(id).compoundOwner(Field_Namespace.Key(), path)
+	return o.ownersFor(id).CompoundOwner(Field_Namespace.Key(), path)
 }
 
 func (o *OwningPlugins) NamespaceOwners(id string) (map[string]string, bool) {
-	return o.ownersFor(id).compoundOwnerMap(Field_Namespace.Key())
+	return o.ownersFor(id).CompoundOwnerMap(Field_Namespace.Key())
 }
 
 func (o *OwningPlugins) EnvOwner(id, name string) (string, bool) {
-	return o.ownersFor(id).compoundOwner(Field_Env.Key(), name)
+	return o.ownersFor(id).CompoundOwner(Field_Env.Key(), name)
 }
 
 func (o *OwningPlugins) ArgsOwner(id string) (string, bool) {
-	return o.ownersFor(id).simpleOwner(Field_Args.Key())
+	return o.ownersFor(id).SimpleOwner(Field_Args.Key())
 }
 
 func (o *OwningPlugins) MemLimitOwner(id string) (string, bool) {
-	return o.ownersFor(id).simpleOwner(Field_MemLimit.Key())
+	return o.ownersFor(id).SimpleOwner(Field_MemLimit.Key())
 }
 
 func (o *OwningPlugins) MemReservationOwner(id string) (string, bool) {
-	return o.ownersFor(id).simpleOwner(Field_MemReservation.Key())
+	return o.ownersFor(id).SimpleOwner(Field_MemReservation.Key())
 }
 
 func (o *OwningPlugins) MemSwapLimitOwner(id string) (string, bool) {
-	return o.ownersFor(id).simpleOwner(Field_MemSwapLimit.Key())
+	return o.ownersFor(id).SimpleOwner(Field_MemSwapLimit.Key())
 }
 
 func (o *OwningPlugins) MemKernelLimitOwner(id string) (string, bool) {
-	return o.ownersFor(id).simpleOwner(Field_MemKernelLimit.Key())
+	return o.ownersFor(id).SimpleOwner(Field_MemKernelLimit.Key())
 }
 
 func (o *OwningPlugins) MemTCPLimitOwner(id string) (string, bool) {
-	return o.ownersFor(id).simpleOwner(Field_MemTCPLimit.Key())
+	return o.ownersFor(id).SimpleOwner(Field_MemTCPLimit.Key())
 }
 
 func (o *OwningPlugins) MemSwappinessOwner(id string) (string, bool) {
-	return o.ownersFor(id).simpleOwner(Field_MemSwappiness.Key())
+	return o.ownersFor(id).SimpleOwner(Field_MemSwappiness.Key())
 }
 
 func (o *OwningPlugins) MemDisableOomKillerOwner(id string) (string, bool) {
-	return o.ownersFor(id).simpleOwner(Field_MemDisableOomKiller.Key())
+	return o.ownersFor(id).SimpleOwner(Field_MemDisableOomKiller.Key())
 }
 
 func (o *OwningPlugins) MemUseHierarchyOwner(id string) (string, bool) {
-	return o.ownersFor(id).simpleOwner(Field_MemUseHierarchy.Key())
+	return o.ownersFor(id).SimpleOwner(Field_MemUseHierarchy.Key())
 }
 
 func (o *OwningPlugins) CPUSharesOwner(id string) (string, bool) {
-	return o.ownersFor(id).simpleOwner(Field_CPUShares.Key())
+	return o.ownersFor(id).SimpleOwner(Field_CPUShares.Key())
 }
 
 func (o *OwningPlugins) CPUQuotaOwner(id string) (string, bool) {
-	return o.ownersFor(id).simpleOwner(Field_CPUQuota.Key())
+	return o.ownersFor(id).SimpleOwner(Field_CPUQuota.Key())
 }
 
 func (o *OwningPlugins) CPUPeriodOwner(id string) (string, bool) {
-	return o.ownersFor(id).simpleOwner(Field_CPUPeriod.Key())
+	return o.ownersFor(id).SimpleOwner(Field_CPUPeriod.Key())
 }
 
 func (o *OwningPlugins) CPURealtimeRuntimeOwner(id string) (string, bool) {
-	return o.ownersFor(id).simpleOwner(Field_CPURealtimeRuntime.Key())
+	return o.ownersFor(id).SimpleOwner(Field_CPURealtimeRuntime.Key())
 }
 
 func (o *OwningPlugins) CPURealtimePeriodOwner(id string) (string, bool) {
-	return o.ownersFor(id).simpleOwner(Field_CPURealtimePeriod.Key())
+	return o.ownersFor(id).SimpleOwner(Field_CPURealtimePeriod.Key())
 }
 
 func (o *OwningPlugins) CPUSetCPUsOwner(id string) (string, bool) {
-	return o.ownersFor(id).simpleOwner(Field_CPUSetCPUs.Key())
+	return o.ownersFor(id).SimpleOwner(Field_CPUSetCPUs.Key())
 }
 
 func (o *OwningPlugins) CPUSetMemsOwner(id string) (string, bool) {
-	return o.ownersFor(id).simpleOwner(Field_CPUSetMems.Key())
+	return o.ownersFor(id).SimpleOwner(Field_CPUSetMems.Key())
 }
 
 func (o *OwningPlugins) PidsLimitOwner(id string) (string, bool) {
-	return o.ownersFor(id).simpleOwner(Field_PidsLimit.Key())
+	return o.ownersFor(id).SimpleOwner(Field_PidsLimit.Key())
 }
 
 func (o *OwningPlugins) HugepageLimitOwner(id, size string) (string, bool) {
-	return o.ownersFor(id).compoundOwner(Field_HugepageLimits.Key(), size)
+	return o.ownersFor(id).CompoundOwner(Field_HugepageLimits.Key(), size)
 }
 
 func (o *OwningPlugins) BlockioClassOwner(id string) (string, bool) {
-	return o.ownersFor(id).simpleOwner(Field_BlockioClass.Key())
+	return o.ownersFor(id).SimpleOwner(Field_BlockioClass.Key())
 }
 
 func (o *OwningPlugins) RdtClassOwner(id string) (string, bool) {
-	return o.ownersFor(id).simpleOwner(Field_RdtClass.Key())
+	return o.ownersFor(id).SimpleOwner(Field_RdtClass.Key())
 }
 
 func (o *OwningPlugins) RdtClosIDOwner(id string) (string, bool) {
-	return o.ownersFor(id).simpleOwner(Field_RdtClosID.Key())
+	return o.ownersFor(id).SimpleOwner(Field_RdtClosID.Key())
 }
 
 func (o *OwningPlugins) RdtSchemataOwner(id string) (string, bool) {
-	return o.ownersFor(id).simpleOwner(Field_RdtSchemata.Key())
+	return o.ownersFor(id).SimpleOwner(Field_RdtSchemata.Key())
 }
 
 func (o *OwningPlugins) RdtEnableMonitoringOwner(id string) (string, bool) {
-	return o.ownersFor(id).simpleOwner(Field_RdtEnableMonitoring.Key())
+	return o.ownersFor(id).SimpleOwner(Field_RdtEnableMonitoring.Key())
 }
 
 func (o *OwningPlugins) CgroupsUnifiedOwner(id, key string) (string, bool) {
-	return o.ownersFor(id).compoundOwner(Field_CgroupsUnified.Key(), key)
+	return o.ownersFor(id).CompoundOwner(Field_CgroupsUnified.Key(), key)
 }
 
 func (o *OwningPlugins) CgroupsPathOwner(id string) (string, bool) {
-	return o.ownersFor(id).simpleOwner(Field_CgroupsPath.Key())
+	return o.ownersFor(id).SimpleOwner(Field_CgroupsPath.Key())
 }
 
 func (o *OwningPlugins) OomScoreAdjOwner(id string) (string, bool) {
-	return o.ownersFor(id).simpleOwner(Field_OomScoreAdj.Key())
+	return o.ownersFor(id).SimpleOwner(Field_OomScoreAdj.Key())
 }
 
 func (o *OwningPlugins) LinuxScheduler(id string) (string, bool) {
-	return o.ownersFor(id).simpleOwner(Field_LinuxSched.Key())
+	return o.ownersFor(id).SimpleOwner(Field_LinuxSched.Key())
 }
 
 func (o *OwningPlugins) RlimitOwner(id, typ string) (string, bool) {
-	return o.ownersFor(id).compoundOwner(Field_Rlimits.Key(), typ)
+	return o.ownersFor(id).CompoundOwner(Field_Rlimits.Key(), typ)
 }
 
 func (o *OwningPlugins) IOPriorityOwner(id string) (string, bool) {
-	return o.ownersFor(id).simpleOwner(Field_IoPriority.Key())
+	return o.ownersFor(id).SimpleOwner(Field_IoPriority.Key())
 }
 
 func (o *OwningPlugins) SeccompPolicyOwner(id string) (string, bool) {
-	return o.ownersFor(id).simpleOwner(Field_SeccompPolicy.Key())
+	return o.ownersFor(id).SimpleOwner(Field_SeccompPolicy.Key())
 }
 
 func (o *OwningPlugins) SysctlOwner(id, key string) (string, bool) {
-	return o.ownersFor(id).compoundOwner(Field_Sysctl.Key(), key)
+	return o.ownersFor(id).CompoundOwner(Field_Sysctl.Key(), key)
 }
 
 func (o *OwningPlugins) LinuxNetDeviceOwner(id, path string) (string, bool) {
-	return o.ownersFor(id).compoundOwner(Field_LinuxNetDevices.Key(), path)
+	return o.ownersFor(id).CompoundOwner(Field_LinuxNetDevices.Key(), path)
 }
 
 func (o *OwningPlugins) mustOwnersFor(id string) *FieldOwners {
@@ -477,7 +477,7 @@ func (f *FieldOwners) ClaimMount(destination, plugin string) error {
 func (f *FieldOwners) ClaimHooks(plugin string) error {
 	plugins := plugin
 
-	if current, ok := f.simpleOwner(Field_OciHooks.Key()); ok {
+	if current, ok := f.SimpleOwner(Field_OciHooks.Key()); ok {
 		f.clearSimple(Field_OciHooks.Key(), plugin)
 		plugins = current + "," + plugin
 	}
@@ -683,7 +683,7 @@ func (f *FieldOwners) Conflict(field int32, plugin, other string, qualifiers ...
 		plugin, other, qualify(field, qualifiers...))
 }
 
-func (f *FieldOwners) compoundOwnerMap(field int32) (map[string]string, bool) {
+func (f *FieldOwners) CompoundOwnerMap(field int32) (map[string]string, bool) {
 	if f == nil {
 		return nil, false
 	}
@@ -696,7 +696,7 @@ func (f *FieldOwners) compoundOwnerMap(field int32) (map[string]string, bool) {
 	return m.Owners, true
 }
 
-func (f *FieldOwners) compoundOwner(field int32, key string) (string, bool) {
+func (f *FieldOwners) CompoundOwner(field int32, key string) (string, bool) {
 	if f == nil {
 		return "", false
 	}
@@ -710,7 +710,7 @@ func (f *FieldOwners) compoundOwner(field int32, key string) (string, bool) {
 	return plugin, ok
 }
 
-func (f *FieldOwners) simpleOwner(field int32) (string, bool) {
+func (f *FieldOwners) SimpleOwner(field int32) (string, bool) {
 	if f == nil {
 		return "", false
 	}
@@ -720,127 +720,127 @@ func (f *FieldOwners) simpleOwner(field int32) (string, bool) {
 }
 
 func (f *FieldOwners) AnnotationOwner(key string) (string, bool) {
-	return f.compoundOwner(Field_Annotations.Key(), key)
+	return f.CompoundOwner(Field_Annotations.Key(), key)
 }
 
 func (f *FieldOwners) MountOwner(destination string) (string, bool) {
-	return f.compoundOwner(Field_Mounts.Key(), destination)
+	return f.CompoundOwner(Field_Mounts.Key(), destination)
 }
 
 func (f *FieldOwners) DeviceOwner(path string) (string, bool) {
-	return f.compoundOwner(Field_Devices.Key(), path)
+	return f.CompoundOwner(Field_Devices.Key(), path)
 }
 
 func (f *FieldOwners) NamespaceOwner(typ string) (string, bool) {
-	return f.compoundOwner(Field_Devices.Key(), typ)
+	return f.CompoundOwner(Field_Devices.Key(), typ)
 }
 
 func (f *FieldOwners) EnvOwner(name string) (string, bool) {
-	return f.compoundOwner(Field_Env.Key(), name)
+	return f.CompoundOwner(Field_Env.Key(), name)
 }
 
 func (f *FieldOwners) ArgsOwner() (string, bool) {
-	return f.simpleOwner(Field_Args.Key())
+	return f.SimpleOwner(Field_Args.Key())
 }
 
 func (f *FieldOwners) MemLimitOwner() (string, bool) {
-	return f.simpleOwner(Field_MemLimit.Key())
+	return f.SimpleOwner(Field_MemLimit.Key())
 }
 
 func (f *FieldOwners) MemReservationOwner() (string, bool) {
-	return f.simpleOwner(Field_MemReservation.Key())
+	return f.SimpleOwner(Field_MemReservation.Key())
 }
 
 func (f *FieldOwners) MemSwapLimitOwner() (string, bool) {
-	return f.simpleOwner(Field_MemSwapLimit.Key())
+	return f.SimpleOwner(Field_MemSwapLimit.Key())
 }
 
 func (f *FieldOwners) MemKernelLimitOwner() (string, bool) {
-	return f.simpleOwner(Field_MemKernelLimit.Key())
+	return f.SimpleOwner(Field_MemKernelLimit.Key())
 }
 
 func (f *FieldOwners) MemTCPLimitOwner() (string, bool) {
-	return f.simpleOwner(Field_MemTCPLimit.Key())
+	return f.SimpleOwner(Field_MemTCPLimit.Key())
 }
 
 func (f *FieldOwners) MemSwappinessOwner() (string, bool) {
-	return f.simpleOwner(Field_MemSwappiness.Key())
+	return f.SimpleOwner(Field_MemSwappiness.Key())
 }
 
 func (f *FieldOwners) MemDisableOomKillerOwner() (string, bool) {
-	return f.simpleOwner(Field_MemDisableOomKiller.Key())
+	return f.SimpleOwner(Field_MemDisableOomKiller.Key())
 }
 
 func (f *FieldOwners) MemUseHierarchyOwner() (string, bool) {
-	return f.simpleOwner(Field_MemUseHierarchy.Key())
+	return f.SimpleOwner(Field_MemUseHierarchy.Key())
 }
 
 func (f *FieldOwners) CPUSharesOwner() (string, bool) {
-	return f.simpleOwner(Field_CPUShares.Key())
+	return f.SimpleOwner(Field_CPUShares.Key())
 }
 
 func (f *FieldOwners) CPUQuotaOwner() (string, bool) {
-	return f.simpleOwner(Field_CPUQuota.Key())
+	return f.SimpleOwner(Field_CPUQuota.Key())
 }
 
 func (f *FieldOwners) CPUPeriodOwner() (string, bool) {
-	return f.simpleOwner(Field_CPUPeriod.Key())
+	return f.SimpleOwner(Field_CPUPeriod.Key())
 }
 
 func (f *FieldOwners) CPURealtimeRuntimeOwner() (string, bool) {
-	return f.simpleOwner(Field_CPURealtimeRuntime.Key())
+	return f.SimpleOwner(Field_CPURealtimeRuntime.Key())
 }
 
 func (f *FieldOwners) CPURealtimePeriodOwner() (string, bool) {
-	return f.simpleOwner(Field_CPURealtimePeriod.Key())
+	return f.SimpleOwner(Field_CPURealtimePeriod.Key())
 }
 
 func (f *FieldOwners) CPUSetCPUsOwner() (string, bool) {
-	return f.simpleOwner(Field_CPUSetCPUs.Key())
+	return f.SimpleOwner(Field_CPUSetCPUs.Key())
 }
 
 func (f *FieldOwners) CPUSetMemsOwner() (string, bool) {
-	return f.simpleOwner(Field_CPUSetMems.Key())
+	return f.SimpleOwner(Field_CPUSetMems.Key())
 }
 
 func (f *FieldOwners) PidsLimitOwner() (string, bool) {
-	return f.simpleOwner(Field_PidsLimit.Key())
+	return f.SimpleOwner(Field_PidsLimit.Key())
 }
 
 func (f *FieldOwners) HugepageLimitOwner(size string) (string, bool) {
-	return f.compoundOwner(Field_HugepageLimits.Key(), size)
+	return f.CompoundOwner(Field_HugepageLimits.Key(), size)
 }
 
 func (f *FieldOwners) BlockioClassOwner() (string, bool) {
-	return f.simpleOwner(Field_BlockioClass.Key())
+	return f.SimpleOwner(Field_BlockioClass.Key())
 }
 
 func (f *FieldOwners) RdtClassOwner() (string, bool) {
-	return f.simpleOwner(Field_RdtClass.Key())
+	return f.SimpleOwner(Field_RdtClass.Key())
 }
 
 func (f *FieldOwners) RdtSchemataOwner() (string, bool) {
-	return f.simpleOwner(Field_RdtSchemata.Key())
+	return f.SimpleOwner(Field_RdtSchemata.Key())
 }
 
 func (f *FieldOwners) RdtEnableMonitoringOwner() (string, bool) {
-	return f.simpleOwner(Field_RdtEnableMonitoring.Key())
+	return f.SimpleOwner(Field_RdtEnableMonitoring.Key())
 }
 
 func (f *FieldOwners) CgroupsUnifiedOwner(key string) (string, bool) {
-	return f.compoundOwner(Field_CgroupsUnified.Key(), key)
+	return f.CompoundOwner(Field_CgroupsUnified.Key(), key)
 }
 
 func (f *FieldOwners) CgroupsPathOwner() (string, bool) {
-	return f.simpleOwner(Field_CgroupsPath.Key())
+	return f.SimpleOwner(Field_CgroupsPath.Key())
 }
 
 func (f *FieldOwners) OomScoreAdjOwner() (string, bool) {
-	return f.simpleOwner(Field_OomScoreAdj.Key())
+	return f.SimpleOwner(Field_OomScoreAdj.Key())
 }
 
 func (f *FieldOwners) RlimitOwner(typ string) (string, bool) {
-	return f.compoundOwner(Field_Rlimits.Key(), typ)
+	return f.CompoundOwner(Field_Rlimits.Key(), typ)
 }
 
 func qualify(field int32, qualifiers ...string) string {

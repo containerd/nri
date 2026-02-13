@@ -231,7 +231,7 @@ func (r *Adaptation) UpdatePodSandbox(ctx context.Context, req *UpdatePodSandbox
 	for _, plugin := range r.plugins {
 		_, err := plugin.updatePodSandbox(ctx, req)
 		if err != nil {
-			return nil, err
+			return nil, pluginError(plugin, err)
 		}
 	}
 
@@ -257,7 +257,7 @@ func (r *Adaptation) RemovePodSandbox(ctx context.Context, evt *StateChangeEvent
 }
 
 // CreateContainer relays the corresponding CRI request to plugins.
-func (r *Adaptation) CreateContainer(ctx context.Context, req *CreateContainerRequest) (*CreateContainerResponse, error) {
+func (r *Adaptation) CreateContainer(ctx context.Context, req *CreateContainerRequest) (*CreateContainerResponse, *api.OwningPlugins, error) {
 	r.Lock()
 	defer r.Unlock()
 	defer r.removeClosedPlugins()
@@ -280,15 +280,20 @@ func (r *Adaptation) CreateContainer(ctx context.Context, req *CreateContainerRe
 		}
 		rpl, err := plugin.createContainer(ctx, req)
 		if err != nil {
-			return nil, err
+			return nil, nil, pluginError(plugin, err)
 		}
 		err = result.apply(rpl, plugin.name())
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 
-	return r.validateContainerAdjustment(ctx, validate, result)
+	rpl, err := r.validateContainerAdjustment(ctx, validate, result)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return rpl, result.owners, nil
 }
 
 // PostCreateContainer relays the corresponding CRI event to plugins.
@@ -319,7 +324,7 @@ func (r *Adaptation) UpdateContainer(ctx context.Context, req *UpdateContainerRe
 	for _, plugin := range r.plugins {
 		rpl, err := plugin.updateContainer(ctx, req)
 		if err != nil {
-			return nil, err
+			return nil, pluginError(plugin, err)
 		}
 		err = result.apply(rpl, plugin.name())
 		if err != nil {
@@ -346,7 +351,7 @@ func (r *Adaptation) StopContainer(ctx context.Context, req *StopContainerReques
 	for _, plugin := range r.plugins {
 		rpl, err := plugin.stopContainer(ctx, req)
 		if err != nil {
-			return nil, err
+			return nil, pluginError(plugin, err)
 		}
 		err = result.apply(rpl, plugin.name())
 		if err != nil {
@@ -376,7 +381,7 @@ func (r *Adaptation) StateChange(ctx context.Context, evt *StateChangeEvent) err
 	for _, plugin := range r.plugins {
 		err := plugin.StateChange(ctx, evt)
 		if err != nil {
-			return err
+			return pluginError(plugin, err)
 		}
 	}
 
@@ -719,4 +724,11 @@ func (b *PluginSyncBlock) Unblock() {
 		b.r.syncLock.RUnlock()
 		b.r = nil
 	}
+}
+
+func pluginError(plugin *plugin, err error) error {
+	if err == nil {
+		return nil
+	}
+	return fmt.Errorf("plugin %q: %w", plugin.name(), err)
 }

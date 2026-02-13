@@ -246,7 +246,8 @@ func (m *mockRuntime) UpdatePodSandbox(ctx context.Context, req *api.UpdatePodSa
 func (m *mockRuntime) CreateContainer(ctx context.Context, req *api.CreateContainerRequest) (*api.CreateContainerResponse, error) {
 	b := m.runtime.BlockPluginSync()
 	defer b.Unblock()
-	return m.runtime.CreateContainer(ctx, req)
+	rpl, _, err := m.runtime.CreateContainer(ctx, req)
+	return rpl, err
 }
 
 func (m *mockRuntime) UpdateContainer(ctx context.Context, req *api.UpdateContainerRequest) (*api.UpdateContainerResponse, error) {

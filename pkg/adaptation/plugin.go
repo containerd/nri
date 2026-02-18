@@ -435,9 +435,9 @@ func (p *plugin) qualifiedName() string {
 // RegisterPlugin handles the plugin's registration request.
 func (p *plugin) RegisterPlugin(ctx context.Context, req *RegisterPluginRequest) (*RegisterPluginResponse, error) {
 	if p.isExternal() {
-		if req.PluginName == "" {
-			p.regC <- fmt.Errorf("plugin %q registered with an empty name", p.qualifiedName())
-			return &RegisterPluginResponse{}, errors.New("invalid (empty) plugin name")
+		if err := api.CheckPluginName(req.PluginName); err != nil {
+			p.regC <- fmt.Errorf("plugin registered with an invalid name: %w", err)
+			return &RegisterPluginResponse{}, fmt.Errorf("invalid plugin name: %w", err)
 		}
 		if err := api.CheckPluginIndex(req.PluginIdx); err != nil {
 			p.regC <- fmt.Errorf("plugin %q registered with an invalid index: %w", req.PluginName, err)

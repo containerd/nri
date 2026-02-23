@@ -80,12 +80,15 @@ FORCE:
 # build targets
 #
 
-build-proto: check-protoc install-ttrpc-plugin install-wasm-plugin install-protoc-dependencies build-protoc-gen-strip
+build-proto: check-protoc install-ttrpc-plugin install-wasm-plugin install-protoc-dependencies build-protoc-gen-strip build-protoc-gen-owners
 	for src in $(PROTO_SOURCES); do \
 		$(PROTO_COMPILE) \
 			--plugin=protoc-gen-strip=$(abspath $(BIN_PATH)/protoc-gen-strip) \
 			--strip_out=pkg/api \
 			--strip_opt=file=strip.go \
+			--plugin=protoc-gen-owners=$(abspath $(BIN_PATH)/protoc-gen-owners) \
+			--owners_out=pkg/api \
+			--owners_opt=file=owners_generated.go \
 			$$src; \
 	done
 	sed -i '1s;^;//go:build !wasip1\n\n;' pkg/api/api_ttrpc.pb.go
@@ -119,6 +122,11 @@ clean-cache:
 #
 # plugins build targets
 #
+
+.PHONY: build-protoc-gen-owners
+build-protoc-gen-owners:
+	$(Q)echo "Building build/bin/protoc-gen-owners..."; \
+	$(GO_BUILD) -C tools/protoc-gen-owners -o $(abspath $(BIN_PATH)/protoc-gen-owners) $(GO_BUILD_FLAGS) .
 
 .PHONY: build-protoc-gen-strip
 build-protoc-gen-strip:

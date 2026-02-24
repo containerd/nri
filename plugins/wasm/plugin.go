@@ -80,15 +80,35 @@ func (p *plugin) StateChange(ctx context.Context, req *api.StateChangeEvent) (*a
 		})
 		return &api.Empty{}, err
 	case api.Event_POST_CREATE_CONTAINER:
-		return p.PostCreateContainer(ctx, req.GetPod(), req.GetContainer())
+		_, err := p.PostCreateContainer(ctx, &api.PostCreateContainerRequest{
+			Pod:       req.GetPod(),
+			Container: req.GetContainer(),
+		})
+		return &api.Empty{}, err
 	case api.Event_START_CONTAINER:
-		return p.StartContainer(ctx, req.GetPod(), req.GetContainer())
+		_, err := p.StartContainer(ctx, &api.StartContainerRequest{
+			Pod:       req.GetPod(),
+			Container: req.GetContainer(),
+		})
+		return &api.Empty{}, err
 	case api.Event_POST_START_CONTAINER:
-		return p.PostStartContainer(ctx, req.GetPod(), req.GetContainer())
+		_, err := p.PostStartContainer(ctx, &api.PostStartContainerRequest{
+			Pod:       req.GetPod(),
+			Container: req.GetContainer(),
+		})
+		return &api.Empty{}, err
 	case api.Event_POST_UPDATE_CONTAINER:
-		return p.PostUpdateContainer(ctx, req.GetPod(), req.GetContainer())
+		_, err := p.PostUpdateContainer(ctx, &api.PostUpdateContainerRequest{
+			Pod:       req.GetPod(),
+			Container: req.GetContainer(),
+		})
+		return &api.Empty{}, err
 	case api.Event_REMOVE_CONTAINER:
-		return p.RemoveContainer(ctx, req.GetPod(), req.GetContainer())
+		_, err := p.RemoveContainer(ctx, &api.RemoveContainerRequest{
+			Pod:       req.GetPod(),
+			Container: req.GetContainer(),
+		})
+		return &api.Empty{}, err
 	}
 
 	return &api.Empty{}, nil
@@ -124,17 +144,17 @@ func (p *plugin) CreateContainer(ctx context.Context, req *api.CreateContainerRe
 	return nil, nil
 }
 
-func (p *plugin) PostCreateContainer(ctx context.Context, pod *api.PodSandbox, container *api.Container) (*api.Empty, error) {
+func (p *plugin) PostCreateContainer(ctx context.Context, req *api.PostCreateContainerRequest) (*api.PostCreateContainerResponse, error) {
 	log(ctx, "Got post create container request")
 	return nil, nil
 }
 
-func (p *plugin) StartContainer(ctx context.Context, pod *api.PodSandbox, container *api.Container) (*api.Empty, error) {
+func (p *plugin) StartContainer(ctx context.Context, req *api.StartContainerRequest) (*api.StartContainerResponse, error) {
 	log(ctx, "Got start container request")
 	return nil, nil
 }
 
-func (p *plugin) PostStartContainer(ctx context.Context, pod *api.PodSandbox, container *api.Container) (*api.Empty, error) {
+func (p *plugin) PostStartContainer(ctx context.Context, req *api.PostStartContainerRequest) (*api.PostStartContainerResponse, error) {
 	log(ctx, "Got post start container request")
 	return nil, nil
 }
@@ -144,7 +164,7 @@ func (p *plugin) UpdateContainer(ctx context.Context, req *api.UpdateContainerRe
 	return nil, nil
 }
 
-func (p *plugin) PostUpdateContainer(ctx context.Context, pod *api.PodSandbox, container *api.Container) (*api.Empty, error) {
+func (p *plugin) PostUpdateContainer(ctx context.Context, req *api.PostUpdateContainerRequest) (*api.PostUpdateContainerResponse, error) {
 	log(ctx, "Got post update container request")
 	return nil, nil
 }
@@ -154,7 +174,7 @@ func (p *plugin) StopContainer(ctx context.Context, req *api.StopContainerReques
 	return nil, nil
 }
 
-func (p *plugin) RemoveContainer(ctx context.Context, pod *api.PodSandbox, container *api.Container) (*api.Empty, error) {
+func (p *plugin) RemoveContainer(ctx context.Context, req *api.RemoveContainerRequest) (*api.RemoveContainerResponse, error) {
 	log(ctx, "Got remove container request")
 	return nil, nil
 }

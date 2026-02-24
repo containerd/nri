@@ -798,6 +798,36 @@ func (stub *stub) CreateContainer(ctx context.Context, req *api.CreateContainerR
 	}, err
 }
 
+// PostCreateContainer request handler.
+func (stub *stub) PostCreateContainer(ctx context.Context, req *api.PostCreateContainerRequest) (*api.PostCreateContainerResponse, error) {
+	handler := stub.handlers.PostCreateContainer
+	if handler == nil {
+		return &api.PostCreateContainerResponse{}, nil
+	}
+	err := handler(ctx, req.Pod, req.Container)
+	return &api.PostCreateContainerResponse{}, err
+}
+
+// StartContainer request handler.
+func (stub *stub) StartContainer(ctx context.Context, req *api.StartContainerRequest) (*api.StartContainerResponse, error) {
+	handler := stub.handlers.StartContainer
+	if handler == nil {
+		return &api.StartContainerResponse{}, nil
+	}
+	err := handler(ctx, req.Pod, req.Container)
+	return &api.StartContainerResponse{}, err
+}
+
+// PostStartContainer request handler.
+func (stub *stub) PostStartContainer(ctx context.Context, req *api.PostStartContainerRequest) (*api.PostStartContainerResponse, error) {
+	handler := stub.handlers.PostStartContainer
+	if handler == nil {
+		return &api.PostStartContainerResponse{}, nil
+	}
+	err := handler(ctx, req.Pod, req.Container)
+	return &api.PostStartContainerResponse{}, err
+}
+
 // UpdateContainer request handler.
 func (stub *stub) UpdateContainer(ctx context.Context, req *api.UpdateContainerRequest) (*api.UpdateContainerResponse, error) {
 	handler := stub.handlers.UpdateContainer
@@ -810,6 +840,16 @@ func (stub *stub) UpdateContainer(ctx context.Context, req *api.UpdateContainerR
 	}, err
 }
 
+// PostUpdateContainer request handler.
+func (stub *stub) PostUpdateContainer(ctx context.Context, req *api.PostUpdateContainerRequest) (*api.PostUpdateContainerResponse, error) {
+	handler := stub.handlers.PostUpdateContainer
+	if handler == nil {
+		return &api.PostUpdateContainerResponse{}, nil
+	}
+	err := handler(ctx, req.Pod, req.Container)
+	return &api.PostUpdateContainerResponse{}, err
+}
+
 // StopContainer request handler.
 func (stub *stub) StopContainer(ctx context.Context, req *api.StopContainerRequest) (*api.StopContainerResponse, error) {
 	handler := stub.handlers.StopContainer
@@ -820,6 +860,16 @@ func (stub *stub) StopContainer(ctx context.Context, req *api.StopContainerReque
 	return &api.StopContainerResponse{
 		Update: update,
 	}, err
+}
+
+// RemoveContainer request handler.
+func (stub *stub) RemoveContainer(ctx context.Context, req *api.RemoveContainerRequest) (*api.RemoveContainerResponse, error) {
+	handler := stub.handlers.RemoveContainer
+	if handler == nil {
+		return &api.RemoveContainerResponse{}, nil
+	}
+	err := handler(ctx, req.Pod, req.Container)
+	return &api.RemoveContainerResponse{}, err
 }
 
 // StateChange event handler.

@@ -60,13 +60,25 @@ func (p *plugin) StateChange(ctx context.Context, req *api.StateChangeEvent) (*a
 	// called directly.
 	switch req.GetEvent() {
 	case api.Event_RUN_POD_SANDBOX:
-		return p.RunPodSandbox(ctx, req.GetPod())
+		_, err := p.RunPodSandbox(ctx, &api.RunPodSandboxRequest{
+			Pod: req.GetPod(),
+		})
+		return &api.Empty{}, err
 	case api.Event_POST_UPDATE_POD_SANDBOX:
-		return p.PostUpdatePodSandbox(ctx, req.GetPod())
+		_, err := p.PostUpdatePodSandbox(ctx, &api.PostUpdatePodSandboxRequest{
+			Pod: req.GetPod(),
+		})
+		return &api.Empty{}, err
 	case api.Event_STOP_POD_SANDBOX:
-		return p.StopPodSandbox(ctx, req.GetPod())
+		_, err := p.StopPodSandbox(ctx, &api.StopPodSandboxRequest{
+			Pod: req.GetPod(),
+		})
+		return &api.Empty{}, err
 	case api.Event_REMOVE_POD_SANDBOX:
-		return p.RemovePodSandbox(ctx, req.GetPod())
+		_, err := p.RemovePodSandbox(ctx, &api.RemovePodSandboxRequest{
+			Pod: req.GetPod(),
+		})
+		return &api.Empty{}, err
 	case api.Event_POST_CREATE_CONTAINER:
 		return p.PostCreateContainer(ctx, req.GetPod(), req.GetContainer())
 	case api.Event_START_CONTAINER:
@@ -82,7 +94,7 @@ func (p *plugin) StateChange(ctx context.Context, req *api.StateChangeEvent) (*a
 	return &api.Empty{}, nil
 }
 
-func (p *plugin) RunPodSandbox(ctx context.Context, pod *api.PodSandbox) (*api.Empty, error) {
+func (p *plugin) RunPodSandbox(ctx context.Context, req *api.RunPodSandboxRequest) (*api.RunPodSandboxResponse, error) {
 	log(ctx, "Got run pod sandbox request")
 	return nil, nil
 }
@@ -92,17 +104,17 @@ func (p *plugin) UpdatePodSandbox(ctx context.Context, req *api.UpdatePodSandbox
 	return nil, nil
 }
 
-func (p *plugin) PostUpdatePodSandbox(ctx context.Context, pod *api.PodSandbox) (*api.Empty, error) {
+func (p *plugin) PostUpdatePodSandbox(ctx context.Context, req *api.PostUpdatePodSandboxRequest) (*api.PostUpdatePodSandboxResponse, error) {
 	log(ctx, "Got post update pod sandbox request")
 	return nil, nil
 }
 
-func (p *plugin) StopPodSandbox(ctx context.Context, pod *api.PodSandbox) (*api.Empty, error) {
+func (p *plugin) StopPodSandbox(ctx context.Context, req *api.StopPodSandboxRequest) (*api.StopPodSandboxResponse, error) {
 	log(ctx, "Got stop pod sandbox request")
 	return nil, nil
 }
 
-func (p *plugin) RemovePodSandbox(ctx context.Context, pod *api.PodSandbox) (*api.Empty, error) {
+func (p *plugin) RemovePodSandbox(ctx context.Context, req *api.RemovePodSandboxRequest) (*api.RemovePodSandboxResponse, error) {
 	log(ctx, "Got remove pod sandbox request")
 	return nil, nil
 }

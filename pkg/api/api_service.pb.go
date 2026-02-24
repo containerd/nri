@@ -62,6 +62,16 @@ type Plugin interface {
 	Synchronize(context.Context, *SynchronizeRequest) (*SynchronizeResponse, error)
 	// Shutdown a plugin (let it know the runtime is going down).
 	Shutdown(context.Context, *Empty) (*Empty, error)
+	// RunPodSandbox relays the corresponding request to the plugin.
+	RunPodSandbox(context.Context, *RunPodSandboxRequest) (*RunPodSandboxResponse, error)
+	// UpdatePodSandbox relays the corresponding request to the plugin.
+	UpdatePodSandbox(context.Context, *UpdatePodSandboxRequest) (*UpdatePodSandboxResponse, error)
+	// PostUpdatePodSandbox relays the corresponding request to the plugin.
+	PostUpdatePodSandbox(context.Context, *PostUpdatePodSandboxRequest) (*PostUpdatePodSandboxResponse, error)
+	// StopPodSandbox relays the corresponding request to the plugin.
+	StopPodSandbox(context.Context, *StopPodSandboxRequest) (*StopPodSandboxResponse, error)
+	// RemovePodSandbox relays the corresponding request to the plugin.
+	RemovePodSandbox(context.Context, *RemovePodSandboxRequest) (*RemovePodSandboxResponse, error)
 	// CreateContainer relays the corresponding request to the plugin. In
 	// response, the plugin can adjust the container being created, and
 	// update other containers in the runtime. Container adjustment can
@@ -76,8 +86,6 @@ type Plugin interface {
 	// StopContainer relays the corresponding request to the plugin. The plugin
 	// can update any of the remaining containers in the runtime in response.
 	StopContainer(context.Context, *StopContainerRequest) (*StopContainerResponse, error)
-	// UpdatePodSandbox relays the corresponding request to the plugin.
-	UpdatePodSandbox(context.Context, *UpdatePodSandboxRequest) (*UpdatePodSandboxResponse, error)
 	// StateChange relays any remaining pod or container lifecycle/state change
 	// events the plugin has subscribed for. These can be used to trigger any
 	// plugin-specific processing which needs to occur in connection with any of

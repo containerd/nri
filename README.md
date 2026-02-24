@@ -37,7 +37,7 @@ request and provide a response, both as JSON data.
 
 Plugins in NRI are daemon-like entities. A single instance of a plugin is
 now responsible for handling the full stream of NRI events and requests. A
-unix-domain socket is used as the transport for communication. Instead of
+unix-domain socket (`/var/run/nri/nri.sock`) is used as the transport for communication. Instead of
 JSON requests and responses NRI is defined as a formal, protobuf-based
 'NRI plugin protocol' which is compiled into ttRPC bindings. This should
 result in improved communication efficiency with lower per-message overhead,
@@ -517,6 +517,22 @@ access to these sockets and can act as NRI or Device Plugins. See the
 [related documentation](https://kubernetes.io/docs/concepts/security/)
 and [best practices](https://kubernetes.io/docs/setup/best-practices/enforcing-pod-security-standards/)
 about Kubernetes security.
+
+To use the plugins in SELinux-enabled environments, either create a new policy
+or set the SELinux type to spc_t (Super Privileged Container) in the pod's security
+context. For example:
+```yaml
+spec:
+  template:
+    spec:
+      containers:
+        - name: plugin
+          ...
+          securityContext:
+            ...
+            seLinuxOptions:
+              type: spc_t
+```
 
 ## API Stability
 

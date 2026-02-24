@@ -65,10 +65,14 @@ type PluginService interface {
 	Configure(context.Context, *ConfigureRequest) (*ConfigureResponse, error)
 	Synchronize(context.Context, *SynchronizeRequest) (*SynchronizeResponse, error)
 	Shutdown(context.Context, *Empty) (*Empty, error)
+	RunPodSandbox(context.Context, *RunPodSandboxRequest) (*RunPodSandboxResponse, error)
+	UpdatePodSandbox(context.Context, *UpdatePodSandboxRequest) (*UpdatePodSandboxResponse, error)
+	PostUpdatePodSandbox(context.Context, *PostUpdatePodSandboxRequest) (*PostUpdatePodSandboxResponse, error)
+	StopPodSandbox(context.Context, *StopPodSandboxRequest) (*StopPodSandboxResponse, error)
+	RemovePodSandbox(context.Context, *RemovePodSandboxRequest) (*RemovePodSandboxResponse, error)
 	CreateContainer(context.Context, *CreateContainerRequest) (*CreateContainerResponse, error)
 	UpdateContainer(context.Context, *UpdateContainerRequest) (*UpdateContainerResponse, error)
 	StopContainer(context.Context, *StopContainerRequest) (*StopContainerResponse, error)
-	UpdatePodSandbox(context.Context, *UpdatePodSandboxRequest) (*UpdatePodSandboxResponse, error)
 	StateChange(context.Context, *StateChangeEvent) (*Empty, error)
 	ValidateContainerAdjustment(context.Context, *ValidateContainerAdjustmentRequest) (*ValidateContainerAdjustmentResponse, error)
 }
@@ -97,6 +101,41 @@ func RegisterPluginService(srv *ttrpc.Server, svc PluginService) {
 				}
 				return svc.Shutdown(ctx, &req)
 			},
+			"RunPodSandbox": func(ctx context.Context, unmarshal func(interface{}) error) (interface{}, error) {
+				var req RunPodSandboxRequest
+				if err := unmarshal(&req); err != nil {
+					return nil, err
+				}
+				return svc.RunPodSandbox(ctx, &req)
+			},
+			"UpdatePodSandbox": func(ctx context.Context, unmarshal func(interface{}) error) (interface{}, error) {
+				var req UpdatePodSandboxRequest
+				if err := unmarshal(&req); err != nil {
+					return nil, err
+				}
+				return svc.UpdatePodSandbox(ctx, &req)
+			},
+			"PostUpdatePodSandbox": func(ctx context.Context, unmarshal func(interface{}) error) (interface{}, error) {
+				var req PostUpdatePodSandboxRequest
+				if err := unmarshal(&req); err != nil {
+					return nil, err
+				}
+				return svc.PostUpdatePodSandbox(ctx, &req)
+			},
+			"StopPodSandbox": func(ctx context.Context, unmarshal func(interface{}) error) (interface{}, error) {
+				var req StopPodSandboxRequest
+				if err := unmarshal(&req); err != nil {
+					return nil, err
+				}
+				return svc.StopPodSandbox(ctx, &req)
+			},
+			"RemovePodSandbox": func(ctx context.Context, unmarshal func(interface{}) error) (interface{}, error) {
+				var req RemovePodSandboxRequest
+				if err := unmarshal(&req); err != nil {
+					return nil, err
+				}
+				return svc.RemovePodSandbox(ctx, &req)
+			},
 			"CreateContainer": func(ctx context.Context, unmarshal func(interface{}) error) (interface{}, error) {
 				var req CreateContainerRequest
 				if err := unmarshal(&req); err != nil {
@@ -117,13 +156,6 @@ func RegisterPluginService(srv *ttrpc.Server, svc PluginService) {
 					return nil, err
 				}
 				return svc.StopContainer(ctx, &req)
-			},
-			"UpdatePodSandbox": func(ctx context.Context, unmarshal func(interface{}) error) (interface{}, error) {
-				var req UpdatePodSandboxRequest
-				if err := unmarshal(&req); err != nil {
-					return nil, err
-				}
-				return svc.UpdatePodSandbox(ctx, &req)
 			},
 			"StateChange": func(ctx context.Context, unmarshal func(interface{}) error) (interface{}, error) {
 				var req StateChangeEvent
@@ -177,6 +209,46 @@ func (c *pluginClient) Shutdown(ctx context.Context, req *Empty) (*Empty, error)
 	return &resp, nil
 }
 
+func (c *pluginClient) RunPodSandbox(ctx context.Context, req *RunPodSandboxRequest) (*RunPodSandboxResponse, error) {
+	var resp RunPodSandboxResponse
+	if err := c.client.Call(ctx, "nri.pkg.api.v1alpha1.Plugin", "RunPodSandbox", req, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+func (c *pluginClient) UpdatePodSandbox(ctx context.Context, req *UpdatePodSandboxRequest) (*UpdatePodSandboxResponse, error) {
+	var resp UpdatePodSandboxResponse
+	if err := c.client.Call(ctx, "nri.pkg.api.v1alpha1.Plugin", "UpdatePodSandbox", req, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+func (c *pluginClient) PostUpdatePodSandbox(ctx context.Context, req *PostUpdatePodSandboxRequest) (*PostUpdatePodSandboxResponse, error) {
+	var resp PostUpdatePodSandboxResponse
+	if err := c.client.Call(ctx, "nri.pkg.api.v1alpha1.Plugin", "PostUpdatePodSandbox", req, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+func (c *pluginClient) StopPodSandbox(ctx context.Context, req *StopPodSandboxRequest) (*StopPodSandboxResponse, error) {
+	var resp StopPodSandboxResponse
+	if err := c.client.Call(ctx, "nri.pkg.api.v1alpha1.Plugin", "StopPodSandbox", req, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+func (c *pluginClient) RemovePodSandbox(ctx context.Context, req *RemovePodSandboxRequest) (*RemovePodSandboxResponse, error) {
+	var resp RemovePodSandboxResponse
+	if err := c.client.Call(ctx, "nri.pkg.api.v1alpha1.Plugin", "RemovePodSandbox", req, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
 func (c *pluginClient) CreateContainer(ctx context.Context, req *CreateContainerRequest) (*CreateContainerResponse, error) {
 	var resp CreateContainerResponse
 	if err := c.client.Call(ctx, "nri.pkg.api.v1alpha1.Plugin", "CreateContainer", req, &resp); err != nil {
@@ -196,14 +268,6 @@ func (c *pluginClient) UpdateContainer(ctx context.Context, req *UpdateContainer
 func (c *pluginClient) StopContainer(ctx context.Context, req *StopContainerRequest) (*StopContainerResponse, error) {
 	var resp StopContainerResponse
 	if err := c.client.Call(ctx, "nri.pkg.api.v1alpha1.Plugin", "StopContainer", req, &resp); err != nil {
-		return nil, err
-	}
-	return &resp, nil
-}
-
-func (c *pluginClient) UpdatePodSandbox(ctx context.Context, req *UpdatePodSandboxRequest) (*UpdatePodSandboxResponse, error) {
-	var resp UpdatePodSandboxResponse
-	if err := c.client.Call(ctx, "nri.pkg.api.v1alpha1.Plugin", "UpdatePodSandbox", req, &resp); err != nil {
 		return nil, err
 	}
 	return &resp, nil

@@ -84,6 +84,21 @@ service Plugin {
   // Shutdown a plugin (let it know the runtime is going down).
   rpc Shutdown(Empty) returns (Empty);
 
+  // RunPodSandbox relays the corresponding request to the plugin.
+  rpc RunPodSandbox(RunPodSandboxRequest) returns (RunPodSandboxResponse);
+
+  // UpdatePodSandbox relays the corresponding request to the plugin.
+  rpc UpdatePodSandbox(UpdatePodSandboxRequest) returns (UpdatePodSandboxResponse);
+
+  // PostUpdatePodSandbox relays the corresponding request to the plugin.
+  rpc PostUpdatePodSandbox(PostUpdatePodSandboxRequest) returns (PostUpdatePodSandboxResponse);
+
+  // StopPodSandbox relays the corresponding request to the plugin.
+  rpc StopPodSandbox(StopPodSandboxRequest) returns (StopPodSandboxResponse);
+
+  // RemovePodSandbox relays the corresponding request to the plugin.
+  rpc RemovePodSandbox(RemovePodSandboxRequest) returns (RemovePodSandboxResponse);
+
   // CreateContainer relays the corresponding request to the plugin. In
   // response, the plugin can adjust the container being created, and
   // update other containers in the runtime. Container adjustment can
@@ -100,9 +115,6 @@ service Plugin {
   // StopContainer relays the corresponding request to the plugin. The plugin
   // can update any of the remaining containers in the runtime in response.
   rpc StopContainer(StopContainerRequest) returns (StopContainerResponse);
-
-  // UpdatePodSandbox relays the corresponding request to the plugin.
-  rpc UpdatePodSandbox(UpdatePodSandboxRequest) returns (UpdatePodSandboxResponse);
 
   // StateChange relays any remaining pod or container lifecycle/state change
   // events the plugin has subscribed for. These can be used to trigger any
@@ -169,6 +181,45 @@ message SynchronizeResponse {
   bool more = 2;
 }
 
+message RunPodSandboxRequest {
+  // Pod being created.
+  PodSandbox pod = 1;
+}
+
+message RunPodSandboxResponse{}
+
+message UpdatePodSandboxRequest {
+  // Pod being updated.
+  PodSandbox pod = 1;
+  // Overhead associated with this pod.
+  LinuxResources overhead_linux_resources = 2;
+  // Sum of container resources for this pod.
+  LinuxResources linux_resources = 3;
+}
+
+message UpdatePodSandboxResponse {}
+
+message PostUpdatePodSandboxRequest {
+  // Updated pod.
+  PodSandbox pod = 1;
+}
+
+message PostUpdatePodSandboxResponse {}
+
+message StopPodSandboxRequest {
+  // Pod being stopped.
+  PodSandbox pod = 1;
+}
+
+message StopPodSandboxResponse{}
+
+message RemovePodSandboxRequest {
+  // Pod being removed.
+  PodSandbox pod = 1;
+}
+
+message RemovePodSandboxResponse{}
+
 message CreateContainerRequest {
   // Pod of container being created.
   PodSandbox pod = 1;
@@ -212,17 +263,6 @@ message StopContainerResponse {
   // Requested updates to containers.
   repeated ContainerUpdate update = 1;
 }
-
-message UpdatePodSandboxRequest {
-  // Pod being updated.
-  PodSandbox pod = 1;
-  // Overhead associated with this pod.
-  LinuxResources overhead_linux_resources = 2;
-  // Sum of container resources for this pod.
-  LinuxResources linux_resources = 3;
-}
-
-message UpdatePodSandboxResponse {}
 
 message StateChangeEvent {
   // Event type of notification.

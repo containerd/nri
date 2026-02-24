@@ -217,7 +217,7 @@ func WithOnClose(onClose func()) Option {
 func WithPluginName(name string) Option {
 	return func(s *stub) error {
 		if s.name != "" {
-			return fmt.Errorf("plugin name already set (%q)", s.name)
+			log.Infof(noCtx, "Plugin name overridden: %q (previously %q)", name, s.name)
 		}
 		s.name = name
 		return nil

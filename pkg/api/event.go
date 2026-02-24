@@ -30,17 +30,7 @@ const (
 type (
 	// Define *Request/*Response type aliases for *Event/Empty pairs.
 
-	StateChangeResponse         = Empty
-	StartContainerRequest       = StateChangeEvent
-	StartContainerResponse      = Empty
-	RemoveContainerRequest      = StateChangeEvent
-	RemoveContainerResponse     = Empty
-	PostCreateContainerRequest  = StateChangeEvent
-	PostCreateContainerResponse = Empty
-	PostStartContainerRequest   = StateChangeEvent
-	PostStartContainerResponse  = Empty
-	PostUpdateContainerRequest  = StateChangeEvent
-	PostUpdateContainerResponse = Empty
+	StateChangeResponse = Empty
 
 	ShutdownRequest  = Empty
 	ShutdownResponse = Empty

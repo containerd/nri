@@ -79,13 +79,23 @@ type Plugin interface {
 	// OCI hooks, and assigned container resources. Updates can alter
 	// assigned container resources.
 	CreateContainer(context.Context, *CreateContainerRequest) (*CreateContainerResponse, error)
+	// PostCreateContainer relays the corresponding container request to the plugin.
+	PostCreateContainer(context.Context, *PostCreateContainerRequest) (*PostCreateContainerResponse, error)
+	// StartContainer relays the corresponding container request to the plugin.
+	StartContainer(context.Context, *StartContainerRequest) (*StartContainerResponse, error)
+	// PostStartContainer relays the corresponding container request to the plugin.
+	PostStartContainer(context.Context, *PostStartContainerRequest) (*PostStartContainerResponse, error)
 	// UpdateContainer relays the corresponding request to the plugin.
 	// The plugin can alter how the container is updated and request updates
 	// to additional containers in the runtime.
 	UpdateContainer(context.Context, *UpdateContainerRequest) (*UpdateContainerResponse, error)
+	// PostUpdateContainer relays the corresponding container request to the plugin.
+	PostUpdateContainer(context.Context, *PostUpdateContainerRequest) (*PostUpdateContainerResponse, error)
 	// StopContainer relays the corresponding request to the plugin. The plugin
 	// can update any of the remaining containers in the runtime in response.
 	StopContainer(context.Context, *StopContainerRequest) (*StopContainerResponse, error)
+	// RemoveContainer relays the corresponding container request to the plugin.
+	RemoveContainer(context.Context, *RemoveContainerRequest) (*RemoveContainerResponse, error)
 	// StateChange relays any remaining pod or container lifecycle/state change
 	// events the plugin has subscribed for. These can be used to trigger any
 	// plugin-specific processing which needs to occur in connection with any of

@@ -179,12 +179,44 @@ func (b *BuiltinPlugin) CreateContainer(ctx context.Context, req *api.CreateCont
 	return &api.CreateContainerResponse{}, nil
 }
 
+// PostCreateContainer implements PluginsService of the NRI API.
+func (b *BuiltinPlugin) PostCreateContainer(ctx context.Context, req *api.PostCreateContainerRequest) (*api.PostCreateContainerResponse, error) {
+	if b.Handlers.PostCreateContainer != nil {
+		return &api.PostCreateContainerResponse{}, b.Handlers.PostCreateContainer(ctx, req)
+	}
+	return &api.PostCreateContainerResponse{}, nil
+}
+
+// StartContainer implements PluginService of the NRI API.
+func (b *BuiltinPlugin) StartContainer(ctx context.Context, req *api.StartContainerRequest) (*api.StartContainerResponse, error) {
+	if b.Handlers.StartContainer != nil {
+		return &api.StartContainerResponse{}, b.Handlers.StartContainer(ctx, req)
+	}
+	return &api.StartContainerResponse{}, nil
+}
+
+// PostStartContainer implements PluginService of the NRI API.
+func (b *BuiltinPlugin) PostStartContainer(ctx context.Context, req *api.PostStartContainerRequest) (*api.PostStartContainerResponse, error) {
+	if b.Handlers.PostStartContainer != nil {
+		return &api.PostStartContainerResponse{}, b.Handlers.PostStartContainer(ctx, req)
+	}
+	return &api.PostStartContainerResponse{}, nil
+}
+
 // UpdateContainer implements PluginService of the NRI API.
 func (b *BuiltinPlugin) UpdateContainer(ctx context.Context, req *api.UpdateContainerRequest) (*api.UpdateContainerResponse, error) {
 	if b.Handlers.UpdateContainer != nil {
 		return b.Handlers.UpdateContainer(ctx, req)
 	}
 	return &api.UpdateContainerResponse{}, nil
+}
+
+// PostUpdateContainer implements PluginService of the NRI API.
+func (b *BuiltinPlugin) PostUpdateContainer(ctx context.Context, req *api.PostUpdateContainerRequest) (*api.PostUpdateContainerResponse, error) {
+	if b.Handlers.PostUpdateContainer != nil {
+		return &api.PostUpdateContainerResponse{}, b.Handlers.PostUpdateContainer(ctx, req)
+	}
+	return &api.PostUpdateContainerResponse{}, nil
 }
 
 // StopContainer implements PluginService of the NRI API.
@@ -195,33 +227,18 @@ func (b *BuiltinPlugin) StopContainer(ctx context.Context, req *api.StopContaine
 	return &api.StopContainerResponse{}, nil
 }
 
-// StateChange implements PluginService of the NRI API.
-func (b *BuiltinPlugin) StateChange(ctx context.Context, evt *api.StateChangeEvent) (*api.StateChangeResponse, error) {
-	var err error
-	switch evt.Event {
-	case api.Event_POST_CREATE_CONTAINER:
-		if b.Handlers.PostCreateContainer != nil {
-			err = b.Handlers.PostCreateContainer(ctx, evt)
-		}
-	case api.Event_START_CONTAINER:
-		if b.Handlers.StartContainer != nil {
-			err = b.Handlers.StartContainer(ctx, evt)
-		}
-	case api.Event_POST_START_CONTAINER:
-		if b.Handlers.PostStartContainer != nil {
-			err = b.Handlers.PostStartContainer(ctx, evt)
-		}
-	case api.Event_POST_UPDATE_CONTAINER:
-		if b.Handlers.PostUpdateContainer != nil {
-			err = b.Handlers.PostUpdateContainer(ctx, evt)
-		}
-	case api.Event_REMOVE_CONTAINER:
-		if b.Handlers.RemoveContainer != nil {
-			err = b.Handlers.RemoveContainer(ctx, evt)
-		}
+// RemoveContainer implements PluginService of the NRI API.
+func (b *BuiltinPlugin) RemoveContainer(ctx context.Context, req *api.RemoveContainerRequest) (*api.RemoveContainerResponse, error) {
+	if b.Handlers.RemoveContainer != nil {
+		return &api.RemoveContainerResponse{}, b.Handlers.RemoveContainer(ctx, req)
 	}
+	return &api.RemoveContainerResponse{}, nil
+}
 
-	return &api.StateChangeResponse{}, err
+// StateChange implements PluginService of the NRI API.
+func (b *BuiltinPlugin) StateChange(_ context.Context, _ *api.StateChangeEvent) (*api.StateChangeResponse, error) {
+	// TODO: remove eventually once StateChange is removed from the wire protocol.
+	return &api.StateChangeResponse{}, nil
 }
 
 // ValidateContainerAdjustment implements PluginService of the NRI API.

@@ -107,14 +107,30 @@ service Plugin {
   // assigned container resources.
   rpc CreateContainer(CreateContainerRequest) returns (CreateContainerResponse);
 
+  // PostCreateContainer relays the corresponding container request to the plugin.
+  rpc PostCreateContainer(PostCreateContainerRequest) returns (PostCreateContainerResponse);
+
+  // StartContainer relays the corresponding container request to the plugin.
+  rpc StartContainer(StartContainerRequest) returns (StartContainerResponse);
+
+  // PostStartContainer relays the corresponding container request to the plugin.
+  rpc PostStartContainer(PostStartContainerRequest) returns (PostStartContainerResponse);
+
   // UpdateContainer relays the corresponding request to the plugin.
   // The plugin can alter how the container is updated and request updates
   // to additional containers in the runtime.
   rpc UpdateContainer(UpdateContainerRequest) returns (UpdateContainerResponse);
 
+  // PostUpdateContainer relays the corresponding container request to the plugin.
+  rpc PostUpdateContainer(PostUpdateContainerRequest) returns (PostUpdateContainerResponse);
+
   // StopContainer relays the corresponding request to the plugin. The plugin
   // can update any of the remaining containers in the runtime in response.
   rpc StopContainer(StopContainerRequest) returns (StopContainerResponse);
+
+  // RemoveContainer relays the corresponding container request to the plugin.
+  rpc RemoveContainer(RemoveContainerRequest) returns (RemoveContainerResponse);
+
 
   // StateChange relays any remaining pod or container lifecycle/state change
   // events the plugin has subscribed for. These can be used to trigger any
@@ -236,6 +252,33 @@ message CreateContainerResponse {
   repeated ContainerEviction evict = 3;
 }
 
+message PostCreateContainerRequest {
+  // Pod of created container.
+  PodSandbox pod = 1;
+  // Created container.
+  Container container = 2;
+}
+
+message PostCreateContainerResponse{}
+
+message StartContainerRequest {
+  // Pod of container being started.
+  PodSandbox pod = 1;
+  // Container being started.
+  Container container = 2;
+}
+
+message StartContainerResponse {}
+
+message PostStartContainerRequest {
+  // Pod of started container.
+  PodSandbox pod = 1;
+  // Started container.
+  Container container = 2;
+}
+
+message PostStartContainerResponse {}
+
 message UpdateContainerRequest {
   // Pod of container being updated.
   PodSandbox pod = 1;
@@ -252,6 +295,15 @@ message UpdateContainerResponse {
   repeated ContainerEviction evict = 2;
 }
 
+message PostUpdateContainerRequest {
+  // Pod of updated container.
+  PodSandbox pod = 1;
+  // Updated container.
+  Container container = 2;
+}
+
+message PostUpdateContainerResponse {}
+
 message StopContainerRequest {
   // Pod of container being stopped.
   PodSandbox pod = 1;
@@ -263,6 +315,15 @@ message StopContainerResponse {
   // Requested updates to containers.
   repeated ContainerUpdate update = 1;
 }
+
+message RemoveContainerRequest {
+  // Pod of removed container.
+  PodSandbox pod = 1;
+  // Removed container.
+  Container container = 2;
+}
+
+message RemoveContainerResponse {}
 
 message StateChangeEvent {
   // Event type of notification.

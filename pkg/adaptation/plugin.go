@@ -917,8 +917,6 @@ func isFatalError(err error) bool {
 		return true
 	case errors.Is(err, context.DeadlineExceeded):
 		return true
-	case status.Code(err) == codes.Unimplemented:
-		return true
 	}
 	return false
 }

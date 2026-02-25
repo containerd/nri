@@ -598,7 +598,8 @@ func recalcObjsPerSyncMsg(pods, ctrs int, err error) (int, int, error) {
 
 // Relay RunPodSandbox request to plugin.
 func (p *plugin) runPodSandbox(ctx context.Context, req *RunPodSandboxRequest) (*RunPodSandboxResponse, error) {
-	if !p.events.IsSet(Event_RUN_POD_SANDBOX) {
+	event := Event_RUN_POD_SANDBOX
+	if !p.events.IsSet(event) {
 		return nil, nil
 	}
 
@@ -608,20 +609,22 @@ func (p *plugin) runPodSandbox(ctx context.Context, req *RunPodSandboxRequest) (
 	rpl, err := p.impl.RunPodSandbox(ctx, req)
 	if err != nil {
 		if isFatalError(err) {
-			log.Errorf(ctx, "closing plugin %s, failed to handle RunPodSandbox request: %v",
-				p.name(), err)
+			log.Errorf(ctx, "closing plugin %s, failed to handle %s request: %v",
+				p.name(), event.PrettyName(), err)
 			p.close()
 			return nil, nil
 		}
 		return nil, err
 	}
+	p.warnDeprecatedEvent(ctx, event)
 
 	return rpl, nil
 }
 
 // Relay UpdatePodSandbox request to plugin.
 func (p *plugin) updatePodSandbox(ctx context.Context, req *UpdatePodSandboxRequest) (*UpdatePodSandboxResponse, error) {
-	if !p.events.IsSet(Event_UPDATE_POD_SANDBOX) {
+	event := Event_UPDATE_POD_SANDBOX
+	if !p.events.IsSet(event) {
 		return nil, nil
 	}
 
@@ -630,8 +633,8 @@ func (p *plugin) updatePodSandbox(ctx context.Context, req *UpdatePodSandboxRequ
 
 	if _, err := p.impl.UpdatePodSandbox(ctx, req); err != nil {
 		if isFatalError(err) {
-			log.Errorf(ctx, "closing plugin %s, failed to handle event %d: %v",
-				p.name(), Event_UPDATE_POD_SANDBOX, err)
+			log.Errorf(ctx, "closing plugin %s, failed to handle %s request: %v",
+				p.name(), event.PrettyName(), err)
 			p.close()
 			return nil, nil
 		}
@@ -643,7 +646,8 @@ func (p *plugin) updatePodSandbox(ctx context.Context, req *UpdatePodSandboxRequ
 
 // Relay PostUpdatePodSandbox request to plugin.
 func (p *plugin) postUpdatePodSandbox(ctx context.Context, req *PostUpdatePodSandboxRequest) (*PostUpdatePodSandboxResponse, error) {
-	if !p.events.IsSet(Event_POST_UPDATE_POD_SANDBOX) {
+	event := Event_POST_UPDATE_POD_SANDBOX
+	if !p.events.IsSet(event) {
 		return nil, nil
 	}
 
@@ -652,8 +656,8 @@ func (p *plugin) postUpdatePodSandbox(ctx context.Context, req *PostUpdatePodSan
 
 	if _, err := p.impl.PostUpdatePodSandbox(ctx, req); err != nil {
 		if isFatalError(err) {
-			log.Errorf(ctx, "closing plugin %s, failed to handle event %d: %v",
-				p.name(), Event_POST_UPDATE_POD_SANDBOX, err)
+			log.Errorf(ctx, "closing plugin %s, failed to handle %s request: %v",
+				p.name(), event.PrettyName(), err)
 			p.close()
 			return nil, nil
 		}
@@ -665,7 +669,8 @@ func (p *plugin) postUpdatePodSandbox(ctx context.Context, req *PostUpdatePodSan
 
 // Relay StopPodSandbox request to plugin.
 func (p *plugin) stopPodSandbox(ctx context.Context, req *StopPodSandboxRequest) (*StopPodSandboxResponse, error) {
-	if !p.events.IsSet(Event_STOP_POD_SANDBOX) {
+	event := Event_STOP_POD_SANDBOX
+	if !p.events.IsSet(event) {
 		return nil, nil
 	}
 
@@ -674,20 +679,22 @@ func (p *plugin) stopPodSandbox(ctx context.Context, req *StopPodSandboxRequest)
 
 	if _, err := p.impl.StopPodSandbox(ctx, req); err != nil {
 		if isFatalError(err) {
-			log.Errorf(ctx, "closing plugin %s, failed to handle event %d: %v",
-				p.name(), Event_STOP_POD_SANDBOX, err)
+			log.Errorf(ctx, "closing plugin %s, failed to handle %s request: %v",
+				p.name(), event.PrettyName(), err)
 			p.close()
 			return nil, nil
 		}
 		return nil, err
 	}
+	p.warnDeprecatedEvent(ctx, event)
 
 	return &StopPodSandboxResponse{}, nil
 }
 
 // Relay RemovePodSandbox request to plugin.
 func (p *plugin) removePodSandbox(ctx context.Context, req *RemovePodSandboxRequest) (*RemovePodSandboxResponse, error) {
-	if !p.events.IsSet(Event_REMOVE_POD_SANDBOX) {
+	event := Event_REMOVE_POD_SANDBOX
+	if !p.events.IsSet(event) {
 		return nil, nil
 	}
 
@@ -696,20 +703,22 @@ func (p *plugin) removePodSandbox(ctx context.Context, req *RemovePodSandboxRequ
 
 	if _, err := p.impl.RemovePodSandbox(ctx, req); err != nil {
 		if isFatalError(err) {
-			log.Errorf(ctx, "closing plugin %s, failed to handle event %d: %v",
+			log.Errorf(ctx, "closing plugin %s, failed to handle %s request: %v",
 				p.name(), Event_REMOVE_POD_SANDBOX, err)
 			p.close()
 			return nil, nil
 		}
 		return nil, err
 	}
+	p.warnDeprecatedEvent(ctx, event)
 
 	return &RemovePodSandboxResponse{}, nil
 }
 
 // Relay CreateContainer request to plugin.
 func (p *plugin) createContainer(ctx context.Context, req *CreateContainerRequest) (*CreateContainerResponse, error) {
-	if !p.events.IsSet(Event_CREATE_CONTAINER) {
+	event := Event_CREATE_CONTAINER
+	if !p.events.IsSet(event) {
 		return nil, nil
 	}
 
@@ -719,8 +728,8 @@ func (p *plugin) createContainer(ctx context.Context, req *CreateContainerReques
 	rpl, err := p.impl.CreateContainer(ctx, req)
 	if err != nil {
 		if isFatalError(err) {
-			log.Errorf(ctx, "closing plugin %s, failed to handle CreateContainer request: %v",
-				p.name(), err)
+			log.Errorf(ctx, "closing plugin %s, failed to handle %s request: %v",
+				p.name(), event.PrettyName(), err)
 			p.close()
 			return nil, nil
 		}
@@ -732,7 +741,8 @@ func (p *plugin) createContainer(ctx context.Context, req *CreateContainerReques
 
 // Relay PostCreateContainer request to plugin.
 func (p *plugin) postCreateContainer(ctx context.Context, req *PostCreateContainerRequest) (*PostCreateContainerResponse, error) {
-	if !p.events.IsSet(Event_POST_CREATE_CONTAINER) {
+	event := Event_POST_CREATE_CONTAINER
+	if !p.events.IsSet(event) {
 		return nil, nil
 	}
 
@@ -741,20 +751,22 @@ func (p *plugin) postCreateContainer(ctx context.Context, req *PostCreateContain
 
 	if _, err := p.impl.PostCreateContainer(ctx, req); err != nil {
 		if isFatalError(err) {
-			log.Errorf(ctx, "closing plugin %s, failed to handle event %d: %v",
-				p.name(), Event_POST_CREATE_CONTAINER, err)
+			log.Errorf(ctx, "closing plugin %s, failed to handle %s request: %v",
+				p.name(), event.PrettyName(), err)
 			p.close()
 			return nil, nil
 		}
 		return nil, err
 	}
+	p.warnDeprecatedEvent(ctx, event)
 
 	return &PostCreateContainerResponse{}, nil
 }
 
 // Relay StartContainer request to plugin.
 func (p *plugin) startContainer(ctx context.Context, req *StartContainerRequest) (*StartContainerResponse, error) {
-	if !p.events.IsSet(Event_START_CONTAINER) {
+	event := Event_START_CONTAINER
+	if !p.events.IsSet(event) {
 		return nil, nil
 	}
 
@@ -763,20 +775,22 @@ func (p *plugin) startContainer(ctx context.Context, req *StartContainerRequest)
 
 	if _, err := p.impl.StartContainer(ctx, req); err != nil {
 		if isFatalError(err) {
-			log.Errorf(ctx, "closing plugin %s, failed to handle event %d: %v",
-				p.name(), Event_START_CONTAINER, err)
+			log.Errorf(ctx, "closing plugin %s, failed to handle %s request: %v",
+				p.name(), event.PrettyName(), err)
 			p.close()
 			return nil, nil
 		}
 		return nil, err
 	}
+	p.warnDeprecatedEvent(ctx, event)
 
 	return &StartContainerResponse{}, nil
 }
 
 // Relay PostStartContainer request to plugin.
 func (p *plugin) postStartContainer(ctx context.Context, req *PostStartContainerRequest) (*PostStartContainerResponse, error) {
-	if !p.events.IsSet(Event_POST_START_CONTAINER) {
+	event := Event_POST_START_CONTAINER
+	if !p.events.IsSet(event) {
 		return nil, nil
 	}
 
@@ -785,20 +799,22 @@ func (p *plugin) postStartContainer(ctx context.Context, req *PostStartContainer
 
 	if _, err := p.impl.PostStartContainer(ctx, req); err != nil {
 		if isFatalError(err) {
-			log.Errorf(ctx, "closing plugin %s, failed to handle event %d: %v",
-				p.name(), Event_POST_START_CONTAINER, err)
+			log.Errorf(ctx, "closing plugin %s, failed to handle %s request: %v",
+				p.name(), event.PrettyName(), err)
 			p.close()
 			return nil, nil
 		}
 		return nil, err
 	}
+	p.warnDeprecatedEvent(ctx, event)
 
 	return &PostStartContainerResponse{}, nil
 }
 
 // Relay UpdateContainer request to plugin.
 func (p *plugin) updateContainer(ctx context.Context, req *UpdateContainerRequest) (*UpdateContainerResponse, error) {
-	if !p.events.IsSet(Event_UPDATE_CONTAINER) {
+	event := Event_UPDATE_CONTAINER
+	if !p.events.IsSet(event) {
 		return nil, nil
 	}
 
@@ -808,8 +824,8 @@ func (p *plugin) updateContainer(ctx context.Context, req *UpdateContainerReques
 	rpl, err := p.impl.UpdateContainer(ctx, req)
 	if err != nil {
 		if isFatalError(err) {
-			log.Errorf(ctx, "closing plugin %s, failed to handle UpdateContainer request: %v",
-				p.name(), err)
+			log.Errorf(ctx, "closing plugin %s, failed to handle %s request: %v",
+				p.name(), event.PrettyName(), err)
 			p.close()
 			return nil, nil
 		}
@@ -821,7 +837,8 @@ func (p *plugin) updateContainer(ctx context.Context, req *UpdateContainerReques
 
 // Relay PostUpdateContainer request to plugin.
 func (p *plugin) postUpdateContainer(ctx context.Context, req *PostUpdateContainerRequest) (*PostUpdateContainerResponse, error) {
-	if !p.events.IsSet(Event_POST_UPDATE_CONTAINER) {
+	event := Event_POST_UPDATE_CONTAINER
+	if !p.events.IsSet(event) {
 		return nil, nil
 	}
 
@@ -830,20 +847,22 @@ func (p *plugin) postUpdateContainer(ctx context.Context, req *PostUpdateContain
 
 	if _, err := p.impl.PostUpdateContainer(ctx, req); err != nil {
 		if isFatalError(err) {
-			log.Errorf(ctx, "closing plugin %s, failed to handle event %d: %v",
-				p.name(), Event_POST_UPDATE_CONTAINER, err)
+			log.Errorf(ctx, "closing plugin %s, failed to handle %s request: %v",
+				p.name(), event.PrettyName(), err)
 			p.close()
 			return nil, nil
 		}
 		return nil, err
 	}
+	p.warnDeprecatedEvent(ctx, event)
 
 	return &PostUpdateContainerResponse{}, nil
 }
 
 // Relay StopContainer request to the plugin.
 func (p *plugin) stopContainer(ctx context.Context, req *StopContainerRequest) (rpl *StopContainerResponse, err error) {
-	if !p.events.IsSet(Event_STOP_CONTAINER) {
+	event := Event_STOP_CONTAINER
+	if !p.events.IsSet(event) {
 		return nil, nil
 	}
 
@@ -853,8 +872,8 @@ func (p *plugin) stopContainer(ctx context.Context, req *StopContainerRequest) (
 	rpl, err = p.impl.StopContainer(ctx, req)
 	if err != nil {
 		if isFatalError(err) {
-			log.Errorf(ctx, "closing plugin %s, failed to handle StopContainer request: %v",
-				p.name(), err)
+			log.Errorf(ctx, "closing plugin %s, failed to handle %s request: %v",
+				p.name(), event.PrettyName(), err)
 			p.close()
 			return nil, nil
 		}
@@ -866,7 +885,8 @@ func (p *plugin) stopContainer(ctx context.Context, req *StopContainerRequest) (
 
 // Relay RemoveContainer request to plugin.
 func (p *plugin) removeContainer(ctx context.Context, req *RemoveContainerRequest) (*RemoveContainerResponse, error) {
-	if !p.events.IsSet(Event_REMOVE_CONTAINER) {
+	event := Event_REMOVE_CONTAINER
+	if !p.events.IsSet(event) {
 		return nil, nil
 	}
 
@@ -875,19 +895,21 @@ func (p *plugin) removeContainer(ctx context.Context, req *RemoveContainerReques
 
 	if _, err := p.impl.RemoveContainer(ctx, req); err != nil {
 		if isFatalError(err) {
-			log.Errorf(ctx, "closing plugin %s, failed to handle event %d: %v",
-				p.name(), Event_REMOVE_CONTAINER, err)
+			log.Errorf(ctx, "closing plugin %s, failed to handle %s request: %v",
+				p.name(), event.PrettyName(), err)
 			p.close()
 			return nil, nil
 		}
 		return nil, err
 	}
+	p.warnDeprecatedEvent(ctx, event)
 
 	return &RemoveContainerResponse{}, nil
 }
 
 func (p *plugin) ValidateContainerAdjustment(ctx context.Context, req *ValidateContainerAdjustmentRequest) error {
-	if !p.events.IsSet(Event_VALIDATE_CONTAINER_ADJUSTMENT) {
+	event := Event_VALIDATE_CONTAINER_ADJUSTMENT
+	if !p.events.IsSet(event) {
 		return nil
 	}
 
@@ -897,13 +919,30 @@ func (p *plugin) ValidateContainerAdjustment(ctx context.Context, req *ValidateC
 	rpl, err := p.impl.ValidateContainerAdjustment(ctx, req)
 	if err != nil {
 		if isFatalError(err) {
-			log.Errorf(ctx, "closing plugin %s, failed to validate request: %v", p.name(), err)
+			log.Errorf(ctx, "closing plugin %s, failed to handle %s request: %v",
+				p.name(), event.PrettyName(), err)
 			p.close()
 		}
 		return fmt.Errorf("validator plugin %s failed: %v", p.name(), err)
 	}
 
 	return rpl.ValidationResult(p.name())
+}
+
+func (p *plugin) warnDeprecatedEvent(ctx context.Context, event Event) {
+	if !p.impl.deprecated[event] || p.impl.warned[event] {
+		return
+	}
+
+	if p.r.deprecation != nil {
+		p.r.deprecation.PluginWarning(ctx, DeprecatedStateChange, p.name(),
+			fmt.Sprintf("does not implement %s", event.PrettyName()))
+	} else {
+		log.Warnf(ctx, "plugin %s uses StateChange, does not implement %s",
+			p.name(), event.PrettyName())
+	}
+
+	p.impl.warned[event] = true
 }
 
 // isFatalError returns true if the error is fatal and the plugin connection should be closed.
@@ -916,8 +955,6 @@ func isFatalError(err error) bool {
 	case errors.Is(err, ttrpc.ErrProtocol):
 		return true
 	case errors.Is(err, context.DeadlineExceeded):
-		return true
-	case status.Code(err) == codes.Unimplemented:
 		return true
 	}
 	return false

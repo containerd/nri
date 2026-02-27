@@ -518,6 +518,40 @@ access to these sockets and can act as NRI or Device Plugins. See the
 and [best practices](https://kubernetes.io/docs/setup/best-practices/enforcing-pod-security-standards/)
 about Kubernetes security.
 
+## Plugin Authentication
+
+NRI can be configured to authenticate plugins during connection setup.
+The purpose of authentication is to reliably establish an identity for
+a plugin which then allows validation to apply different policies to
+plugins with different identity.
+
+This plugin identity is called a role in NRI. A role has a unique name,
+has a set of associated plugin keys, and an optional set of opaque tags.
+Keys map plugins to roles. Any plugin which identifies and authenticates
+itself with a matching key is associated with the role or the key. Role
+tags are opaque, carrying no semantic meaning for NRI itself. They can
+however carry semantic meaning for custom validators. Once a plugin gets
+authenticated, the assigned role and its tags are made available to the
+plugin itself and to any validating plugin.
+
+### Default Validation of Authenticated Plugins
+
+The default validator can be configured to apply different restrictions
+to different roles, hence to different plugins. This allows setting up
+a restricted default configuration then loosen these restrictions for
+selected plugins using per role overrides. For instance, one can disable
+Linux namespace adjustment globally, then allow it only for a single or
+a few plugins.
+
+### Custom Validation of Authenticated Plugins
+
+Plugin role names and role tags are both passed to custom validators, so
+custom validators can take authentication into account during validation.
+Tags can be used to decompose a role into a set of explicitly assigned
+capabilities valid for that role. This allows validators to decide whether
+to allow or reject any changes requested by a plugin based on capabilities
+instead of attaching such semantics implicitly to a role name.
+
 ## API Stability
 
 NRI APIs should not be considered stable yet. We try to avoid unnecessarily

@@ -38,7 +38,9 @@ import (
 
 	nri "github.com/containerd/nri/pkg/adaptation"
 	"github.com/containerd/nri/pkg/api"
+	"github.com/containerd/nri/pkg/auth"
 	"github.com/containerd/nri/pkg/plugin"
+	"github.com/containerd/nri/pkg/stub"
 	validator "github.com/containerd/nri/plugins/default-validator/builtin"
 )
 
@@ -1271,8 +1273,10 @@ var _ = Describe("Plugin container creation adjustments", func() {
 					options: []nri.Option{
 						nri.WithDefaultValidator(
 							&validator.DefaultValidatorConfig{
-								Enable:                  true,
-								RejectOCIHookAdjustment: true,
+								Enable: true,
+								Config: &validator.Config{
+									RejectOCIHookAdjustment: boolptr(true),
+								},
 							},
 						),
 					},
@@ -1364,8 +1368,10 @@ var _ = Describe("Plugin container creation adjustments", func() {
 					options: []nri.Option{
 						nri.WithDefaultValidator(
 							&validator.DefaultValidatorConfig{
-								Enable:                                true,
-								RejectRuntimeDefaultSeccompAdjustment: true,
+								Enable: true,
+								Config: &validator.Config{
+									RejectRuntimeDefaultSeccompAdjustment: boolptr(true),
+								},
 							},
 						),
 					},
@@ -1467,8 +1473,10 @@ var _ = Describe("Plugin container creation adjustments", func() {
 					options: []nri.Option{
 						nri.WithDefaultValidator(
 							&validator.DefaultValidatorConfig{
-								Enable:                                true,
-								RejectRuntimeDefaultSeccompAdjustment: false,
+								Enable: true,
+								Config: &validator.Config{
+									RejectRuntimeDefaultSeccompAdjustment: boolptr(false),
+								},
 							},
 						),
 					},
@@ -1570,8 +1578,10 @@ var _ = Describe("Plugin container creation adjustments", func() {
 					options: []nri.Option{
 						nri.WithDefaultValidator(
 							&validator.DefaultValidatorConfig{
-								Enable:                        true,
-								RejectCustomSeccompAdjustment: true,
+								Enable: true,
+								Config: &validator.Config{
+									RejectCustomSeccompAdjustment: boolptr(true),
+								},
 							},
 						),
 					},
@@ -1674,8 +1684,10 @@ var _ = Describe("Plugin container creation adjustments", func() {
 					options: []nri.Option{
 						nri.WithDefaultValidator(
 							&validator.DefaultValidatorConfig{
-								Enable:                        true,
-								RejectCustomSeccompAdjustment: false,
+								Enable: true,
+								Config: &validator.Config{
+									RejectCustomSeccompAdjustment: boolptr(false),
+								},
 							},
 						),
 					},
@@ -1778,8 +1790,10 @@ var _ = Describe("Plugin container creation adjustments", func() {
 					options: []nri.Option{
 						nri.WithDefaultValidator(
 							&validator.DefaultValidatorConfig{
-								Enable:                            true,
-								RejectUnconfinedSeccompAdjustment: true,
+								Enable: true,
+								Config: &validator.Config{
+									RejectUnconfinedSeccompAdjustment: boolptr(true),
+								},
 							},
 						),
 					},
@@ -1881,8 +1895,10 @@ var _ = Describe("Plugin container creation adjustments", func() {
 					options: []nri.Option{
 						nri.WithDefaultValidator(
 							&validator.DefaultValidatorConfig{
-								Enable:                            true,
-								RejectUnconfinedSeccompAdjustment: false,
+								Enable: true,
+								Config: &validator.Config{
+									RejectUnconfinedSeccompAdjustment: boolptr(false),
+								},
 							},
 						),
 					},
@@ -1984,8 +2000,10 @@ var _ = Describe("Plugin container creation adjustments", func() {
 					options: []nri.Option{
 						nri.WithDefaultValidator(
 							&validator.DefaultValidatorConfig{
-								Enable:                    true,
-								RejectNamespaceAdjustment: true,
+								Enable: true,
+								Config: &validator.Config{
+									RejectNamespaceAdjustment: boolptr(true),
+								},
 							},
 						),
 					},
@@ -3310,10 +3328,137 @@ var _ = Describe("Plugin configuration request", func() {
 	})
 })
 
+var _ = Describe("Plugin authentication", func() {
+	type Keys struct {
+		private []byte
+		public  []byte
+	}
+
+	var (
+		key0 = &Keys{
+			private: []byte("TkCE8UGWdLKjXzrUzc6AI6pFuma39+wL4d1P/gyqI0A="),
+			public:  []byte("OlqYOu+/5pP9S+6XpeiC3ryr/iKEkZiTdo9VmMohbFY="),
+		}
+		key1 = &Keys{
+			private: []byte("26zy0XoZOAGW5y1HwzR3dxbCr/K2pZaZvQO+8VQUgWs="),
+			public:  []byte("PG+8RDcmJ+bznMdR0RpDjJHju+DTFnmkiv9e71yndnk="),
+		}
+
+		s = &Suite{}
+	)
+
+	AfterEach(func() {
+		s.Cleanup()
+	})
+
+	BeforeEach(func() {
+		runtimeOptions := []nri.Option{
+			nri.WithAuthConfig(&auth.Config{
+				Roles: []*auth.Role{
+					{
+						Role: "role0",
+						Keys: []string{
+							string(key0.public),
+						},
+					},
+					{
+						Role: "role1",
+						Keys: []string{
+							string(key1.public),
+						},
+					},
+				},
+			}),
+		}
+
+		s.Prepare(
+			&mockRuntime{
+				options: runtimeOptions,
+			},
+		)
+	})
+
+	It("should succeed with the correct key", func() {
+		s.Startup()
+		s.StartPlugins(
+			&mockPlugin{
+				idx:  "00",
+				name: "foo",
+				options: []stub.Option{
+					stub.WithAuthentication(
+						nri.DefaultAuthentication,
+						auth.NewMemKeyFetcher(
+							slices.Clone(key0.private),
+							slices.Clone(key0.public),
+						),
+					),
+				},
+			},
+			&mockPlugin{
+				idx:  "10",
+				name: "bar",
+				options: []stub.Option{
+					stub.WithAuthentication(
+						nri.DefaultAuthentication,
+						auth.NewMemKeyFetcher(
+							slices.Clone(key1.private),
+							slices.Clone(key1.public),
+						),
+					),
+				},
+			},
+		)
+		s.WaitForPluginsToSync(s.plugin("00-foo"), s.plugin("10-bar"))
+		Expect(s.plugin("00-foo").stub.GetRole()).To(Equal("role0"))
+		Expect(s.plugin("10-bar").stub.GetRole()).To(Equal("role1"))
+	})
+
+	It("should fail with incorrect keys", func() {
+		plugins := []*mockPlugin{
+			{
+				idx:  "00",
+				name: "foo",
+				options: []stub.Option{
+					stub.WithAuthentication(
+						nri.DefaultAuthentication,
+						auth.NewMemKeyFetcher(
+							slices.Clone(key0.private),
+							slices.Clone(key1.public),
+						),
+					),
+				},
+			},
+			{
+				idx:  "10",
+				name: "bar",
+				options: []stub.Option{
+					stub.WithAuthentication(
+						nri.DefaultAuthentication,
+						auth.NewMemKeyFetcher(
+							slices.Clone(key1.private),
+							slices.Clone(key0.public),
+						),
+					),
+				},
+			},
+		}
+
+		s.Startup()
+		err := s.StartPlugin(plugins[0])
+		Expect(err).ToNot(BeNil())
+		err = s.StartPlugin(plugins[1])
+		Expect(err).ToNot(BeNil())
+	})
+})
+
 func protoDiff(a, b proto.Message) string {
 	return cmp.Diff(a, b, protocmp.Transform())
 }
 
 func protoEqual(a, b proto.Message) bool {
 	return cmp.Equal(a, b, cmpopts.EquateEmpty(), protocmp.Transform())
+}
+
+func boolptr(v bool) *bool {
+	return &v
 }

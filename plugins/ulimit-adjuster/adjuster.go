@@ -64,7 +64,11 @@ func main() {
 		pluginIdx  string
 		socketPath string
 		verbose    bool
-		opts       []stub.Option
+		opts       = []stub.Option{
+			stub.WithRequiredCapabilities(
+				api.Capability_ADJUST_POSIX_RLIMITS,
+			),
+		}
 	)
 
 	l := logrus.StandardLogger()

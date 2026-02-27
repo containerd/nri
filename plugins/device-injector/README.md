@@ -4,11 +4,12 @@ This sample plugin can be used to adjust selected container properties
 prior to the creation of a container. The desired adjustments happen
 based on pod annotations. The possible adjustments include
 
-  - injection of Linux device nodes,
-  - injection of mounts,
-  - injection of CDI devices,
-  - injection of network devices,
-  - adjustments to sysctl settings
+  - [injection of Linux device nodes](#device-annotations)
+  - [injection of mounts](#mount-annotations)
+  - [injection of CDI devices](#cdi-device-annotations)
+  - [injection of network devices](#network-device-annotations)
+  - [adjustments to sysctl settings](#sysctl-annotations)
+  - [adjustments to Linux memory policy](#linux-memory-policy-annotations)
 
 ### Device Annotations
 
@@ -157,6 +158,43 @@ WARNING: Note that many of the sysctl settings are effective for the full pod
 instead of a single container. Also many of the settings are not namespaced at
 all. Trying to adjust such a setting will result in an error and a failure to
 create the container.
+
+### Linux Memory Policy Annotations
+
+Memory policies are annotated in a similar manner to devices, but using the
+`memory-policy.noderesource.dev` annotation key prefix. As with devices, the
+`memory-policy.nri.io` annotation key prefix is also supported.
+
+The annotation value syntax for memory policy adjustment is
+
+```
+  mode: <policy mode, for instance MPOL_INTERLEAVE>
+  nodes: <list of NUMA nodes as a string, for instance "2,3">
+  flags: <list of policy flags as strings, for instance [ MPOL_F_STATIC_NODES ] >
+```
+
+The supported modes are:
+
+- MPOL_DEFAULT
+- MPOL_PREFERRED
+- MPOL_BIND
+- MPOL_INTERLEAVE
+- MPOL_LOCAL
+- MPOL_PREFERRED_MANY
+- MPOL_WEIGHTED_INTERLEAVE
+
+You can omit the MPOL_ prefix and can use lowercase at will.
+
+The supported flags are:
+
+- MPOL_F_STATIC_NODES
+- MPOL_F_RELATIVE_NODES
+- MPOL_F_NUMA_BALANCING
+
+As with modes, you can omit the MPOL_F_ prefix and use lowercase at will.
+
+See man set_mempolicy(2) for a description of what the effects are of these
+settings.
 
 ## Deployment
 

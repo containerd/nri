@@ -104,6 +104,10 @@ service Plugin {
   // UpdatePodSandbox relays the corresponding request to the plugin.
   rpc UpdatePodSandbox(UpdatePodSandboxRequest) returns (UpdatePodSandboxResponse);
 
+  // PodSandboxStatus relays the corresponding CRI request to the plugin.
+  // The plugin can inspect pod sandbox status queries.
+  rpc PodSandboxStatus(PodSandboxStatusRequest) returns (PodSandboxStatusResponse);
+
   // StateChange relays any remaining pod or container lifecycle/state change
   // events the plugin has subscribed for. These can be used to trigger any
   // plugin-specific processing which needs to occur in connection with any of
@@ -224,6 +228,18 @@ message UpdatePodSandboxRequest {
 
 message UpdatePodSandboxResponse {}
 
+message PodSandboxStatusRequest {
+  // Pod being queried for status.
+  PodSandbox pod = 1;
+}
+
+message PodSandboxStatusResponse {
+  // Primary IP address of the pod sandbox.
+  string ip = 1;
+  // Additional IP addresses of the pod sandbox.
+  repeated string additional_ips = 2;
+}
+
 message StateChangeEvent {
   // Event type of notification.
   Event event = 1;
@@ -280,7 +296,8 @@ enum Event {
   UPDATE_POD_SANDBOX = 12;
   POST_UPDATE_POD_SANDBOX = 13;
   VALIDATE_CONTAINER_ADJUSTMENT = 14;
-  LAST = 15;
+  POD_SANDBOX_STATUS = 15;
+  LAST = 16;
 }
 
 // Pod metadata that is considered relevant for a plugin.

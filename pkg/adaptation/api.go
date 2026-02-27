@@ -53,6 +53,8 @@ type (
 	RunPodSandboxRequest         = api.RunPodSandboxRequest
 	UpdatePodSandboxRequest      = api.UpdatePodSandboxRequest
 	UpdatePodSandboxResponse     = api.UpdatePodSandboxResponse
+	PodSandboxStatusRequest      = api.PodSandboxStatusRequest
+	PodSandboxStatusResponse     = api.PodSandboxStatusResponse
 	StopPodSandboxRequest        = api.StopPodSandboxRequest
 	RemovePodSandboxRequest      = api.RemovePodSandboxRequest
 	PostUpdatePodSandboxRequest  = api.PostUpdatePodSandboxRequest
@@ -127,6 +129,7 @@ const (
 	Event_STOP_CONTAINER                = api.Event_STOP_CONTAINER
 	Event_REMOVE_CONTAINER              = api.Event_REMOVE_CONTAINER
 	Event_VALIDATE_CONTAINER_ADJUSTMENT = api.Event_VALIDATE_CONTAINER_ADJUSTMENT
+	Event_POD_SANDBOX_STATUS            = api.Event_POD_SANDBOX_STATUS
 	ValidEvents                         = api.ValidEvents
 
 	ContainerState_CONTAINER_UNKNOWN = api.ContainerState_CONTAINER_UNKNOWN

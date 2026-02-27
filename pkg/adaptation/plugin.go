@@ -686,6 +686,28 @@ func (p *plugin) updatePodSandbox(ctx context.Context, req *UpdatePodSandboxRequ
 	return &UpdatePodSandboxResponse{}, nil
 }
 
+func (p *plugin) podSandboxStatus(ctx context.Context, req *PodSandboxStatusRequest) (*PodSandboxStatusResponse, error) {
+	if !p.events.IsSet(Event_POD_SANDBOX_STATUS) {
+		return nil, nil
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, getPluginRequestTimeout())
+	defer cancel()
+
+	rsp, err := p.impl.PodSandboxStatus(ctx, req)
+	if err != nil {
+		if isFatalError(err) {
+			log.Errorf(ctx, "closing plugin %s, failed to handle event %d: %v",
+				p.name(), Event_POD_SANDBOX_STATUS, err)
+			p.close()
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	return rsp, nil
+}
+
 // Relay other pod or container state change events to the plugin.
 func (p *plugin) StateChange(ctx context.Context, evt *StateChangeEvent) (err error) {
 	if !p.events.IsSet(evt.Event) {

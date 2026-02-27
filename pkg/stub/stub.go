@@ -31,6 +31,7 @@ import (
 	nrilog "github.com/containerd/nri/pkg/log"
 	"github.com/containerd/nri/pkg/net"
 	"github.com/containerd/nri/pkg/net/multiplex"
+	"github.com/containerd/nri/pkg/version"
 	"github.com/containerd/ttrpc"
 )
 
@@ -181,6 +182,11 @@ type Stub interface {
 
 	// Logger returns the logger used by the stub.
 	Logger() nrilog.Logger
+
+	// RuntimeNRIVersion returns the NRI version used in the runtime, if known.
+	RuntimeNRIVersion() string
+	// PluignNRIVersion returns the NRI version used in the plugin/stub.
+	PluginNRIVersion() string
 }
 
 const (
@@ -303,6 +309,8 @@ type stub struct {
 
 	registrationTimeout time.Duration
 	requestTimeout      time.Duration
+	runtimeNRIVersion   string
+	pluginNRIVersion    string
 	logger              nrilog.Logger
 }
 
@@ -339,6 +347,7 @@ func New(p interface{}, opts ...Option) (Stub, error) {
 		registrationTimeout: DefaultRegistrationTimeout,
 		requestTimeout:      DefaultRequestTimeout,
 		logger:              nrilog.Get(),
+		runtimeNRIVersion:   "unknown",
 	}
 
 	for _, o := range opts {
@@ -546,6 +555,17 @@ func (stub *stub) RequestTimeout() time.Duration {
 	return stub.requestTimeout
 }
 
+func (stub *stub) RuntimeNRIVersion() string {
+	return stub.runtimeNRIVersion
+}
+
+func (stub *stub) PluginNRIVersion() string {
+	if stub.pluginNRIVersion == "" {
+		stub.pluginNRIVersion = version.GetFromBuildInfo()
+	}
+	return stub.pluginNRIVersion
+}
+
 // Connect the plugin to NRI.
 func (stub *stub) connect() error {
 	if stub.conn != nil {
@@ -582,7 +602,9 @@ func (stub *stub) connect() error {
 
 // Register the plugin with NRI.
 func (stub *stub) register(ctx context.Context) error {
-	stub.logger.Infof(ctx, "Registering plugin %s...", stub.Name())
+	nriVersion := stub.PluginNRIVersion()
+	stub.logger.Infof(ctx, "Registering plugin %s using NRI version %s...",
+		stub.Name(), nriVersion)
 
 	ctx, cancel := context.WithTimeout(ctx, stub.registrationTimeout)
 	defer cancel()
@@ -590,6 +612,7 @@ func (stub *stub) register(ctx context.Context) error {
 	req := &api.RegisterPluginRequest{
 		PluginName: stub.name,
 		PluginIdx:  stub.idx,
+		NRIVersion: nriVersion,
 	}
 	if _, err := stub.runtime.RegisterPlugin(ctx, req); err != nil {
 		return fmt.Errorf("failed to register with NRI/Runtime: %w", err)
@@ -637,11 +660,23 @@ func (stub *stub) Configure(ctx context.Context, req *api.ConfigureRequest) (rpl
 		err    error
 	)
 
-	stub.logger.Infof(ctx, "Configuring plugin %s for runtime %s/%s...", stub.Name(),
-		req.RuntimeName, req.RuntimeVersion)
+	stub.logger.Infof(ctx, "Configuring plugin %s for runtime %s/%s (NRI version %s)...",
+		stub.Name(), req.RuntimeName, req.RuntimeVersion, req.NRIVersion)
+
+	switch req.NRIVersion {
+	case "", api.DevelVersion, api.UnknownVersion:
+		inferred, err := api.InferVersionFromRuntime(req.RuntimeName, req.RuntimeVersion)
+		if err != nil {
+			stub.logger.Warnf(ctx, "failed to infer runtime NRI version: %v", err)
+		} else {
+			stub.logger.Infof(ctx, "inferred runtime NRI version: %s", inferred)
+			req.NRIVersion = inferred
+		}
+	}
 
 	stub.registrationTimeout = time.Duration(req.RegistrationTimeout * int64(time.Millisecond))
 	stub.requestTimeout = time.Duration(req.RequestTimeout * int64(time.Millisecond))
+	stub.runtimeNRIVersion = req.NRIVersion
 
 	defer func() {
 		stub.cfgErrC <- retErr

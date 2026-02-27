@@ -3310,6 +3310,39 @@ var _ = Describe("Plugin configuration request", func() {
 	})
 })
 
+var _ = Describe("NRI version exchange", func() {
+	var (
+		s = &Suite{}
+	)
+
+	AfterEach(func() {
+		s.Cleanup()
+	})
+
+	BeforeEach(func() {
+		s.Prepare(&mockRuntime{}, &mockPlugin{idx: "00", name: "test"})
+	})
+
+	It("should pass runtime version information to plugins", func() {
+		var (
+			runtimeName    = "test-runtime"
+			runtimeVersion = "1.2.3"
+			nriVersion     = "v9.8.7"
+		)
+
+		s.runtime.name = runtimeName
+		s.runtime.version = runtimeVersion
+		s.runtime.options = append(s.runtime.options, nri.WithTestNRIVersion(nriVersion))
+
+		s.Startup()
+
+		Expect(s.plugins[0].RuntimeName()).To(Equal(runtimeName))
+		Expect(s.plugins[0].RuntimeVersion()).To(Equal(runtimeVersion))
+		Expect(s.plugins[0].RuntimeNRIVersion()).To(Equal(nriVersion))
+	})
+
+})
+
 func protoDiff(a, b proto.Message) string {
 	return cmp.Diff(a, b, protocmp.Transform())
 }

@@ -217,9 +217,19 @@ func (r *Adaptation) Stop() {
 }
 
 // RunPodSandbox relays the corresponding CRI event to plugins.
-func (r *Adaptation) RunPodSandbox(ctx context.Context, evt *StateChangeEvent) error {
-	evt.Event = Event_RUN_POD_SANDBOX
-	return r.StateChange(ctx, evt)
+func (r *Adaptation) RunPodSandbox(ctx context.Context, req *RunPodSandboxRequest) error {
+	r.Lock()
+	defer r.Unlock()
+	defer r.removeClosedPlugins()
+
+	for _, plugin := range r.plugins {
+		_, err := plugin.runPodSandbox(ctx, req)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // UpdatePodSandbox relays the corresponding CRI request to plugins.
@@ -239,21 +249,51 @@ func (r *Adaptation) UpdatePodSandbox(ctx context.Context, req *UpdatePodSandbox
 }
 
 // PostUpdatePodSandbox relays the corresponding CRI event to plugins.
-func (r *Adaptation) PostUpdatePodSandbox(ctx context.Context, evt *StateChangeEvent) error {
-	evt.Event = Event_POST_UPDATE_POD_SANDBOX
-	return r.StateChange(ctx, evt)
+func (r *Adaptation) PostUpdatePodSandbox(ctx context.Context, req *PostUpdatePodSandboxRequest) error {
+	r.Lock()
+	defer r.Unlock()
+	defer r.removeClosedPlugins()
+
+	for _, plugin := range r.plugins {
+		_, err := plugin.postUpdatePodSandbox(ctx, req)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // StopPodSandbox relays the corresponding CRI event to plugins.
-func (r *Adaptation) StopPodSandbox(ctx context.Context, evt *StateChangeEvent) error {
-	evt.Event = Event_STOP_POD_SANDBOX
-	return r.StateChange(ctx, evt)
+func (r *Adaptation) StopPodSandbox(ctx context.Context, req *StopPodSandboxRequest) error {
+	r.Lock()
+	defer r.Unlock()
+	defer r.removeClosedPlugins()
+
+	for _, plugin := range r.plugins {
+		_, err := plugin.stopPodSandbox(ctx, req)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // RemovePodSandbox relays the corresponding CRI event to plugins.
-func (r *Adaptation) RemovePodSandbox(ctx context.Context, evt *StateChangeEvent) error {
-	evt.Event = Event_REMOVE_POD_SANDBOX
-	return r.StateChange(ctx, evt)
+func (r *Adaptation) RemovePodSandbox(ctx context.Context, req *RemovePodSandboxRequest) error {
+	r.Lock()
+	defer r.Unlock()
+	defer r.removeClosedPlugins()
+
+	for _, plugin := range r.plugins {
+		_, err := plugin.removePodSandbox(ctx, req)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // CreateContainer relays the corresponding CRI request to plugins.
@@ -292,21 +332,51 @@ func (r *Adaptation) CreateContainer(ctx context.Context, req *CreateContainerRe
 }
 
 // PostCreateContainer relays the corresponding CRI event to plugins.
-func (r *Adaptation) PostCreateContainer(ctx context.Context, evt *StateChangeEvent) error {
-	evt.Event = Event_POST_CREATE_CONTAINER
-	return r.StateChange(ctx, evt)
+func (r *Adaptation) PostCreateContainer(ctx context.Context, req *PostCreateContainerRequest) error {
+	r.Lock()
+	defer r.Unlock()
+	defer r.removeClosedPlugins()
+
+	for _, plugin := range r.plugins {
+		_, err := plugin.postCreateContainer(ctx, req)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // StartContainer relays the corresponding CRI event to plugins.
-func (r *Adaptation) StartContainer(ctx context.Context, evt *StateChangeEvent) error {
-	evt.Event = Event_START_CONTAINER
-	return r.StateChange(ctx, evt)
+func (r *Adaptation) StartContainer(ctx context.Context, req *StartContainerRequest) error {
+	r.Lock()
+	defer r.Unlock()
+	defer r.removeClosedPlugins()
+
+	for _, plugin := range r.plugins {
+		_, err := plugin.startContainer(ctx, req)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // PostStartContainer relays the corresponding CRI event to plugins.
-func (r *Adaptation) PostStartContainer(ctx context.Context, evt *StateChangeEvent) error {
-	evt.Event = Event_POST_START_CONTAINER
-	return r.StateChange(ctx, evt)
+func (r *Adaptation) PostStartContainer(ctx context.Context, req *PostStartContainerRequest) error {
+	r.Lock()
+	defer r.Unlock()
+	defer r.removeClosedPlugins()
+
+	for _, plugin := range r.plugins {
+		_, err := plugin.postStartContainer(ctx, req)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // UpdateContainer relays the corresponding CRI request to plugins.
@@ -331,9 +401,19 @@ func (r *Adaptation) UpdateContainer(ctx context.Context, req *UpdateContainerRe
 }
 
 // PostUpdateContainer relays the corresponding CRI event to plugins.
-func (r *Adaptation) PostUpdateContainer(ctx context.Context, evt *StateChangeEvent) error {
-	evt.Event = Event_POST_UPDATE_CONTAINER
-	return r.StateChange(ctx, evt)
+func (r *Adaptation) PostUpdateContainer(ctx context.Context, req *PostUpdateContainerRequest) error {
+	r.Lock()
+	defer r.Unlock()
+	defer r.removeClosedPlugins()
+
+	for _, plugin := range r.plugins {
+		_, err := plugin.postUpdateContainer(ctx, req)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // StopContainer relays the corresponding CRI request to plugins.
@@ -358,23 +438,13 @@ func (r *Adaptation) StopContainer(ctx context.Context, req *StopContainerReques
 }
 
 // RemoveContainer relays the corresponding CRI event to plugins.
-func (r *Adaptation) RemoveContainer(ctx context.Context, evt *StateChangeEvent) error {
-	evt.Event = Event_REMOVE_CONTAINER
-	return r.StateChange(ctx, evt)
-}
-
-// StateChange relays pod- or container events to plugins.
-func (r *Adaptation) StateChange(ctx context.Context, evt *StateChangeEvent) error {
-	if evt.Event == Event_UNKNOWN {
-		return errors.New("invalid (unset) event in state change notification")
-	}
-
+func (r *Adaptation) RemoveContainer(ctx context.Context, req *RemoveContainerRequest) error {
 	r.Lock()
 	defer r.Unlock()
 	defer r.removeClosedPlugins()
 
 	for _, plugin := range r.plugins {
-		err := plugin.StateChange(ctx, evt)
+		_, err := plugin.removeContainer(ctx, req)
 		if err != nil {
 			return err
 		}

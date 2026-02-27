@@ -737,6 +737,56 @@ func (stub *stub) Shutdown(ctx context.Context, _ *api.ShutdownRequest) (*api.Sh
 	return &api.ShutdownResponse{}, nil
 }
 
+// RunPodSandbox request handler.
+func (stub *stub) RunPodSandbox(ctx context.Context, req *api.RunPodSandboxRequest) (*api.RunPodSandboxResponse, error) {
+	handler := stub.handlers.RunPodSandbox
+	if handler == nil {
+		return &api.RunPodSandboxResponse{}, nil
+	}
+	err := handler(ctx, req.Pod)
+	return &api.RunPodSandboxResponse{}, err
+}
+
+// UpdatePodSandbox request handler.
+func (stub *stub) UpdatePodSandbox(ctx context.Context, req *api.UpdatePodSandboxRequest) (*api.UpdatePodSandboxResponse, error) {
+	handler := stub.handlers.UpdatePodSandbox
+	if handler == nil {
+		return &api.UpdatePodSandboxResponse{}, nil
+	}
+	err := handler(ctx, req.Pod, req.OverheadLinuxResources, req.LinuxResources)
+	return &api.UpdatePodSandboxResponse{}, err
+}
+
+// PostUpdatePodSandbox request handler.
+func (stub *stub) PostUpdatePodSandbox(ctx context.Context, req *api.PostUpdatePodSandboxRequest) (*api.PostUpdatePodSandboxResponse, error) {
+	handler := stub.handlers.PostUpdatePodSandbox
+	if handler == nil {
+		return &api.PostUpdatePodSandboxResponse{}, nil
+	}
+	err := handler(ctx, req.Pod)
+	return &api.PostUpdatePodSandboxResponse{}, err
+}
+
+// StopPodSandbox request handler.
+func (stub *stub) StopPodSandbox(ctx context.Context, req *api.StopPodSandboxRequest) (*api.StopPodSandboxResponse, error) {
+	handler := stub.handlers.StopPodSandbox
+	if handler == nil {
+		return &api.StopPodSandboxResponse{}, nil
+	}
+	err := handler(ctx, req.Pod)
+	return &api.StopPodSandboxResponse{}, err
+}
+
+// RemovePodSandbox request handler.
+func (stub *stub) RemovePodSandbox(ctx context.Context, req *api.RemovePodSandboxRequest) (*api.RemovePodSandboxResponse, error) {
+	handler := stub.handlers.RemovePodSandbox
+	if handler == nil {
+		return &api.RemovePodSandboxResponse{}, nil
+	}
+	err := handler(ctx, req.Pod)
+	return &api.RemovePodSandboxResponse{}, err
+}
+
 // CreateContainer request handler.
 func (stub *stub) CreateContainer(ctx context.Context, req *api.CreateContainerRequest) (*api.CreateContainerResponse, error) {
 	handler := stub.handlers.CreateContainer
@@ -748,6 +798,36 @@ func (stub *stub) CreateContainer(ctx context.Context, req *api.CreateContainerR
 		Adjust: adjust,
 		Update: update,
 	}, err
+}
+
+// PostCreateContainer request handler.
+func (stub *stub) PostCreateContainer(ctx context.Context, req *api.PostCreateContainerRequest) (*api.PostCreateContainerResponse, error) {
+	handler := stub.handlers.PostCreateContainer
+	if handler == nil {
+		return &api.PostCreateContainerResponse{}, nil
+	}
+	err := handler(ctx, req.Pod, req.Container)
+	return &api.PostCreateContainerResponse{}, err
+}
+
+// StartContainer request handler.
+func (stub *stub) StartContainer(ctx context.Context, req *api.StartContainerRequest) (*api.StartContainerResponse, error) {
+	handler := stub.handlers.StartContainer
+	if handler == nil {
+		return &api.StartContainerResponse{}, nil
+	}
+	err := handler(ctx, req.Pod, req.Container)
+	return &api.StartContainerResponse{}, err
+}
+
+// PostStartContainer request handler.
+func (stub *stub) PostStartContainer(ctx context.Context, req *api.PostStartContainerRequest) (*api.PostStartContainerResponse, error) {
+	handler := stub.handlers.PostStartContainer
+	if handler == nil {
+		return &api.PostStartContainerResponse{}, nil
+	}
+	err := handler(ctx, req.Pod, req.Container)
+	return &api.PostStartContainerResponse{}, err
 }
 
 // UpdateContainer request handler.
@@ -762,6 +842,16 @@ func (stub *stub) UpdateContainer(ctx context.Context, req *api.UpdateContainerR
 	}, err
 }
 
+// PostUpdateContainer request handler.
+func (stub *stub) PostUpdateContainer(ctx context.Context, req *api.PostUpdateContainerRequest) (*api.PostUpdateContainerResponse, error) {
+	handler := stub.handlers.PostUpdateContainer
+	if handler == nil {
+		return &api.PostUpdateContainerResponse{}, nil
+	}
+	err := handler(ctx, req.Pod, req.Container)
+	return &api.PostUpdateContainerResponse{}, err
+}
+
 // StopContainer request handler.
 func (stub *stub) StopContainer(ctx context.Context, req *api.StopContainerRequest) (*api.StopContainerResponse, error) {
 	handler := stub.handlers.StopContainer
@@ -774,14 +864,14 @@ func (stub *stub) StopContainer(ctx context.Context, req *api.StopContainerReque
 	}, err
 }
 
-// UpdatePodSandbox request handler.
-func (stub *stub) UpdatePodSandbox(ctx context.Context, req *api.UpdatePodSandboxRequest) (*api.UpdatePodSandboxResponse, error) {
-	handler := stub.handlers.UpdatePodSandbox
+// RemoveContainer request handler.
+func (stub *stub) RemoveContainer(ctx context.Context, req *api.RemoveContainerRequest) (*api.RemoveContainerResponse, error) {
+	handler := stub.handlers.RemoveContainer
 	if handler == nil {
-		return &api.UpdatePodSandboxResponse{}, nil
+		return &api.RemoveContainerResponse{}, nil
 	}
-	err := handler(ctx, req.Pod, req.OverheadLinuxResources, req.LinuxResources)
-	return &api.UpdatePodSandboxResponse{}, err
+	err := handler(ctx, req.Pod, req.Container)
+	return &api.RemoveContainerResponse{}, err
 }
 
 // StateChange event handler.
@@ -887,6 +977,10 @@ func (stub *stub) setupHandlers() error {
 		stub.handlers.UpdatePodSandbox = plugin.UpdatePodSandbox
 		stub.events.Set(api.Event_UPDATE_POD_SANDBOX)
 	}
+	if plugin, ok := stub.plugin.(PostUpdatePodInterface); ok {
+		stub.handlers.PostUpdatePodSandbox = plugin.PostUpdatePodSandbox
+		stub.events.Set(api.Event_POST_UPDATE_POD_SANDBOX)
+	}
 	if plugin, ok := stub.plugin.(StopPodInterface); ok {
 		stub.handlers.StopPodSandbox = plugin.StopPodSandbox
 		stub.events.Set(api.Event_STOP_POD_SANDBOX)
@@ -894,10 +988,6 @@ func (stub *stub) setupHandlers() error {
 	if plugin, ok := stub.plugin.(RemovePodInterface); ok {
 		stub.handlers.RemovePodSandbox = plugin.RemovePodSandbox
 		stub.events.Set(api.Event_REMOVE_POD_SANDBOX)
-	}
-	if plugin, ok := stub.plugin.(PostUpdatePodInterface); ok {
-		stub.handlers.PostUpdatePodSandbox = plugin.PostUpdatePodSandbox
-		stub.events.Set(api.Event_POST_UPDATE_POD_SANDBOX)
 	}
 	if plugin, ok := stub.plugin.(CreateContainerInterface); ok {
 		stub.handlers.CreateContainer = plugin.CreateContainer

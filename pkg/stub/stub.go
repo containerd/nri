@@ -506,18 +506,20 @@ func (stub *stub) close() {
 
 // Run the plugin. Start event processing then wait for an error or getting stopped.
 func (stub *stub) Run(ctx context.Context) error {
-	var err error
-
-	if err = stub.Start(ctx); err != nil {
+	if err := stub.Start(ctx); err != nil {
 		return err
 	}
 
-	err = <-stub.srvErrC
-	if err == ttrpc.ErrServerClosed {
-		stub.logger.Infof(noCtx, "ttrpc server closed %s : %v", stub.Name(), err)
+	select {
+	case err := <-stub.srvErrC:
+		if err == ttrpc.ErrServerClosed {
+			stub.logger.Infof(noCtx, "ttrpc server closed %s : %v", stub.Name(), err)
+		}
+		return err
+	case <-ctx.Done():
+		stub.Stop()
+		return ctx.Err()
 	}
-
-	return err
 }
 
 // Wait for the plugin to stop, should be called after Start() or Run().

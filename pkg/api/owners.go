@@ -49,7 +49,7 @@ func (o *OwningPlugins) ClaimHooks(id, plugin string) error {
 }
 
 func (o *OwningPlugins) HooksOwner(id string) (string, bool) {
-	return o.ownersFor(id).simpleOwner(Field_OciHooks.Key())
+	return o.ownersFor(id).SimpleOwner(Field_OciHooks.Key())
 }
 
 func (o *OwningPlugins) ClearHooks(id, plugin string) {
@@ -148,7 +148,7 @@ func (f *FieldOwners) ClaimHooks(plugin string) error {
 }
 
 func (f *FieldOwners) HooksOwner() (string, bool) {
-	return f.simpleOwner(Field_OciHooks.Key())
+	return f.SimpleOwner(Field_OciHooks.Key())
 }
 
 func (f *FieldOwners) ClearHooks(plugin string) {
@@ -175,7 +175,7 @@ func (f *FieldOwners) ClearRdt(plugin string) {
 }
 
 func (f *FieldOwners) accumulateSimple(field int32, plugin string) {
-	old, ok := f.simpleOwner(field)
+	old, ok := f.SimpleOwner(field)
 	if ok {
 		plugin = old + "," + plugin
 	}
@@ -187,7 +187,7 @@ func (f *FieldOwners) Conflict(field int32, plugin, other string, qualifiers ...
 		plugin, other, qualify(field, qualifiers...))
 }
 
-func (f *FieldOwners) compoundOwnerMap(field int32) (map[string]string, bool) {
+func (f *FieldOwners) CompoundOwnerMap(field int32) (map[string]string, bool) {
 	if f == nil {
 		return nil, false
 	}
@@ -200,7 +200,7 @@ func (f *FieldOwners) compoundOwnerMap(field int32) (map[string]string, bool) {
 	return m.Owners, true
 }
 
-func (f *FieldOwners) compoundOwner(field int32, key string) (string, bool) {
+func (f *FieldOwners) CompoundOwner(field int32, key string) (string, bool) {
 	if f == nil {
 		return "", false
 	}
@@ -214,7 +214,7 @@ func (f *FieldOwners) compoundOwner(field int32, key string) (string, bool) {
 	return plugin, ok
 }
 
-func (f *FieldOwners) simpleOwner(field int32) (string, bool) {
+func (f *FieldOwners) SimpleOwner(field int32) (string, bool) {
 	if f == nil {
 		return "", false
 	}
@@ -224,7 +224,7 @@ func (f *FieldOwners) simpleOwner(field int32) (string, bool) {
 }
 
 func (o *OwningPlugins) NamespaceOwners(id string) (map[string]string, bool) {
-	return o.ownersFor(id).compoundOwnerMap(Field_Namespace.Key())
+	return o.ownersFor(id).CompoundOwnerMap(Field_Namespace.Key())
 }
 
 func qualify(field int32, qualifiers ...string) string {

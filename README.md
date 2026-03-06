@@ -331,6 +331,8 @@ changes with extra information about which of the plugins requested what
 changes. They can then choose to reject the changes if they violate some of the
 conditions being validated.
 
+For more details, see the [Validation Plugins guide](docs/validation-plugins.md).
+
 Validation has transactional semantics. If any validating plugin rejects an
 adjustment, creation of the adjusted container will fail and none of the other
 related changes will be made.

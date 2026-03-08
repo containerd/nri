@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: nri-plugin-identity
+spec:
+  template:
+    spec:
+      containers:
+        - name: plugin
+          image: plugin:latest
+          args:
+            - "--idx"
+            - "11"
+            - "--events"
+            - "RunPodSandbox,StopPodSandbox,RemovePodSandbox,CreateContainer,PostCreateContainer,StartContainer,PostStartContainer,UpdateContainer,PostUpdateContainer,StopContainer,RemoveContainer"
+            - "--verbose"
+            - "true"
+            - "--spiffe-agent-socket"
+            - "unix:///run/spire/sockets/agent.sock"
+            - "--spiffe-admin-socket"
+            - "unix:///run/spire/admin-socket/admin.sock"
+            - "--host-mount-path"
+            - "/var/run/spiffe/secrets/"
+          resources:
+            requests:
+              cpu: "2m"
+              memory: "5Mi"
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: nri-socket
+              mountPath: /var/run/nri/nri.sock
+            - name: spire-agent-socket
+              mountPath: /run/spire/sockets/agent.sock
+            - name: spire-admin-socket
+              mountPath: /run/spire/admin-socket/admin.sock
+            - name: spiffe-certs
+              mountPath: /var/run/spiffe/secrets/
+      volumes:
+        - name: nri-socket
+          hostPath:
+            path: /var/run/nri/nri.sock
+            type: Socket
+        - name: spire-agent-socket
+          hostPath:
+            path: /run/spire/sockets/agent.sock
+            type: Socket
+        - name: spire-admin-socket
+          hostPath:
+            path: /run/spire/admin-socket/admin.sock
+            type: Socket
+        - name: spiffe-certs
+          hostPath:
+            path: /var/run/spiffe/secrets/
+            type: DirectoryOrCreate

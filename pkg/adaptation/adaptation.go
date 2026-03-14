@@ -593,10 +593,10 @@ func (r *Adaptation) acceptPluginConnections(l net.Listener) error {
 			}
 
 			r.requestPluginSync()
-
 			err = r.syncFn(ctx, p.synchronize)
 			if err != nil {
-				log.Infof(ctx, "failed to synchronize plugin: %v", err)
+				log.Errorf(ctx, "failed to synchronize plugin: %v", err)
+				p.close()
 			} else {
 				r.Lock()
 				r.plugins = append(r.plugins, p)
@@ -607,7 +607,6 @@ func (r *Adaptation) acceptPluginConnections(l net.Listener) error {
 				r.Unlock()
 				log.Infof(ctx, "plugin %q connected and synchronized", p.name())
 			}
-
 			r.finishedPluginSync()
 		}
 	}()

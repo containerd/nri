@@ -257,6 +257,29 @@ var _ = Describe("Plugin connection", func() {
 		Expect(protoEqual(plugin.ctrs["ctr1"], runtime.ctrs["ctr1"])).Should(BeTrue(),
 			protoDiff(plugin.ctrs["ctr1"], runtime.ctrs["ctr1"]))
 	})
+
+	It("close plugins on failed synchronization", func() {
+		var (
+			runtime = s.runtime
+			plugin0 = s.plugins[0]
+			plugin1 = &mockPlugin{idx: "10", name: "bar"}
+			timeout = time.After(startupTimeout)
+		)
+
+		s.Startup()
+
+		Expect(plugin0.Events()).Should(
+			ConsistOf(
+				PluginConfigured,
+				PluginSynchronized,
+			),
+		)
+
+		runtime.failSync = true
+
+		s.StartPlugins(plugin1)
+		Expect(plugin1.Wait(PluginDisconnected, timeout)).To(Succeed())
+	})
 })
 
 var _ = Describe("Pod and container requests and events", func() {

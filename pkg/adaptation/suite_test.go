@@ -158,6 +158,7 @@ type mockRuntime struct {
 	ctrs    map[string]*api.Container
 
 	updateFn nri.UpdateFn
+	failSync bool
 }
 
 func (m *mockRuntime) Start(dir string) error {
@@ -228,6 +229,11 @@ func (m *mockRuntime) synchronize(ctx context.Context, cb nri.SyncCB) error {
 	}
 
 	_, err := cb(ctx, pods, ctrs)
+
+	if m.failSync {
+		return fmt.Errorf("mock runtime forced synchronize failure")
+	}
+
 	return err
 }
 

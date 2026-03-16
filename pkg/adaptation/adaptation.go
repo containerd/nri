@@ -30,6 +30,7 @@ import (
 	"github.com/containerd/nri/pkg/adaptation/builtin"
 	"github.com/containerd/nri/pkg/api"
 	"github.com/containerd/nri/pkg/log"
+	nriver "github.com/containerd/nri/pkg/version"
 	validator "github.com/containerd/nri/plugins/default-validator/builtin"
 	"github.com/containerd/ttrpc"
 
@@ -57,22 +58,24 @@ type UpdateFn func(context.Context, []*ContainerUpdate) ([]*ContainerUpdate, err
 // Adaptation is the NRI abstraction for container runtime NRI adaptation/integration.
 type Adaptation struct {
 	sync.Mutex
-	name        string
-	version     string
-	dropinPath  string
-	pluginPath  string
-	socketPath  string
-	dontListen  bool
-	syncFn      SyncFn
-	updateFn    UpdateFn
-	clientOpts  []ttrpc.ClientOpts
-	serverOpts  []ttrpc.ServerOpt
-	listener    net.Listener
-	plugins     []*plugin
-	validators  []*plugin
-	builtin     []*builtin.BuiltinPlugin
-	syncLock    sync.RWMutex
-	wasmService *api.PluginPlugin
+	name         string
+	version      string
+	nriVersion   string
+	dropinPath   string
+	pluginPath   string
+	socketPath   string
+	dontListen   bool
+	syncFn       SyncFn
+	updateFn     UpdateFn
+	clientOpts   []ttrpc.ClientOpts
+	serverOpts   []ttrpc.ServerOpt
+	listener     net.Listener
+	plugins      []*plugin
+	validators   []*plugin
+	builtin      []*builtin.BuiltinPlugin
+	syncLock     sync.RWMutex
+	wasmService  *api.PluginPlugin
+	capabilities CapabilityMask
 }
 
 var (
@@ -145,6 +148,14 @@ func WithDefaultValidator(cfg *validator.DefaultValidatorConfig) Option {
 	}
 }
 
+// WithSupportedCapabilities sets up the supported capabilities reported to plugins.
+func WithSupportedCapabilities(capabilities CapabilityMask) Option {
+	return func(r *Adaptation) error {
+		r.capabilities = capabilities.Clone()
+		return nil
+	}
+}
+
 // New creates a new NRI Runtime.
 func New(name, version string, syncFn SyncFn, updateFn UpdateFn, opts ...Option) (*Adaptation, error) {
 	var err error
@@ -167,6 +178,7 @@ func New(name, version string, syncFn SyncFn, updateFn UpdateFn, opts ...Option)
 	r := &Adaptation{
 		name:        name,
 		version:     version,
+		nriVersion:  nriver.GetFromBuildInfo(),
 		syncFn:      syncFn,
 		updateFn:    updateFn,
 		pluginPath:  DefaultPluginPath,

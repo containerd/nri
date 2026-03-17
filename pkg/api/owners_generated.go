@@ -932,3 +932,27 @@ func (o *OwningPlugins) ClearRdtEnableMonitoring(id, plugin string) {
 func (f *FieldOwners) ClearRdtEnableMonitoring(plugin string) {
 	f.clearSimple(Field_RdtEnableMonitoring.Key(), plugin)
 }
+
+func (o *OwningPlugins) ClaimMemoryPolicy(id, plugin string) error {
+	return o.mustOwnersFor(id).ClaimMemoryPolicy(plugin)
+}
+
+func (f *FieldOwners) ClaimMemoryPolicy(plugin string) error {
+	return f.claimSimple(Field_MemoryPolicy.Key(), plugin)
+}
+
+func (o *OwningPlugins) MemoryPolicyOwner(id string) (string, bool) {
+	return o.ownersFor(id).simpleOwner(Field_MemoryPolicy.Key())
+}
+
+func (f *FieldOwners) MemoryPolicyOwner() (string, bool) {
+	return f.simpleOwner(Field_MemoryPolicy.Key())
+}
+
+func (o *OwningPlugins) ClearMemoryPolicy(id, plugin string) {
+	o.mustOwnersFor(id).ClearMemoryPolicy(plugin)
+}
+
+func (f *FieldOwners) ClearMemoryPolicy(plugin string) {
+	f.clearSimple(Field_MemoryPolicy.Key(), plugin)
+}

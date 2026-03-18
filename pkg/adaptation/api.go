@@ -51,10 +51,13 @@ type (
 	StateChangeEvent             = api.StateChangeEvent
 	StateChangeResponse          = api.StateChangeResponse
 	RunPodSandboxRequest         = api.RunPodSandboxRequest
+	RunPodSandboxResponse        = api.RunPodSandboxResponse
 	UpdatePodSandboxRequest      = api.UpdatePodSandboxRequest
 	UpdatePodSandboxResponse     = api.UpdatePodSandboxResponse
 	StopPodSandboxRequest        = api.StopPodSandboxRequest
+	StopPodSandboxResponse       = api.StopPodSandboxResponse
 	RemovePodSandboxRequest      = api.RemovePodSandboxRequest
+	RemovePodSandboxResponse     = api.RemovePodSandboxResponse
 	PostUpdatePodSandboxRequest  = api.PostUpdatePodSandboxRequest
 	PostUpdatePodSandboxResponse = api.PostUpdatePodSandboxResponse
 	StartContainerRequest        = api.StartContainerRequest
@@ -106,6 +109,7 @@ type (
 	SecurityProfile          = api.SecurityProfile
 	User                     = api.User
 
+	Event     = api.Event
 	EventMask = api.EventMask
 )
 

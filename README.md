@@ -88,6 +88,17 @@ have requested to containers. This interface allows one to set up and enforce
 cluster- or node-wide boundary conditions for changes NRI plugins are allowed
 to make.
 
+### Deprecated Interfaces
+
+#### StateChange
+
+In the original wire protocol a single StateChange RPC call was used to multiplex
+most pod and container lifecycle events/requests on the wire. This RPC call has
+been replaced with proper dedicated calls for each request and is now deprecated.
+For the time being, the runtime adaptation transparently falls back to funneling
+requests through StateChange for plugins compiled against older versions of the
+NRI stub package. This support will be removed in a future version of NRI.
+
 ### Plugin Registration
 
 Before a plugin can start receiving and processing container events, it needs

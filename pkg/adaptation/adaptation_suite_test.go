@@ -282,6 +282,77 @@ var _ = Describe("Plugin connection", func() {
 	})
 })
 
+var _ = Describe("Plugin shadowing", func() {
+	var (
+		s = &Suite{}
+	)
+
+	BeforeEach(func() {
+		s.Prepare(
+			&mockRuntime{},
+			&mockPlugin{idx: "10", name: "test"},
+		)
+	})
+
+	AfterEach(func() {
+		s.Cleanup()
+	})
+
+	It("should route events only to the newest plugin of the same name/index", func() {
+		var (
+			runtime = s.runtime
+			plugin1 = s.plugins[0]
+			plugin2 = &mockPlugin{idx: plugin1.idx, name: plugin1.name}
+			ctx     = context.Background()
+			pod     = &api.PodSandbox{Id: "pod0", Name: "pod0", Namespace: "default"}
+		)
+
+		s.Startup()
+
+		Expect(plugin1.Events()).Should(ContainElement(PluginSynchronized))
+
+		s.StartPlugins(plugin2)
+		s.WaitForPluginsToSync(plugin2)
+
+		Expect(plugin2.Events()).Should(ContainElement(PluginSynchronized))
+
+		plugin1.EventQ().Reset()
+		plugin2.EventQ().Reset()
+
+		Expect(runtime.RunPodSandbox(ctx, &api.StateChangeEvent{Pod: pod})).To(Succeed())
+
+		Expect(plugin2.EventQ().Has(&Event{Type: RunPodSandbox})).To(BeTrue())
+		Expect(plugin1.EventQ().Has(&Event{Type: RunPodSandbox})).To(BeFalse())
+	})
+
+	It("should fallback to older plugin if the newer one disconnects", func() {
+		var (
+			runtime = s.runtime
+			plugin1 = s.plugins[0]
+			plugin2 = &mockPlugin{idx: plugin1.idx, name: plugin1.name}
+			ctx     = context.Background()
+			pod     = &api.PodSandbox{Id: "pod0", Name: "pod0", Namespace: "default"}
+		)
+
+		s.Startup()
+		s.StartPlugins(plugin2)
+		s.WaitForPluginsToSync(plugin2)
+
+		plugin1.EventQ().Reset()
+		plugin2.EventQ().Reset()
+
+		plugin2.Stop()
+		Expect(plugin2.Wait(PluginDisconnected, time.After(startupTimeout))).To(Succeed())
+
+		Eventually(func() bool {
+			if err := runtime.RunPodSandbox(ctx, &api.StateChangeEvent{Pod: pod}); err != nil {
+				return false
+			}
+			return plugin1.EventQ().Has(&Event{Type: RunPodSandbox})
+		}, 5*time.Second).Should(BeTrue())
+	})
+})
+
 var _ = Describe("Pod and container requests and events", func() {
 	var (
 		s = &Suite{}

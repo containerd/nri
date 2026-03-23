@@ -53,21 +53,23 @@ var (
 
 type plugin struct {
 	sync.Mutex
-	idx    string
-	base   string
-	cfg    string
-	pid    int
-	cmd    *exec.Cmd
-	mux    multiplex.Mux
-	rpcc   *ttrpc.Client
-	rpcl   stdnet.Listener
-	rpcs   *ttrpc.Server
-	events EventMask
-	closed bool
-	regC   chan error
-	closeC chan struct{}
-	r      *Adaptation
-	impl   *pluginType
+	idx         string
+	base        string
+	cfg         string
+	pid         int
+	cmd         *exec.Cmd
+	mux         multiplex.Mux
+	rpcc        *ttrpc.Client
+	rpcl        stdnet.Listener
+	rpcs        *ttrpc.Server
+	events      EventMask
+	closed      bool
+	regC        chan error
+	closeC      chan struct{}
+	r           *Adaptation
+	impl        *pluginType
+	shadowed    bool
+	connectedAt time.Time
 }
 
 // SetPluginRegistrationTimeout sets the timeout for plugin registration.
@@ -176,11 +178,12 @@ func (r *Adaptation) newBuiltinPlugin(b *builtin.BuiltinPlugin) (*plugin, error)
 	}
 
 	return &plugin{
-		idx:    b.Index,
-		base:   b.Base,
-		closeC: make(chan struct{}),
-		r:      r,
-		impl:   &pluginType{builtinImpl: b},
+		idx:         b.Index,
+		base:        b.Base,
+		closeC:      make(chan struct{}),
+		r:           r,
+		impl:        &pluginType{builtinImpl: b},
+		connectedAt: time.Now(),
 	}, nil
 }
 
@@ -309,6 +312,8 @@ func (p *plugin) connect(conn stdnet.Conn) (retErr error) {
 	}
 
 	api.RegisterRuntimeService(p.rpcs, p)
+
+	p.connectedAt = time.Now()
 
 	return nil
 }

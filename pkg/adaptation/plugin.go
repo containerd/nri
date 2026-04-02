@@ -447,7 +447,12 @@ func (p *plugin) RegisterPlugin(ctx context.Context, req *RegisterPluginRequest)
 		p.idx = req.PluginIdx
 	}
 
-	log.Infof(ctx, "plugin %q registered as %q", p.qualifiedName(), p.name())
+	nriVersion := "unknown"
+	if req.NRIVersion != "" {
+		nriVersion = req.NRIVersion
+	}
+	log.Infof(ctx, "plugin %q registered as %q (with NRI version %s)",
+		p.qualifiedName(), p.name(), nriVersion)
 
 	p.regC <- nil
 	return &RegisterPluginResponse{}, nil
@@ -474,6 +479,7 @@ func (p *plugin) configure(ctx context.Context, name, version, config string) (e
 		RuntimeVersion:      version,
 		RegistrationTimeout: getPluginRegistrationTimeout().Milliseconds(),
 		RequestTimeout:      getPluginRequestTimeout().Milliseconds(),
+		NRIVersion:          p.r.nriVersion,
 	}
 
 	rpl, err := p.impl.Configure(ctx, req)

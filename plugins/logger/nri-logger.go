@@ -84,7 +84,7 @@ func (p *plugin) Synchronize(_ context.Context, pods []*api.PodSandbox, containe
 	return nil, nil
 }
 
-func (p *plugin) Shutdown() {
+func (p *plugin) Shutdown(_ context.Context) {
 	dump("Shutdown")
 }
 

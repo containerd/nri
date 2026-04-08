@@ -37,6 +37,8 @@
      inkscape:current-layer="svg304" />
   <title
      id="title2">Docs</title>
+  <!-- This rectangle acts as the background -->
+  <rect width="100%" height="100%" fill="#5b839b" />
   <g
      id="g6"
      transform="translate(-151.13236,-44.594905)">

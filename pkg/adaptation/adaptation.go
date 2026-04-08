@@ -26,6 +26,7 @@ import (
 	"path/filepath"
 	"sort"
 	"sync"
+	"time"
 
 	"github.com/containerd/nri/pkg/adaptation/builtin"
 	"github.com/containerd/nri/pkg/api"
@@ -232,6 +233,9 @@ func (r *Adaptation) UpdatePodSandbox(ctx context.Context, req *UpdatePodSandbox
 	defer r.removeClosedPlugins()
 
 	for _, plugin := range r.plugins {
+		if plugin.shadowed {
+			continue
+		}
 		_, err := plugin.updatePodSandbox(ctx, req)
 		if err != nil {
 			return nil, err
@@ -278,6 +282,9 @@ func (r *Adaptation) CreateContainer(ctx context.Context, req *CreateContainerRe
 	}
 
 	for _, plugin := range r.plugins {
+		if plugin.shadowed {
+			continue
+		}
 		if validate != nil {
 			validate.AddPlugin(plugin.base, plugin.idx)
 		}
@@ -320,6 +327,9 @@ func (r *Adaptation) UpdateContainer(ctx context.Context, req *UpdateContainerRe
 
 	result := collectUpdateContainerResult(req)
 	for _, plugin := range r.plugins {
+		if plugin.shadowed {
+			continue
+		}
 		rpl, err := plugin.updateContainer(ctx, req)
 		if err != nil {
 			return nil, err
@@ -347,6 +357,9 @@ func (r *Adaptation) StopContainer(ctx context.Context, req *StopContainerReques
 
 	result := collectStopContainerResult()
 	for _, plugin := range r.plugins {
+		if plugin.shadowed {
+			continue
+		}
 		rpl, err := plugin.stopContainer(ctx, req)
 		if err != nil {
 			return nil, err
@@ -377,6 +390,9 @@ func (r *Adaptation) StateChange(ctx context.Context, evt *StateChangeEvent) err
 	defer r.removeClosedPlugins()
 
 	for _, plugin := range r.plugins {
+		if plugin.shadowed {
+			continue
+		}
 		err := plugin.StateChange(ctx, evt)
 		if err != nil {
 			return err
@@ -409,6 +425,9 @@ func (r *Adaptation) validateContainerAdjustment(ctx context.Context, req *Valid
 	wg := sync.WaitGroup{}
 
 	for _, p := range r.validators {
+		if p.shadowed {
+			continue
+		}
 		wg.Add(1)
 		go func(p *plugin) {
 			defer wg.Done()
@@ -540,6 +559,7 @@ func (r *Adaptation) removeClosedPlugins() {
 
 	r.plugins = active
 	r.validators = validators
+	r.markShadowedPlugins()
 }
 
 func (r *Adaptation) startListener() error {
@@ -669,24 +689,62 @@ func (r *Adaptation) discoverPlugins() ([]string, []string, []string, error) {
 	return indices, plugins, configs, nil
 }
 
+func comparePlugins(p1, p2 *plugin) bool {
+	if p1.idx != p2.idx {
+		return p1.idx < p2.idx
+	}
+	if p1.base != p2.base {
+		return p1.base < p2.base
+	}
+	return p1.connectedAt.Before(p2.connectedAt)
+}
+
+func (r *Adaptation) markShadowedPlugins() {
+	for _, p := range r.plugins {
+		p.shadowed = false
+	}
+
+	// Duplicate plugins are guaranteed to be adjacent based on sort order.
+	for i := 1; i < len(r.plugins); i++ {
+		prev := r.plugins[i-1]
+		curr := r.plugins[i]
+		if curr.idx == prev.idx && curr.base == prev.base {
+			prev.shadowed = true
+			pTime := prev.connectedAt.Format(time.RFC3339)
+			cTime := curr.connectedAt.Format(time.RFC3339)
+			log.Warnf(noCtx, "plugin %q (connected %s) is shadowed by %q (connected %s)", prev.name(), pTime, curr.name(), cTime)
+		}
+	}
+}
+
 func (r *Adaptation) sortPlugins() {
 	r.removeClosedPlugins()
 	sort.Slice(r.plugins, func(i, j int) bool {
-		return r.plugins[i].idx < r.plugins[j].idx
+		return comparePlugins(r.plugins[i], r.plugins[j])
 	})
 	sort.Slice(r.validators, func(i, j int) bool {
-		return r.validators[i].idx < r.validators[j].idx
+		return comparePlugins(r.validators[i], r.validators[j])
 	})
+	r.markShadowedPlugins()
+
 	if len(r.plugins) > 0 {
 		log.Infof(noCtx, "plugin invocation order")
 		for i, p := range r.plugins {
-			log.Infof(noCtx, "  #%d: %q (%s)", i+1, p.name(), p.qualifiedName())
+			status := ""
+			if p.shadowed {
+				status = " (shadowed)"
+			}
+			log.Infof(noCtx, "  #%d: %q (%s)%s", i+1, p.name(), p.qualifiedName(), status)
 		}
 	}
 	if len(r.validators) > 0 {
 		log.Infof(noCtx, "validator plugins")
 		for _, p := range r.validators {
-			log.Infof(noCtx, "  %q (%s)", p.name(), p.qualifiedName())
+			status := ""
+			if p.shadowed {
+				status = " (shadowed)"
+			}
+			log.Infof(noCtx, "  %q (%s)%s", p.name(), p.qualifiedName(), status)
 		}
 	}
 }

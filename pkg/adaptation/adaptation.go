@@ -76,6 +76,7 @@ type Adaptation struct {
 	syncLock    sync.RWMutex
 	wasmService *api.PluginPlugin
 	metrics     Metrics
+	deprecation DeprecationRecorder
 }
 
 var (
@@ -154,6 +155,15 @@ func WithDefaultValidator(cfg *validator.DefaultValidatorConfig) Option {
 		if plugin := validator.GetDefaultValidator(cfg); plugin != nil {
 			r.builtin = append([]*builtin.BuiltinPlugin{plugin}, r.builtin...)
 		}
+		return nil
+	}
+}
+
+// WithDeprecationRecorder sets up functions to record usage of deprecated
+// NRI interfaces or features.
+func WithDeprecationRecorder(d DeprecationRecorder) Option {
+	return func(r *Adaptation) error {
+		r.deprecation = d
 		return nil
 	}
 }

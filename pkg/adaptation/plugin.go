@@ -629,6 +629,7 @@ func (p *plugin) runPodSandbox(ctx context.Context, req *RunPodSandboxRequest) (
 		}
 		return nil, err
 	}
+	p.warnDeprecatedEvent(ctx, event)
 
 	return rpl, nil
 }
@@ -681,6 +682,7 @@ func (p *plugin) postUpdatePodSandbox(ctx context.Context, req *PostUpdatePodSan
 		}
 		return nil, err
 	}
+	p.warnDeprecatedEvent(ctx, event)
 
 	return &PostUpdatePodSandboxResponse{}, nil
 }
@@ -707,6 +709,7 @@ func (p *plugin) stopPodSandbox(ctx context.Context, req *StopPodSandboxRequest)
 		}
 		return nil, err
 	}
+	p.warnDeprecatedEvent(ctx, event)
 
 	return &StopPodSandboxResponse{}, nil
 }
@@ -733,6 +736,7 @@ func (p *plugin) removePodSandbox(ctx context.Context, req *RemovePodSandboxRequ
 		}
 		return nil, err
 	}
+	p.warnDeprecatedEvent(ctx, event)
 
 	return &RemovePodSandboxResponse{}, nil
 }
@@ -788,6 +792,7 @@ func (p *plugin) postCreateContainer(ctx context.Context, req *PostCreateContain
 		}
 		return nil, err
 	}
+	p.warnDeprecatedEvent(ctx, event)
 
 	return &PostCreateContainerResponse{}, nil
 }
@@ -814,6 +819,7 @@ func (p *plugin) startContainer(ctx context.Context, req *StartContainerRequest)
 		}
 		return nil, err
 	}
+	p.warnDeprecatedEvent(ctx, event)
 
 	return &StartContainerResponse{}, nil
 }
@@ -840,6 +846,7 @@ func (p *plugin) postStartContainer(ctx context.Context, req *PostStartContainer
 		}
 		return nil, err
 	}
+	p.warnDeprecatedEvent(ctx, event)
 
 	return &PostStartContainerResponse{}, nil
 }
@@ -895,6 +902,7 @@ func (p *plugin) postUpdateContainer(ctx context.Context, req *PostUpdateContain
 		}
 		return nil, err
 	}
+	p.warnDeprecatedEvent(ctx, event)
 
 	return &PostUpdateContainerResponse{}, nil
 }
@@ -950,6 +958,7 @@ func (p *plugin) removeContainer(ctx context.Context, req *RemoveContainerReques
 		}
 		return nil, err
 	}
+	p.warnDeprecatedEvent(ctx, event)
 
 	return &RemoveContainerResponse{}, nil
 }
@@ -990,6 +999,25 @@ func (p *plugin) recordAdjustments(op string, adjust *ContainerAdjustment, updat
 	p.r.metrics.RecordPluginAdjustments(p.name(), op, adjust, updates, evicts)
 }
 
+// Warn about a plugins using deprecated StateChange for event handling.
+func (p *plugin) warnDeprecatedEvent(ctx context.Context, event Event) {
+	if !p.impl.deprecated[event] || p.impl.warned[event] {
+		return
+	}
+
+	if p.r.deprecation != nil {
+		p.r.deprecation.PluginWarning(ctx, DeprecatedStateChange, p.name(),
+			fmt.Sprintf("does not implement a dedicated %s RPC call", event.PrettyName()))
+	} else {
+		log.Warnf(ctx, "plugin %s uses deprecated StateChange instead of a dedicated %s RPC call",
+			p.name(), event.PrettyName())
+		log.Warnf(ctx, "please update %s with a newer version of NRI for future compatibility",
+			p.name())
+	}
+
+	p.impl.warned[event] = true
+}
+
 // isFatalError returns true if the error is fatal and the plugin connection should be closed.
 func isFatalError(err error) bool {
 	switch {
@@ -1000,8 +1028,6 @@ func isFatalError(err error) bool {
 	case errors.Is(err, ttrpc.ErrProtocol):
 		return true
 	case errors.Is(err, context.DeadlineExceeded):
-		return true
-	case status.Code(err) == codes.Unimplemented:
 		return true
 	}
 	return false

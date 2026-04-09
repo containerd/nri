@@ -95,6 +95,26 @@ func (d *dummyPlugin) Synchronize(_ context.Context, _ *api.SynchronizeRequest) 
 	}, nil
 }
 
+func (d *dummyPlugin) RunPodSandbox(_ context.Context, _ *api.RunPodSandboxRequest) (*api.RunPodSandboxResponse, error) {
+	return &api.RunPodSandboxResponse{}, nil
+}
+
+func (d *dummyPlugin) UpdatePodSandbox(_ context.Context, _ *api.UpdatePodSandboxRequest) (*api.UpdatePodSandboxResponse, error) {
+	return &api.UpdatePodSandboxResponse{}, nil
+}
+
+func (d *dummyPlugin) PostUpdatePodSandbox(_ context.Context, _ *api.PostUpdatePodSandboxRequest) (*api.PostUpdatePodSandboxResponse, error) {
+	return &api.PostUpdatePodSandboxResponse{}, nil
+}
+
+func (d *dummyPlugin) StopPodSandbox(_ context.Context, _ *api.StopPodSandboxRequest) (*api.StopPodSandboxResponse, error) {
+	return &api.StopPodSandboxResponse{}, nil
+}
+
+func (d *dummyPlugin) RemovePodSandbox(_ context.Context, _ *api.RemovePodSandboxRequest) (*api.RemovePodSandboxResponse, error) {
+	return &api.RemovePodSandboxResponse{}, nil
+}
+
 func (d *dummyPlugin) CreateContainer(_ context.Context, _ *api.CreateContainerRequest) (*api.CreateContainerResponse, error) {
 	return &api.CreateContainerResponse{
 		Adjust: &api.ContainerAdjustment{},
@@ -105,6 +125,18 @@ func (d *dummyPlugin) CreateContainer(_ context.Context, _ *api.CreateContainerR
 			{ContainerId: "test-container"},
 		},
 	}, nil
+}
+
+func (d *dummyPlugin) PostCreateContainer(_ context.Context, _ *api.PostCreateContainerRequest) (*api.PostCreateContainerResponse, error) {
+	return &api.PostCreateContainerResponse{}, nil
+}
+
+func (d *dummyPlugin) StartContainer(_ context.Context, _ *api.StartContainerRequest) (*api.StartContainerResponse, error) {
+	return &api.StartContainerResponse{}, nil
+}
+
+func (d *dummyPlugin) PostStartContainer(_ context.Context, _ *api.PostStartContainerRequest) (*api.PostStartContainerResponse, error) {
+	return &api.PostStartContainerResponse{}, nil
 }
 
 func (d *dummyPlugin) UpdateContainer(_ context.Context, _ *api.UpdateContainerRequest) (*api.UpdateContainerResponse, error) {
@@ -119,6 +151,10 @@ func (d *dummyPlugin) UpdateContainer(_ context.Context, _ *api.UpdateContainerR
 	}, nil
 }
 
+func (d *dummyPlugin) PostUpdateContainer(_ context.Context, _ *api.PostUpdateContainerRequest) (*api.PostUpdateContainerResponse, error) {
+	return &api.PostUpdateContainerResponse{}, nil
+}
+
 func (d *dummyPlugin) StopContainer(_ context.Context, _ *api.StopContainerRequest) (*api.StopContainerResponse, error) {
 	return &api.StopContainerResponse{
 		Update: []*api.ContainerUpdate{
@@ -127,8 +163,8 @@ func (d *dummyPlugin) StopContainer(_ context.Context, _ *api.StopContainerReque
 	}, nil
 }
 
-func (d *dummyPlugin) UpdatePodSandbox(_ context.Context, _ *api.UpdatePodSandboxRequest) (*api.UpdatePodSandboxResponse, error) {
-	return &api.UpdatePodSandboxResponse{}, nil
+func (d *dummyPlugin) RemoveContainer(_ context.Context, _ *api.RemoveContainerRequest) (*api.RemoveContainerResponse, error) {
+	return &api.RemoveContainerResponse{}, nil
 }
 
 func (d *dummyPlugin) StateChange(_ context.Context, _ *api.StateChangeEvent) (*api.Empty, error) {
@@ -146,10 +182,19 @@ func setupTestPlugin() (*mockMetrics, *plugin) {
 	impl := &pluginType{builtinImpl: &dummyPlugin{}}
 
 	var events api.EventMask
-	events.Set(api.Event_CREATE_CONTAINER)
-	events.Set(api.Event_UPDATE_CONTAINER)
-	events.Set(api.Event_STOP_CONTAINER)
+	events.Set(api.Event_RUN_POD_SANDBOX)
 	events.Set(api.Event_UPDATE_POD_SANDBOX)
+	events.Set(api.Event_POST_UPDATE_POD_SANDBOX)
+	events.Set(api.Event_STOP_POD_SANDBOX)
+	events.Set(api.Event_REMOVE_POD_SANDBOX)
+	events.Set(api.Event_CREATE_CONTAINER)
+	events.Set(api.Event_POST_CREATE_CONTAINER)
+	events.Set(api.Event_START_CONTAINER)
+	events.Set(api.Event_POST_START_CONTAINER)
+	events.Set(api.Event_UPDATE_CONTAINER)
+	events.Set(api.Event_POST_UPDATE_CONTAINER)
+	events.Set(api.Event_STOP_CONTAINER)
+	events.Set(api.Event_REMOVE_CONTAINER)
 	events.Set(api.Event_VALIDATE_CONTAINER_ADJUSTMENT)
 
 	p := &plugin{
@@ -170,154 +215,316 @@ func TestPluginSynchronizeMetrics(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.Len(t, m.invocations, 1)
-	assert.Equal(t, "00-test-plugin", m.invocations[0].pluginName)
+	assert.Equal(t, p.name(), m.invocations[0].pluginName)
 	assert.Equal(t, "Synchronize", m.invocations[0].operation)
 	assert.Nil(t, m.invocations[0].err)
 
 	assert.Len(t, m.latencies, 1)
-	assert.Equal(t, "00-test-plugin", m.latencies[0].pluginName)
+	assert.Equal(t, p.name(), m.latencies[0].pluginName)
 	assert.Equal(t, "Synchronize", m.latencies[0].operation)
 	assert.NotZero(t, m.latencies[0].latency)
 
 	assert.Len(t, m.adjustments, 1)
-	assert.Equal(t, "00-test-plugin", m.adjustments[0].pluginName)
+	assert.Equal(t, p.name(), m.adjustments[0].pluginName)
 	assert.Equal(t, "Synchronize", m.adjustments[0].operation)
 	assert.Equal(t, 1, m.adjustments[0].updates)
 	assert.Equal(t, 0, m.adjustments[0].evicts)
 	assert.Nil(t, m.adjustments[0].adjust)
 }
 
-func TestPluginCreateContainerMetrics(t *testing.T) {
+func TestPluginRunPodSandboxMetrics(t *testing.T) {
 	m, p := setupTestPlugin()
 
-	req := &api.CreateContainerRequest{}
-	_, err := p.createContainer(context.Background(), req)
+	evt := api.Event_RUN_POD_SANDBOX
+	req := &api.RunPodSandboxRequest{}
+
+	_, err := p.runPodSandbox(context.Background(), req)
 	assert.NoError(t, err)
 
 	assert.Len(t, m.invocations, 1)
-	assert.Equal(t, "00-test-plugin", m.invocations[0].pluginName)
-	assert.Equal(t, "CreateContainer", m.invocations[0].operation)
+	assert.Equal(t, p.name(), m.invocations[0].pluginName)
+	assert.Equal(t, evt.PrettyName(), m.invocations[0].operation)
 	assert.Nil(t, m.invocations[0].err)
 
 	assert.Len(t, m.latencies, 1)
-	assert.Equal(t, "00-test-plugin", m.latencies[0].pluginName)
-	assert.Equal(t, "CreateContainer", m.latencies[0].operation)
+	assert.Equal(t, p.name(), m.latencies[0].pluginName)
+	assert.Equal(t, evt.PrettyName(), m.latencies[0].operation)
 	assert.NotZero(t, m.latencies[0].latency)
-
-	assert.Len(t, m.adjustments, 1)
-	assert.Equal(t, "00-test-plugin", m.adjustments[0].pluginName)
-	assert.Equal(t, "CreateContainer", m.adjustments[0].operation)
-	assert.Equal(t, 1, m.adjustments[0].updates)
-	assert.Equal(t, 1, m.adjustments[0].evicts)
-	assert.NotNil(t, m.adjustments[0].adjust)
-}
-
-func TestPluginUpdateContainerMetrics(t *testing.T) {
-	m, p := setupTestPlugin()
-
-	req := &api.UpdateContainerRequest{}
-	_, err := p.updateContainer(context.Background(), req)
-	assert.NoError(t, err)
-
-	assert.Len(t, m.invocations, 1)
-	assert.Equal(t, "00-test-plugin", m.invocations[0].pluginName)
-	assert.Equal(t, "UpdateContainer", m.invocations[0].operation)
-	assert.Nil(t, m.invocations[0].err)
-
-	assert.Len(t, m.latencies, 1)
-	assert.Equal(t, "00-test-plugin", m.latencies[0].pluginName)
-	assert.Equal(t, "UpdateContainer", m.latencies[0].operation)
-	assert.NotZero(t, m.latencies[0].latency)
-
-	assert.Len(t, m.adjustments, 1)
-	assert.Equal(t, "00-test-plugin", m.adjustments[0].pluginName)
-	assert.Equal(t, "UpdateContainer", m.adjustments[0].operation)
-	assert.Equal(t, 1, m.adjustments[0].updates)
-	assert.Equal(t, 2, m.adjustments[0].evicts)
-	assert.Nil(t, m.adjustments[0].adjust)
-}
-
-func TestPluginStopContainerMetrics(t *testing.T) {
-	m, p := setupTestPlugin()
-
-	req := &api.StopContainerRequest{}
-	_, err := p.stopContainer(context.Background(), req)
-	assert.NoError(t, err)
-
-	assert.Len(t, m.invocations, 1)
-	assert.Equal(t, "00-test-plugin", m.invocations[0].pluginName)
-	assert.Equal(t, "StopContainer", m.invocations[0].operation)
-	assert.Nil(t, m.invocations[0].err)
-
-	assert.Len(t, m.latencies, 1)
-	assert.Equal(t, "00-test-plugin", m.latencies[0].pluginName)
-	assert.Equal(t, "StopContainer", m.latencies[0].operation)
-	assert.NotZero(t, m.latencies[0].latency)
-
-	assert.Len(t, m.adjustments, 1)
-	assert.Equal(t, "00-test-plugin", m.adjustments[0].pluginName)
-	assert.Equal(t, "StopContainer", m.adjustments[0].operation)
-	assert.Equal(t, 1, m.adjustments[0].updates)
-	assert.Equal(t, 0, m.adjustments[0].evicts)
-	assert.Nil(t, m.adjustments[0].adjust)
 }
 
 func TestPluginUpdatePodSandboxMetrics(t *testing.T) {
 	m, p := setupTestPlugin()
 
+	evt := api.Event_UPDATE_POD_SANDBOX
 	req := &api.UpdatePodSandboxRequest{}
 	_, err := p.updatePodSandbox(context.Background(), req)
 	assert.NoError(t, err)
 
 	assert.Len(t, m.invocations, 1)
-	assert.Equal(t, "00-test-plugin", m.invocations[0].pluginName)
-	assert.Equal(t, "UpdatePodSandbox", m.invocations[0].operation)
+	assert.Equal(t, p.name(), m.invocations[0].pluginName)
+	assert.Equal(t, evt.PrettyName(), m.invocations[0].operation)
 	assert.Nil(t, m.invocations[0].err)
 
 	assert.Len(t, m.latencies, 1)
-	assert.Equal(t, "00-test-plugin", m.latencies[0].pluginName)
-	assert.Equal(t, "UpdatePodSandbox", m.latencies[0].operation)
+	assert.Equal(t, p.name(), m.latencies[0].pluginName)
+	assert.Equal(t, evt.PrettyName(), m.latencies[0].operation)
 	assert.NotZero(t, m.latencies[0].latency)
 
 	assert.Len(t, m.adjustments, 0)
 }
 
-func TestPluginStateChangeMetrics(t *testing.T) {
+func TestPluginPostUpdatePodSandboxMetrics(t *testing.T) {
 	m, p := setupTestPlugin()
 
-	evt := &api.StateChangeEvent{
-		Event: api.Event_CREATE_CONTAINER,
-	}
-
-	err := p.StateChange(context.Background(), evt)
+	evt := api.Event_POST_UPDATE_POD_SANDBOX
+	req := &api.PostUpdatePodSandboxRequest{}
+	_, err := p.postUpdatePodSandbox(context.Background(), req)
 	assert.NoError(t, err)
 
 	assert.Len(t, m.invocations, 1)
-	assert.Equal(t, "00-test-plugin", m.invocations[0].pluginName)
-	assert.Equal(t, "StateChange/CreateContainer", m.invocations[0].operation)
+	assert.Equal(t, p.name(), m.invocations[0].pluginName)
+	assert.Equal(t, evt.PrettyName(), m.invocations[0].operation)
 	assert.Nil(t, m.invocations[0].err)
 
 	assert.Len(t, m.latencies, 1)
-	assert.Equal(t, "00-test-plugin", m.latencies[0].pluginName)
-	assert.Equal(t, "StateChange/CreateContainer", m.latencies[0].operation)
+	assert.Equal(t, p.name(), m.latencies[0].pluginName)
+	assert.Equal(t, evt.PrettyName(), m.latencies[0].operation)
+	assert.NotZero(t, m.latencies[0].latency)
+
+	assert.Len(t, m.adjustments, 0)
+}
+
+func TestPluginStopPodSandboxMetrics(t *testing.T) {
+	m, p := setupTestPlugin()
+
+	evt := api.Event_STOP_POD_SANDBOX
+	req := &api.StopPodSandboxRequest{}
+	_, err := p.stopPodSandbox(context.Background(), req)
+	assert.NoError(t, err)
+
+	assert.Len(t, m.invocations, 1)
+	assert.Equal(t, p.name(), m.invocations[0].pluginName)
+	assert.Equal(t, evt.PrettyName(), m.invocations[0].operation)
+	assert.Nil(t, m.invocations[0].err)
+
+	assert.Len(t, m.latencies, 1)
+	assert.Equal(t, p.name(), m.latencies[0].pluginName)
+	assert.Equal(t, evt.PrettyName(), m.latencies[0].operation)
+	assert.NotZero(t, m.latencies[0].latency)
+
+	assert.Len(t, m.adjustments, 0)
+}
+
+func TestPluginRemovePodSandboxMetrics(t *testing.T) {
+	m, p := setupTestPlugin()
+
+	evt := api.Event_REMOVE_POD_SANDBOX
+	req := &api.RemovePodSandboxRequest{}
+	_, err := p.removePodSandbox(context.Background(), req)
+	assert.NoError(t, err)
+
+	assert.Len(t, m.invocations, 1)
+	assert.Equal(t, p.name(), m.invocations[0].pluginName)
+	assert.Equal(t, evt.PrettyName(), m.invocations[0].operation)
+	assert.Nil(t, m.invocations[0].err)
+
+	assert.Len(t, m.latencies, 1)
+	assert.Equal(t, p.name(), m.latencies[0].pluginName)
+	assert.Equal(t, evt.PrettyName(), m.latencies[0].operation)
+	assert.NotZero(t, m.latencies[0].latency)
+
+	assert.Len(t, m.adjustments, 0)
+}
+
+func TestPluginCreateContainerMetrics(t *testing.T) {
+	m, p := setupTestPlugin()
+
+	evt := api.Event_CREATE_CONTAINER
+	req := &api.CreateContainerRequest{}
+	_, err := p.createContainer(context.Background(), req)
+	assert.NoError(t, err)
+
+	assert.Len(t, m.invocations, 1)
+	assert.Equal(t, p.name(), m.invocations[0].pluginName)
+	assert.Equal(t, evt.PrettyName(), m.invocations[0].operation)
+	assert.Nil(t, m.invocations[0].err)
+
+	assert.Len(t, m.latencies, 1)
+	assert.Equal(t, p.name(), m.latencies[0].pluginName)
+	assert.Equal(t, evt.PrettyName(), m.latencies[0].operation)
+	assert.NotZero(t, m.latencies[0].latency)
+
+	assert.Len(t, m.adjustments, 1)
+	assert.Equal(t, p.name(), m.adjustments[0].pluginName)
+	assert.Equal(t, evt.PrettyName(), m.adjustments[0].operation)
+	assert.Equal(t, 1, m.adjustments[0].updates)
+	assert.Equal(t, 1, m.adjustments[0].evicts)
+	assert.NotNil(t, m.adjustments[0].adjust)
+}
+
+func TestPluginPostCreateContainerMetrics(t *testing.T) {
+	m, p := setupTestPlugin()
+
+	evt := api.Event_POST_CREATE_CONTAINER
+	req := &api.PostCreateContainerRequest{}
+	_, err := p.postCreateContainer(context.Background(), req)
+	assert.NoError(t, err)
+
+	assert.Len(t, m.invocations, 1)
+	assert.Equal(t, p.name(), m.invocations[0].pluginName)
+	assert.Equal(t, evt.PrettyName(), m.invocations[0].operation)
+	assert.Nil(t, m.invocations[0].err)
+
+	assert.Len(t, m.latencies, 1)
+	assert.Equal(t, p.name(), m.latencies[0].pluginName)
+	assert.Equal(t, evt.PrettyName(), m.latencies[0].operation)
+	assert.NotZero(t, m.latencies[0].latency)
+}
+
+func TestPluginStartContainerMetrics(t *testing.T) {
+	m, p := setupTestPlugin()
+
+	evt := api.Event_START_CONTAINER
+	req := &api.StartContainerRequest{}
+	_, err := p.startContainer(context.Background(), req)
+	assert.NoError(t, err)
+
+	assert.Len(t, m.invocations, 1)
+	assert.Equal(t, p.name(), m.invocations[0].pluginName)
+	assert.Equal(t, evt.PrettyName(), m.invocations[0].operation)
+	assert.Nil(t, m.invocations[0].err)
+
+	assert.Len(t, m.latencies, 1)
+	assert.Equal(t, p.name(), m.latencies[0].pluginName)
+	assert.Equal(t, evt.PrettyName(), m.latencies[0].operation)
+	assert.NotZero(t, m.latencies[0].latency)
+}
+
+func TestPluginPostStartContainerMetrics(t *testing.T) {
+	m, p := setupTestPlugin()
+
+	evt := api.Event_POST_START_CONTAINER
+	req := &api.PostStartContainerRequest{}
+	_, err := p.postStartContainer(context.Background(), req)
+	assert.NoError(t, err)
+
+	assert.Len(t, m.invocations, 1)
+	assert.Equal(t, p.name(), m.invocations[0].pluginName)
+	assert.Equal(t, evt.PrettyName(), m.invocations[0].operation)
+	assert.Nil(t, m.invocations[0].err)
+
+	assert.Len(t, m.latencies, 1)
+	assert.Equal(t, p.name(), m.latencies[0].pluginName)
+	assert.Equal(t, evt.PrettyName(), m.latencies[0].operation)
+	assert.NotZero(t, m.latencies[0].latency)
+}
+
+func TestPluginUpdateContainerMetrics(t *testing.T) {
+	m, p := setupTestPlugin()
+
+	evt := api.Event_UPDATE_CONTAINER
+	req := &api.UpdateContainerRequest{}
+	_, err := p.updateContainer(context.Background(), req)
+	assert.NoError(t, err)
+
+	assert.Len(t, m.invocations, 1)
+	assert.Equal(t, p.name(), m.invocations[0].pluginName)
+	assert.Equal(t, evt.PrettyName(), m.invocations[0].operation)
+	assert.Nil(t, m.invocations[0].err)
+
+	assert.Len(t, m.latencies, 1)
+	assert.Equal(t, p.name(), m.latencies[0].pluginName)
+	assert.Equal(t, evt.PrettyName(), m.latencies[0].operation)
+	assert.NotZero(t, m.latencies[0].latency)
+
+	assert.Len(t, m.adjustments, 1)
+	assert.Equal(t, p.name(), m.adjustments[0].pluginName)
+	assert.Equal(t, evt.PrettyName(), m.adjustments[0].operation)
+	assert.Equal(t, 1, m.adjustments[0].updates)
+	assert.Equal(t, 2, m.adjustments[0].evicts)
+	assert.Nil(t, m.adjustments[0].adjust)
+}
+
+func TestPluginPostUpdateContainerMetrics(t *testing.T) {
+	m, p := setupTestPlugin()
+
+	evt := api.Event_POST_UPDATE_CONTAINER
+	req := &api.PostUpdateContainerRequest{}
+	_, err := p.postUpdateContainer(context.Background(), req)
+	assert.NoError(t, err)
+
+	assert.Len(t, m.invocations, 1)
+	assert.Equal(t, p.name(), m.invocations[0].pluginName)
+	assert.Equal(t, evt.PrettyName(), m.invocations[0].operation)
+	assert.Nil(t, m.invocations[0].err)
+
+	assert.Len(t, m.latencies, 1)
+	assert.Equal(t, p.name(), m.latencies[0].pluginName)
+	assert.Equal(t, evt.PrettyName(), m.latencies[0].operation)
+	assert.NotZero(t, m.latencies[0].latency)
+}
+
+func TestPluginStopContainerMetrics(t *testing.T) {
+	m, p := setupTestPlugin()
+
+	evt := api.Event_STOP_CONTAINER
+	req := &api.StopContainerRequest{}
+	_, err := p.stopContainer(context.Background(), req)
+	assert.NoError(t, err)
+
+	assert.Len(t, m.invocations, 1)
+	assert.Equal(t, p.name(), m.invocations[0].pluginName)
+	assert.Equal(t, evt.PrettyName(), m.invocations[0].operation)
+	assert.Nil(t, m.invocations[0].err)
+
+	assert.Len(t, m.latencies, 1)
+	assert.Equal(t, p.name(), m.latencies[0].pluginName)
+	assert.Equal(t, evt.PrettyName(), m.latencies[0].operation)
+	assert.NotZero(t, m.latencies[0].latency)
+
+	assert.Len(t, m.adjustments, 1)
+	assert.Equal(t, p.name(), m.adjustments[0].pluginName)
+	assert.Equal(t, evt.PrettyName(), m.adjustments[0].operation)
+	assert.Equal(t, 1, m.adjustments[0].updates)
+	assert.Equal(t, 0, m.adjustments[0].evicts)
+	assert.Nil(t, m.adjustments[0].adjust)
+}
+
+func TestPluginRemoveContainerMetrics(t *testing.T) {
+	m, p := setupTestPlugin()
+
+	evt := api.Event_REMOVE_CONTAINER
+	req := &api.RemoveContainerRequest{}
+	_, err := p.removeContainer(context.Background(), req)
+	assert.NoError(t, err)
+
+	assert.Len(t, m.invocations, 1)
+	assert.Equal(t, p.name(), m.invocations[0].pluginName)
+	assert.Equal(t, evt.PrettyName(), m.invocations[0].operation)
+	assert.Nil(t, m.invocations[0].err)
+
+	assert.Len(t, m.latencies, 1)
+	assert.Equal(t, p.name(), m.latencies[0].pluginName)
+	assert.Equal(t, evt.PrettyName(), m.latencies[0].operation)
 	assert.NotZero(t, m.latencies[0].latency)
 }
 
 func TestPluginValidateContainerAdjustmentMetrics(t *testing.T) {
 	m, p := setupTestPlugin()
 
+	evt := api.Event_VALIDATE_CONTAINER_ADJUSTMENT
 	req := &api.ValidateContainerAdjustmentRequest{}
 	err := p.ValidateContainerAdjustment(context.Background(), req)
 	assert.NoError(t, err)
 
 	assert.Len(t, m.invocations, 1)
-	assert.Equal(t, "00-test-plugin", m.invocations[0].pluginName)
-	assert.Equal(t, "ValidateContainerAdjustment", m.invocations[0].operation)
+	assert.Equal(t, p.name(), m.invocations[0].pluginName)
+	assert.Equal(t, evt.PrettyName(), m.invocations[0].operation)
 	assert.Nil(t, m.invocations[0].err)
 
 	assert.Len(t, m.latencies, 1)
-	assert.Equal(t, "00-test-plugin", m.latencies[0].pluginName)
-	assert.Equal(t, "ValidateContainerAdjustment", m.latencies[0].operation)
+	assert.Equal(t, p.name(), m.latencies[0].pluginName)
+	assert.Equal(t, evt.PrettyName(), m.latencies[0].operation)
 	assert.NotZero(t, m.latencies[0].latency)
 
 	assert.Len(t, m.adjustments, 0)

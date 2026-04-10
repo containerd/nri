@@ -38,7 +38,7 @@ spiffe_id: spiffe://example.org/p0/c0
 				CertFileName: "svid.pem",
 				KeyFileName: "svid_key.pem",
 				BundleFileName: "svid_bundle.pem",
-				SpiffeID: "spiffe://example.org/p0/c0",
+				SpiffeId: "spiffe://example.org/p0/c0",
 			},
 		},
 		{
@@ -70,7 +70,7 @@ spiffe_id: spiffe://example.org/p0/c0
 				CertFileName: "svid.pem",
 				KeyFileName: "svid_key.pem",
 				BundleFileName: "svid_bundle.pem",
-				SpiffeID: "spiffe://example.org/p0/c0",
+				SpiffeId: "spiffe://example.org/p0/c0",
 			},
 		},
 	} {
@@ -82,3 +82,5 @@ spiffe_id: spiffe://example.org/p0/c0
 	}
 
 }
+
+// TODO we can also create test cases for processDelegatedIdentityUpdate()

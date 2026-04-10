@@ -6,13 +6,11 @@ spec:
   template:
     spec:
       containers:
-        - name: plugin
+        - name: nri-plugin-identity
           image: plugin:latest
           args:
             - "--idx"
             - "11"
-            - "--events"
-            - "RunPodSandbox,StopPodSandbox,RemovePodSandbox,CreateContainer,PostCreateContainer,StartContainer,PostStartContainer,UpdateContainer,PostUpdateContainer,StopContainer,RemoveContainer"
             - "--verbose"
             - "true"
             - "--spiffe-agent-socket"

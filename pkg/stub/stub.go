@@ -773,41 +773,14 @@ func (stub *stub) Shutdown(ctx context.Context, _ *api.ShutdownRequest) (*api.Sh
 	return &api.ShutdownResponse{}, nil
 }
 
-// CreateContainer request handler.
-func (stub *stub) CreateContainer(ctx context.Context, req *api.CreateContainerRequest) (*api.CreateContainerResponse, error) {
-	handler := stub.handlers.CreateContainer
+// RunPodSandbox request handler.
+func (stub *stub) RunPodSandbox(ctx context.Context, req *api.RunPodSandboxRequest) (*api.RunPodSandboxResponse, error) {
+	handler := stub.handlers.RunPodSandbox
 	if handler == nil {
-		return &api.CreateContainerResponse{}, nil
+		return &api.RunPodSandboxResponse{}, nil
 	}
-	adjust, update, err := handler(ctx, req.Pod, req.Container)
-	return &api.CreateContainerResponse{
-		Adjust: adjust,
-		Update: update,
-	}, err
-}
-
-// UpdateContainer request handler.
-func (stub *stub) UpdateContainer(ctx context.Context, req *api.UpdateContainerRequest) (*api.UpdateContainerResponse, error) {
-	handler := stub.handlers.UpdateContainer
-	if handler == nil {
-		return &api.UpdateContainerResponse{}, nil
-	}
-	update, err := handler(ctx, req.Pod, req.Container, req.LinuxResources)
-	return &api.UpdateContainerResponse{
-		Update: update,
-	}, err
-}
-
-// StopContainer request handler.
-func (stub *stub) StopContainer(ctx context.Context, req *api.StopContainerRequest) (*api.StopContainerResponse, error) {
-	handler := stub.handlers.StopContainer
-	if handler == nil {
-		return &api.StopContainerResponse{}, nil
-	}
-	update, err := handler(ctx, req.Pod, req.Container)
-	return &api.StopContainerResponse{
-		Update: update,
-	}, err
+	err := handler(ctx, req.GetPod())
+	return &api.RunPodSandboxResponse{}, err
 }
 
 // UpdatePodSandbox request handler.
@@ -816,8 +789,125 @@ func (stub *stub) UpdatePodSandbox(ctx context.Context, req *api.UpdatePodSandbo
 	if handler == nil {
 		return &api.UpdatePodSandboxResponse{}, nil
 	}
-	err := handler(ctx, req.Pod, req.OverheadLinuxResources, req.LinuxResources)
+	err := handler(ctx, req.GetPod(), req.GetOverheadLinuxResources(), req.GetLinuxResources())
 	return &api.UpdatePodSandboxResponse{}, err
+}
+
+// PostUpdatePodSandbox request handler.
+func (stub *stub) PostUpdatePodSandbox(ctx context.Context, req *api.PostUpdatePodSandboxRequest) (*api.PostUpdatePodSandboxResponse, error) {
+	handler := stub.handlers.PostUpdatePodSandbox
+	if handler == nil {
+		return &api.PostUpdatePodSandboxResponse{}, nil
+	}
+	err := handler(ctx, req.GetPod())
+	return &api.PostUpdatePodSandboxResponse{}, err
+}
+
+// StopPodSandbox request handler.
+func (stub *stub) StopPodSandbox(ctx context.Context, req *api.StopPodSandboxRequest) (*api.StopPodSandboxResponse, error) {
+	handler := stub.handlers.StopPodSandbox
+	if handler == nil {
+		return &api.StopPodSandboxResponse{}, nil
+	}
+	err := handler(ctx, req.GetPod())
+	return &api.StopPodSandboxResponse{}, err
+}
+
+// RemovePodSandbox request handler.
+func (stub *stub) RemovePodSandbox(ctx context.Context, req *api.RemovePodSandboxRequest) (*api.RemovePodSandboxResponse, error) {
+	handler := stub.handlers.RemovePodSandbox
+	if handler == nil {
+		return &api.RemovePodSandboxResponse{}, nil
+	}
+	err := handler(ctx, req.GetPod())
+	return &api.RemovePodSandboxResponse{}, err
+}
+
+// CreateContainer request handler.
+func (stub *stub) CreateContainer(ctx context.Context, req *api.CreateContainerRequest) (*api.CreateContainerResponse, error) {
+	handler := stub.handlers.CreateContainer
+	if handler == nil {
+		return &api.CreateContainerResponse{}, nil
+	}
+	adjust, update, err := handler(ctx, req.GetPod(), req.GetContainer())
+	return &api.CreateContainerResponse{
+		Adjust: adjust,
+		Update: update,
+	}, err
+}
+
+// PostCreateContainer request handler.
+func (stub *stub) PostCreateContainer(ctx context.Context, req *api.PostCreateContainerRequest) (*api.PostCreateContainerResponse, error) {
+	handler := stub.handlers.PostCreateContainer
+	if handler == nil {
+		return &api.PostCreateContainerResponse{}, nil
+	}
+	err := handler(ctx, req.GetPod(), req.GetContainer())
+	return &api.PostCreateContainerResponse{}, err
+}
+
+// StartContainer request handler.
+func (stub *stub) StartContainer(ctx context.Context, req *api.StartContainerRequest) (*api.StartContainerResponse, error) {
+	handler := stub.handlers.StartContainer
+	if handler == nil {
+		return &api.StartContainerResponse{}, nil
+	}
+	err := handler(ctx, req.GetPod(), req.GetContainer())
+	return &api.StartContainerResponse{}, err
+}
+
+// PostStartContainer request handler.
+func (stub *stub) PostStartContainer(ctx context.Context, req *api.PostStartContainerRequest) (*api.PostStartContainerResponse, error) {
+	handler := stub.handlers.PostStartContainer
+	if handler == nil {
+		return &api.PostStartContainerResponse{}, nil
+	}
+	err := handler(ctx, req.GetPod(), req.GetContainer())
+	return &api.PostStartContainerResponse{}, err
+}
+
+// UpdateContainer request handler.
+func (stub *stub) UpdateContainer(ctx context.Context, req *api.UpdateContainerRequest) (*api.UpdateContainerResponse, error) {
+	handler := stub.handlers.UpdateContainer
+	if handler == nil {
+		return &api.UpdateContainerResponse{}, nil
+	}
+	update, err := handler(ctx, req.GetPod(), req.GetContainer(), req.GetLinuxResources())
+	return &api.UpdateContainerResponse{
+		Update: update,
+	}, err
+}
+
+// PostUpdateContainer request handler.
+func (stub *stub) PostUpdateContainer(ctx context.Context, req *api.PostUpdateContainerRequest) (*api.PostUpdateContainerResponse, error) {
+	handler := stub.handlers.PostUpdateContainer
+	if handler == nil {
+		return &api.PostUpdateContainerResponse{}, nil
+	}
+	err := handler(ctx, req.GetPod(), req.GetContainer())
+	return &api.PostUpdateContainerResponse{}, err
+}
+
+// StopContainer request handler.
+func (stub *stub) StopContainer(ctx context.Context, req *api.StopContainerRequest) (*api.StopContainerResponse, error) {
+	handler := stub.handlers.StopContainer
+	if handler == nil {
+		return &api.StopContainerResponse{}, nil
+	}
+	update, err := handler(ctx, req.GetPod(), req.GetContainer())
+	return &api.StopContainerResponse{
+		Update: update,
+	}, err
+}
+
+// RemoveContainer request handler.
+func (stub *stub) RemoveContainer(ctx context.Context, req *api.RemoveContainerRequest) (*api.RemoveContainerResponse, error) {
+	handler := stub.handlers.RemoveContainer
+	if handler == nil {
+		return &api.RemoveContainerResponse{}, nil
+	}
+	err := handler(ctx, req.GetPod(), req.GetContainer())
+	return &api.RemoveContainerResponse{}, err
 }
 
 // StateChange event handler.
@@ -826,39 +916,39 @@ func (stub *stub) StateChange(ctx context.Context, evt *api.StateChangeEvent) (*
 	switch evt.Event {
 	case api.Event_RUN_POD_SANDBOX:
 		if handler := stub.handlers.RunPodSandbox; handler != nil {
-			err = handler(ctx, evt.Pod)
+			err = handler(ctx, evt.GetPod())
 		}
 	case api.Event_POST_UPDATE_POD_SANDBOX:
 		if handler := stub.handlers.PostUpdatePodSandbox; handler != nil {
-			err = handler(ctx, evt.Pod)
+			err = handler(ctx, evt.GetPod())
 		}
 	case api.Event_STOP_POD_SANDBOX:
 		if handler := stub.handlers.StopPodSandbox; handler != nil {
-			err = handler(ctx, evt.Pod)
+			err = handler(ctx, evt.GetPod())
 		}
 	case api.Event_REMOVE_POD_SANDBOX:
 		if handler := stub.handlers.RemovePodSandbox; handler != nil {
-			err = handler(ctx, evt.Pod)
+			err = handler(ctx, evt.GetPod())
 		}
 	case api.Event_POST_CREATE_CONTAINER:
 		if handler := stub.handlers.PostCreateContainer; handler != nil {
-			err = handler(ctx, evt.Pod, evt.Container)
+			err = handler(ctx, evt.GetPod(), evt.GetContainer())
 		}
 	case api.Event_START_CONTAINER:
 		if handler := stub.handlers.StartContainer; handler != nil {
-			err = handler(ctx, evt.Pod, evt.Container)
+			err = handler(ctx, evt.GetPod(), evt.GetContainer())
 		}
 	case api.Event_POST_START_CONTAINER:
 		if handler := stub.handlers.PostStartContainer; handler != nil {
-			err = handler(ctx, evt.Pod, evt.Container)
+			err = handler(ctx, evt.GetPod(), evt.GetContainer())
 		}
 	case api.Event_POST_UPDATE_CONTAINER:
 		if handler := stub.handlers.PostUpdateContainer; handler != nil {
-			err = handler(ctx, evt.Pod, evt.Container)
+			err = handler(ctx, evt.GetPod(), evt.GetContainer())
 		}
 	case api.Event_REMOVE_CONTAINER:
 		if handler := stub.handlers.RemoveContainer; handler != nil {
-			err = handler(ctx, evt.Pod, evt.Container)
+			err = handler(ctx, evt.GetPod(), evt.GetContainer())
 		}
 	}
 
@@ -923,6 +1013,10 @@ func (stub *stub) setupHandlers() error {
 		stub.handlers.UpdatePodSandbox = plugin.UpdatePodSandbox
 		stub.events.Set(api.Event_UPDATE_POD_SANDBOX)
 	}
+	if plugin, ok := stub.plugin.(PostUpdatePodInterface); ok {
+		stub.handlers.PostUpdatePodSandbox = plugin.PostUpdatePodSandbox
+		stub.events.Set(api.Event_POST_UPDATE_POD_SANDBOX)
+	}
 	if plugin, ok := stub.plugin.(StopPodInterface); ok {
 		stub.handlers.StopPodSandbox = plugin.StopPodSandbox
 		stub.events.Set(api.Event_STOP_POD_SANDBOX)
@@ -930,10 +1024,6 @@ func (stub *stub) setupHandlers() error {
 	if plugin, ok := stub.plugin.(RemovePodInterface); ok {
 		stub.handlers.RemovePodSandbox = plugin.RemovePodSandbox
 		stub.events.Set(api.Event_REMOVE_POD_SANDBOX)
-	}
-	if plugin, ok := stub.plugin.(PostUpdatePodInterface); ok {
-		stub.handlers.PostUpdatePodSandbox = plugin.PostUpdatePodSandbox
-		stub.events.Set(api.Event_POST_UPDATE_POD_SANDBOX)
 	}
 	if plugin, ok := stub.plugin.(CreateContainerInterface); ok {
 		stub.handlers.CreateContainer = plugin.CreateContainer

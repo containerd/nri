@@ -119,6 +119,17 @@ func (s *Suite) StartPlugins(plugins ...*mockPlugin) {
 	}
 }
 
+// StartPlugin start a plugin, adding it to the suite if successful.
+func (s *Suite) StartPlugin(plugin *mockPlugin) error {
+	err := plugin.Start(s.dir)
+	if err == nil {
+		s.plugins = append(s.plugins, plugin)
+		s.byName[plugin.FullName()] = plugin
+		return nil
+	}
+	return err
+}
+
 // WaitForPluginsToSync waits for the given plugins to get synchronized.
 func (s *Suite) WaitForPluginsToSync(plugins ...*mockPlugin) {
 	timeout := time.After(startupTimeout)
@@ -463,14 +474,17 @@ func (m *mockPlugin) Init(dir string) error {
 
 	m.Log("Init()...")
 
-	m.stub, err = stub.New(m,
-		append(m.options,
+	options := append(
+		[]stub.Option{
 			stub.WithPluginName(m.name),
 			stub.WithPluginIdx(m.idx),
 			stub.WithSocketPath(filepath.Join(dir, "nri.sock")),
 			stub.WithOnClose(m.onClose),
-		)...,
+		},
+		m.options...,
 	)
+
+	m.stub, err = stub.New(m, options...)
 	if err != nil {
 		m.q.Add(PluginCreationError)
 		return err

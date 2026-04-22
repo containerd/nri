@@ -23,6 +23,7 @@ require (
 	github.com/opencontainers/runtime-spec v1.3.0 // indirect
 	github.com/tetratelabs/wazero v1.11.0 // indirect
 	github.com/vmihailenco/msgpack v4.0.4+incompatible // indirect
+	golang.org/x/crypto v0.46.0 // indirect
 	golang.org/x/mod v0.32.0 // indirect
 	golang.org/x/net v0.48.0 // indirect
 	golang.org/x/sys v0.39.0 // indirect

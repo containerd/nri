@@ -1,6 +1,6 @@
 module github.com/containerd/nri
 
-go 1.24.0
+go 1.26.2
 
 require (
 	github.com/brianvoe/gofakeit/v7 v7.12.1

@@ -14,7 +14,7 @@ This NRI specification details when and under what conditions NRI plugins receiv
 
 The pod sandbox lifecycle consists of three distinct phases, each with a corresponding NRI event that plugins can subscribe to:
 
-1. **RunPodSandbox**: Fired during the the runtime CRI RunPodSandbox execution, after the PodSandbox is created but before setting the pod to running and then replying success to CRI RunPodSandbox request.
+1. **RunPodSandbox**: Fired during the runtime CRI RunPodSandbox execution, after the PodSandbox is created but before setting the pod to running and then replying success to CRI RunPodSandbox request.
 2. **StopPodSandbox**: Fired when the runtime initiates CRI StopPodSandbox
 3. **RemovePodSandbox**: Fired when the runtime performs CRI RemovePodSandbox
 
@@ -35,6 +35,7 @@ When the runtime fires the RunPodSandbox NRI event, it guarantees:
 
 - The Pod-level cgroup hierarchy has been established
 - The Sandbox namespaces (IPC, Network, UTS) are created and active
+- The Sandbox will not be reused
 - Network setup has been fully configured (network interfaces are up and assigned addressing)
 - The pod IP address (if applicable) is assigned and available
 - The "pause" container (if the runtime uses one) is running
@@ -138,7 +139,7 @@ These events are delivered to plugins using the RunPodSandbox, StopPodSandbox an
 
 ### Timeout Handling
 
-All plugin processing must complete within the configured request timeout. Plugins should plan accordingly:
+All plugin processing must complete within the configured request timeout. A plugin timeout is treated as an error by the runtime:
 
 - **RunPodSandbox**: Failure may result in pod creation failure
 - **StopPodSandbox**: Non-blocking for subsequent operations; the plugin should not depend on completion of subsequent teardown

@@ -273,41 +273,34 @@ func (r *Adaptation) UpdatePodSandbox(ctx context.Context, req *UpdatePodSandbox
 }
 
 // PodSandboxStatus relays the corresponding CRI request to plugins.
-// If a plugin returns IP addresses, those will be returned to the caller.
-// An error is returned if multiple plugins attempt to set the same field.
+// IP addresses returned by plugins are aggregated into the response: the first
+// non-empty primary IP becomes the response's primary IP, and all remaining IPs
+// (including subsequent primary IPs from other plugins) are appended to the
+// additional IPs list. Kubelet uses the first IP (or first dual-stack pair) and
+// ignores the rest, matching the standard CRI PodSandboxStatus contract.
 func (r *Adaptation) PodSandboxStatus(ctx context.Context, req *PodSandboxStatusRequest) (*PodSandboxStatusResponse, error) {
 	r.Lock()
 	defer r.Unlock()
 	defer r.removeClosedPlugins()
 
-	var (
-		rsp                = &PodSandboxStatusResponse{}
-		ipOwner            = ""
-		additionalIpsOwner = ""
-	)
+	rsp := &PodSandboxStatusResponse{}
 
 	for _, plugin := range r.plugins {
 		pluginRsp, err := plugin.podSandboxStatus(ctx, req)
 		if err != nil {
 			return nil, err
 		}
-		if pluginRsp == nil || (pluginRsp.Ip == "" && len(pluginRsp.AdditionalIps) == 0) {
+		if pluginRsp == nil {
 			continue
 		}
 		if pluginRsp.Ip != "" {
-			if ipOwner != "" {
-				return nil, fmt.Errorf("plugins %q and %q both tried to set PodSandboxStatus IP address field", ipOwner, plugin.name())
+			if rsp.Ip == "" {
+				rsp.Ip = pluginRsp.Ip
+			} else {
+				rsp.AdditionalIps = append(rsp.AdditionalIps, pluginRsp.Ip)
 			}
-			rsp.Ip = pluginRsp.Ip
-			ipOwner = plugin.name()
 		}
-		if len(pluginRsp.AdditionalIps) > 0 {
-			if additionalIpsOwner != "" {
-				return nil, fmt.Errorf("plugins %q and %q both tried to set PodSandboxStatus additional IP addresses field", additionalIpsOwner, plugin.name())
-			}
-			rsp.AdditionalIps = pluginRsp.AdditionalIps
-			additionalIpsOwner = plugin.name()
-		}
+		rsp.AdditionalIps = append(rsp.AdditionalIps, pluginRsp.AdditionalIps...)
 	}
 
 	return rsp, nil

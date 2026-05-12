@@ -206,7 +206,9 @@ message RunPodSandboxRequest {
   PodSandbox pod = 1;
 }
 
-message RunPodSandboxResponse{}
+message RunPodSandboxResponse{
+  repeated string ips = 1;
+}
 
 message UpdatePodSandboxRequest {
   // Pod being updated.

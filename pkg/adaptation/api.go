@@ -52,6 +52,8 @@ type (
 	StateChangeResponse          = api.StateChangeResponse
 	RunPodSandboxRequest         = api.RunPodSandboxRequest
 	RunPodSandboxResponse        = api.RunPodSandboxResponse
+	PodSandboxAdjustment         = api.PodSandboxAdjustment
+	PodSandboxNetwork            = api.PodSandboxNetwork
 	UpdatePodSandboxRequest      = api.UpdatePodSandboxRequest
 	UpdatePodSandboxResponse     = api.UpdatePodSandboxResponse
 	StopPodSandboxRequest        = api.StopPodSandboxRequest

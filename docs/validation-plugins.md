@@ -139,8 +139,8 @@ The default validator is configured via the `DefaultValidatorConfig` structure. 
 Example configuration in `containerd`'s `config.toml`:
 
 ```toml
-[plugins."io.containerd.nri.v1.runtime"]
-  [plugins."io.containerd.nri.v1.runtime".default_validator]
+[plugins."io.containerd.nri.v1.nri"]
+  [plugins."io.containerd.nri.v1.nri".default_validator]
     enable = true
     reject_oci_hook_adjustment = true
     reject_namespace_adjustment = true

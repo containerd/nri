@@ -39,6 +39,7 @@ import (
 	nri "github.com/containerd/nri/pkg/adaptation"
 	"github.com/containerd/nri/pkg/api"
 	"github.com/containerd/nri/pkg/plugin"
+	"github.com/containerd/nri/pkg/stub"
 	validator "github.com/containerd/nri/plugins/default-validator/builtin"
 )
 
@@ -93,6 +94,101 @@ var _ = Describe("Configuration", func() {
 			)
 			Expect(runtime.Start(s.dir)).To(Succeed())
 			Expect(plugin.Start(s.dir)).ToNot(Succeed())
+		})
+	})
+
+	When("the connection is lost while Start() is waiting for Configure()", func() {
+		var (
+			inConfigure      chan struct{}
+			releaseConfigure chan struct{}
+		)
+
+		BeforeEach(func() {
+			inConfigure = make(chan struct{})
+			releaseConfigure = make(chan struct{})
+			// Short request timeout so the runtime gives up on the blocked
+			// Configure RPC quickly and closes the connection.
+			nri.SetPluginRequestTimeout(200 * time.Millisecond)
+			s.Prepare(
+				&mockRuntime{},
+				&mockPlugin{
+					idx:  "00",
+					name: "test",
+					configure: func(_ *mockPlugin, _ context.Context, _, _, _ string) (stub.EventMask, error) {
+						close(inConfigure)
+						<-releaseConfigure
+						return 0, fmt.Errorf("test: configure released")
+					},
+				},
+			)
+		})
+
+		AfterEach(func() {
+			close(releaseConfigure)
+			nri.SetPluginRequestTimeout(nri.DefaultPluginRequestTimeout)
+		})
+
+		It("should cause plugin Start() to fail instead of deadlocking", func() {
+			var (
+				runtime = s.runtime
+				plugin  = s.plugins[0]
+				errCh   = make(chan error, 1)
+			)
+
+			Expect(runtime.Start(s.dir)).To(Succeed())
+
+			go func() {
+				errCh <- plugin.Start(s.dir)
+			}()
+
+			// Once the plugin's Configure handler is running we know register()
+			// has succeeded and stub.Start() is blocked on cfgErrC holding the
+			// stub lock.
+			Eventually(inConfigure, 2*time.Second).Should(BeClosed())
+
+			// The runtime's Configure RPC now times out and closes the
+			// connection, firing the plugin's ttrpc OnClose -> connClosed().
+			select {
+			case <-time.After(3 * time.Second):
+				Fail("plugin Start() did not return: stub deadlocked waiting for Configure()")
+			case err := <-errCh:
+				Expect(err).To(HaveOccurred())
+			}
+		})
+	})
+
+	When("the connection is lost during plugin registration", func() {
+		BeforeEach(func() {
+			// Make the runtime give up on registration essentially at accept
+			// time so the connection is torn down while the plugin's Start()
+			// is still setting up.
+			nri.SetPluginRegistrationTimeout(1 * time.Nanosecond)
+			s.Prepare(&mockRuntime{}, &mockPlugin{idx: "00", name: "test"})
+		})
+
+		AfterEach(func() {
+			nri.SetPluginRegistrationTimeout(nri.DefaultPluginRegistrationTimeout)
+		})
+
+		It("should cause plugin Start() to fail instead of hanging", func() {
+			var (
+				runtime = s.runtime
+				plugin  = s.plugins[0]
+				errCh   = make(chan error, 1)
+			)
+
+			Expect(runtime.Start(s.dir)).To(Succeed())
+
+			go func() {
+				errCh <- plugin.Start(s.dir)
+			}()
+
+			select {
+			case <-time.After(3 * time.Second):
+				Fail("plugin Start() did not return within 3s")
+			case err := <-errCh:
+				Expect(err).To(HaveOccurred())
+			}
 		})
 	})
 })

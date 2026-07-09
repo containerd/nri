@@ -58,25 +58,26 @@ type UpdateFn func(context.Context, []*ContainerUpdate) ([]*ContainerUpdate, err
 // Adaptation is the NRI abstraction for container runtime NRI adaptation/integration.
 type Adaptation struct {
 	sync.Mutex
-	name        string
-	version     string
-	nriVersion  string
-	dropinPath  string
-	pluginPath  string
-	socketPath  string
-	dontListen  bool
-	syncFn      SyncFn
-	updateFn    UpdateFn
-	clientOpts  []ttrpc.ClientOpts
-	serverOpts  []ttrpc.ServerOpt
-	listener    net.Listener
-	plugins     []*plugin
-	validators  []*plugin
-	builtin     []*builtin.BuiltinPlugin
-	syncLock    sync.RWMutex
-	wasmService *api.PluginPlugin
-	metrics     Metrics
-	deprecation DeprecationRecorder
+	updateContainersMu sync.Mutex
+	name               string
+	version            string
+	nriVersion         string
+	dropinPath         string
+	pluginPath         string
+	socketPath         string
+	dontListen         bool
+	syncFn             SyncFn
+	updateFn           UpdateFn
+	clientOpts         []ttrpc.ClientOpts
+	serverOpts         []ttrpc.ServerOpt
+	listener           net.Listener
+	plugins            []*plugin
+	validators         []*plugin
+	builtin            []*builtin.BuiltinPlugin
+	syncLock           sync.RWMutex
+	wasmService        *api.PluginPlugin
+	metrics            Metrics
+	deprecation        DeprecationRecorder
 }
 
 var (
@@ -477,12 +478,58 @@ func (r *Adaptation) RemoveContainer(ctx context.Context, req *RemoveContainerRe
 	return nil
 }
 
+type task struct {
+	ctx      context.Context
+	req      []*ContainerUpdate
+	resultCh chan updateResult
+}
+
+type updateResult struct {
+	update []*ContainerUpdate
+	err    error
+}
+
+var taskQueue = make(chan task)
+var once sync.Once
+
+func (r *Adaptation) worker() {
+	for t := range taskQueue {
+		go func() {
+			update, err := r.updateFn(t.ctx, t.req)
+			res := updateResult{
+				update: update,
+				err:    err,
+			}
+			t.resultCh <- res
+		}()
+	}
+}
+
+func (r *Adaptation) submit(ctx context.Context, req []*ContainerUpdate) chan updateResult {
+	resCh := make(chan updateResult)
+	task := task{
+		ctx:      ctx,
+		req:      req,
+		resultCh: resCh,
+	}
+	taskQueue <- task
+	return resCh
+}
+
 // Perform a set of unsolicited container updates requested by a plugin.
 func (r *Adaptation) updateContainers(ctx context.Context, req []*ContainerUpdate) ([]*ContainerUpdate, error) {
+	once.Do(func() {
+		go r.worker()
+	})
+	r.updateContainersMu.Lock()
+	defer r.updateContainersMu.Unlock()
 	r.Lock()
-	defer r.Unlock()
+	result := r.submit(ctx, req)
+	r.Unlock()
 
-	return r.updateFn(ctx, req)
+	res := <-result
+	return res.update, res.err
+
 }
 
 // Validate requested container adjustments.

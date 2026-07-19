@@ -70,6 +70,17 @@ type RunPodInterface interface {
 	RunPodSandbox(context.Context, *api.PodSandbox) error
 }
 
+// RunPodAdjustmentInterface handles RunPodSandbox API events for plugins that
+// wish to return a PodSandboxAdjustment (e.g. assigned IP addresses) for the
+// pod sandbox. The returned adjustment is propagated back to the runtime in
+// the RunPodSandbox response. A plugin implements either RunPodInterface or
+// RunPodAdjustmentInterface, not both.
+type RunPodAdjustmentInterface interface {
+	// RunPodSandbox relays a RunPodSandbox event to the plugin and allows
+	// the plugin to return an adjustment for the pod sandbox.
+	RunPodSandbox(context.Context, *api.PodSandbox) (*api.PodSandboxAdjustment, error)
+}
+
 // UpdatePodInterface handles UpdatePodSandbox API requests.
 type UpdatePodInterface interface {
 	// UpdatePodSandbox relays an UpdatePodSandbox request to the plugin.
@@ -320,7 +331,7 @@ type handlers struct {
 	Configure                   func(context.Context, string, string, string) (api.EventMask, error)
 	Synchronize                 func(context.Context, []*api.PodSandbox, []*api.Container) ([]*api.ContainerUpdate, error)
 	Shutdown                    func(context.Context)
-	RunPodSandbox               func(context.Context, *api.PodSandbox) error
+	RunPodSandbox               func(context.Context, *api.PodSandbox) (*api.PodSandboxAdjustment, error)
 	UpdatePodSandbox            func(context.Context, *api.PodSandbox, *api.LinuxResources, *api.LinuxResources) error
 	StopPodSandbox              func(context.Context, *api.PodSandbox) error
 	RemovePodSandbox            func(context.Context, *api.PodSandbox) error
@@ -779,8 +790,8 @@ func (stub *stub) RunPodSandbox(ctx context.Context, req *api.RunPodSandboxReque
 	if handler == nil {
 		return &api.RunPodSandboxResponse{}, nil
 	}
-	err := handler(ctx, req.GetPod())
-	return &api.RunPodSandboxResponse{}, err
+	adjust, err := handler(ctx, req.GetPod())
+	return &api.RunPodSandboxResponse{Adjust: adjust}, err
 }
 
 // UpdatePodSandbox request handler.
@@ -916,7 +927,7 @@ func (stub *stub) StateChange(ctx context.Context, evt *api.StateChangeEvent) (*
 	switch evt.Event {
 	case api.Event_RUN_POD_SANDBOX:
 		if handler := stub.handlers.RunPodSandbox; handler != nil {
-			err = handler(ctx, evt.GetPod())
+			_, err = handler(ctx, evt.GetPod())
 		}
 	case api.Event_POST_UPDATE_POD_SANDBOX:
 		if handler := stub.handlers.PostUpdatePodSandbox; handler != nil {
@@ -1005,8 +1016,14 @@ func (stub *stub) setupHandlers() error {
 		stub.handlers.Shutdown = plugin.Shutdown
 	}
 
-	if plugin, ok := stub.plugin.(RunPodInterface); ok {
+	if plugin, ok := stub.plugin.(RunPodAdjustmentInterface); ok {
 		stub.handlers.RunPodSandbox = plugin.RunPodSandbox
+		stub.events.Set(api.Event_RUN_POD_SANDBOX)
+	} else if plugin, ok := stub.plugin.(RunPodInterface); ok {
+		legacy := plugin.RunPodSandbox
+		stub.handlers.RunPodSandbox = func(ctx context.Context, pod *api.PodSandbox) (*api.PodSandboxAdjustment, error) {
+			return nil, legacy(ctx, pod)
+		}
 		stub.events.Set(api.Event_RUN_POD_SANDBOX)
 	}
 	if plugin, ok := stub.plugin.(UpdatePodInterface); ok {

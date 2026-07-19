@@ -240,7 +240,8 @@ func (m *mockRuntime) synchronize(ctx context.Context, cb nri.SyncCB) error {
 func (m *mockRuntime) RunPodSandbox(ctx context.Context, req *api.RunPodSandboxRequest) error {
 	b := m.runtime.BlockPluginSync()
 	defer b.Unblock()
-	return m.runtime.RunPodSandbox(ctx, req)
+	_, err := m.runtime.RunPodSandbox(ctx, req)
+	return err
 }
 
 func (m *mockRuntime) UpdatePodSandbox(ctx context.Context, req *api.UpdatePodSandboxRequest) (*api.UpdatePodSandboxResponse, error) {

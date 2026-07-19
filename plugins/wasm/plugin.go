@@ -124,6 +124,11 @@ func (p *plugin) UpdatePodSandbox(ctx context.Context, req *api.UpdatePodSandbox
 	return nil, nil
 }
 
+func (p *plugin) PodSandboxStatus(ctx context.Context, req *api.PodSandboxStatusRequest) (*api.PodSandboxStatusResponse, error) {
+	log(ctx, "Got pod sandbox status request")
+	return nil, nil
+}
+
 func (p *plugin) PostUpdatePodSandbox(ctx context.Context, req *api.PostUpdatePodSandboxRequest) (*api.PostUpdatePodSandboxResponse, error) {
 	log(ctx, "Got post update pod sandbox request")
 	return nil, nil

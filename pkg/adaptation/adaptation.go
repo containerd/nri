@@ -272,6 +272,40 @@ func (r *Adaptation) UpdatePodSandbox(ctx context.Context, req *UpdatePodSandbox
 	return &UpdatePodSandboxResponse{}, nil
 }
 
+// PodSandboxStatus relays the corresponding CRI request to plugins.
+// IP addresses returned by plugins are aggregated into the response: the first
+// non-empty primary IP becomes the response's primary IP, and all remaining IPs
+// (including subsequent primary IPs from other plugins) are appended to the
+// additional IPs list. Kubelet uses the first IP (or first dual-stack pair) and
+// ignores the rest, matching the standard CRI PodSandboxStatus contract.
+func (r *Adaptation) PodSandboxStatus(ctx context.Context, req *PodSandboxStatusRequest) (*PodSandboxStatusResponse, error) {
+	r.Lock()
+	defer r.Unlock()
+	defer r.removeClosedPlugins()
+
+	rsp := &PodSandboxStatusResponse{}
+
+	for _, plugin := range r.plugins {
+		pluginRsp, err := plugin.podSandboxStatus(ctx, req)
+		if err != nil {
+			return nil, err
+		}
+		if pluginRsp == nil {
+			continue
+		}
+		if pluginRsp.Ip != "" {
+			if rsp.Ip == "" {
+				rsp.Ip = pluginRsp.Ip
+			} else {
+				rsp.AdditionalIps = append(rsp.AdditionalIps, pluginRsp.Ip)
+			}
+		}
+		rsp.AdditionalIps = append(rsp.AdditionalIps, pluginRsp.AdditionalIps...)
+	}
+
+	return rsp, nil
+}
+
 // PostUpdatePodSandbox relays the corresponding CRI request to plugins.
 func (r *Adaptation) PostUpdatePodSandbox(ctx context.Context, req *PostUpdatePodSandboxRequest) error {
 	r.Lock()

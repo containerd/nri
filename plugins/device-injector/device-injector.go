@@ -718,6 +718,7 @@ func main() {
 	var (
 		pluginIdx  string
 		socketPath string
+		noCaps     bool
 		opts       []stub.Option
 		err        error
 	)
@@ -730,6 +731,7 @@ func main() {
 	flag.StringVar(&pluginIdx, "idx", "", "plugin index to register to NRI")
 	flag.StringVar(&socketPath, "socket-path", "", "path of the NRI socket file")
 	flag.BoolVar(&verbose, "verbose", false, "enable (more) verbose logging")
+	flag.BoolVar(&noCaps, "no-caps", false, "when true, disabled verificatation of runtime capabilities for this plugin")
 	flag.Parse()
 
 	if pluginIdx != "" {
@@ -738,6 +740,18 @@ func main() {
 
 	if socketPath != "" {
 		opts = append(opts, stub.WithSocketPath(socketPath))
+	}
+
+	if !noCaps {
+		opts = append(opts,
+			stub.WithRequiredRuntimeCapabilities(
+				api.Capability_ADJUST_CDI_DEVICES,
+				api.Capability_ADJUST_LINUX_IO_PRIORITY,
+				api.Capability_ADJUST_LINUX_NETWORK_DEVICES,
+				api.Capability_ADJUST_LINUX_SCHEDULING_POLICY,
+				api.Capability_ADJUST_LINUX_SYSCTL,
+			),
+		)
 	}
 
 	p := &plugin{}

@@ -75,8 +75,8 @@ func TestStripGitSuffix(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			stripped := stripGitSuffix(tc.version)
-			require.Equal(t, tc.expected, stripped, "stripGitSuffix(%q) = %q, want %q",
+			stripped := StripGitSuffix(tc.version)
+			require.Equal(t, tc.expected, stripped, "StripGitSuffix(%q) = %q, want %q",
 				tc.version, stripped, tc.expected)
 		})
 	}

@@ -480,6 +480,7 @@ func (p *plugin) configure(ctx context.Context, name, version, config string) (e
 		RegistrationTimeout: getPluginRegistrationTimeout().Milliseconds(),
 		RequestTimeout:      getPluginRequestTimeout().Milliseconds(),
 		NRIVersion:          p.r.nriVersion,
+		Capabilities:        p.r.capabilities,
 	}
 
 	rpl, err := p.impl.Configure(ctx, req)

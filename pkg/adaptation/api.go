@@ -109,8 +109,9 @@ type (
 	SecurityProfile          = api.SecurityProfile
 	User                     = api.User
 
-	Event     = api.Event
-	EventMask = api.EventMask
+	Event          = api.Event
+	EventMask      = api.EventMask
+	CapabilityMask = api.CapabilityMask
 )
 
 // Aliased consts for api/api.proto.

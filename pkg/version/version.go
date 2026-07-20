@@ -75,12 +75,12 @@ func FindClosestMatch(v string, versions []string) string {
 	// semver for instance considers v2.2.0-225-ge9dc15b7a.m < v2.2.0, which is
 	// obviously not the case. In lack of a better choice, we strip any such
 	// suffix from v before comparison.
-	v = stripGitSuffix(v)
+	v = StripGitSuffix(v)
 	semver.Sort(versions)
 
 	latest := ""
 	for _, ver := range versions {
-		if semver.Compare(ver, v) > 0 {
+		if Compare(ver, v) > 0 {
 			break
 		}
 		latest = ver
@@ -88,10 +88,10 @@ func FindClosestMatch(v string, versions []string) string {
 	return latest
 }
 
-// stripGitSuffix strips any git described suffix from a version string.
+// StripGitSuffix strips any git described suffix from a version string.
 // We expect a valid git suffix to be of the form "-N-gSHA1[.m], where
 // N is an decimal integer and SHA1 is a hexadecimal integer.
-func stripGitSuffix(version string) string {
+func StripGitSuffix(version string) string {
 	mmp := majorMinorPatch(version)
 	pre := semver.Prerelease(version)
 	if mmp+pre != version {
@@ -116,4 +116,9 @@ func stripGitSuffix(version string) string {
 	}
 
 	return mmp
+}
+
+// Compare to version strings according to their semantic versioning precedence.
+func Compare(v1, v2 string) int {
+	return semver.Compare(v1, v2)
 }

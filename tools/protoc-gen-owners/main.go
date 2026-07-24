@@ -173,13 +173,13 @@ func generateOwnerFuncs(g *protogen.GeneratedFile, fieldEnum *protogen.Enum) {
 
 			// OwningPlugins.<Field>Owner
 			g.P("func (o *OwningPlugins) ", fieldName, "Owner(id, ", keyName, " string) (string, bool) {")
-			g.P("    return o.ownersFor(id).compoundOwner(Field_", originalFieldName, ".Key(), ", keyName, ")")
+			g.P("    return o.ownersFor(id).CompoundOwner(Field_", originalFieldName, ".Key(), ", keyName, ")")
 			g.P("}")
 			g.P()
 
 			// FieldOwners.<Field>Owner
 			g.P("func (f *FieldOwners) ", fieldName, "Owner(", keyName, " string) (string, bool) {")
-			g.P("    return f.compoundOwner(Field_", originalFieldName, ".Key(), ", keyName, ")")
+			g.P("    return f.CompoundOwner(Field_", originalFieldName, ".Key(), ", keyName, ")")
 			g.P("}")
 			g.P()
 
@@ -209,13 +209,13 @@ func generateOwnerFuncs(g *protogen.GeneratedFile, fieldEnum *protogen.Enum) {
 
 			// OwningPlugins.<Field>Owner
 			g.P("func (o *OwningPlugins) ", fieldName, "Owner(id string) (string, bool) {")
-			g.P("    return o.ownersFor(id).simpleOwner(Field_", originalFieldName, ".Key())")
+			g.P("    return o.ownersFor(id).SimpleOwner(Field_", originalFieldName, ".Key())")
 			g.P("}")
 			g.P()
 
 			// FieldOwners.<Field>Owner
 			g.P("func (f *FieldOwners) ", fieldName, "Owner() (string, bool) {")
-			g.P("    return f.simpleOwner(Field_", originalFieldName, ".Key())")
+			g.P("    return f.SimpleOwner(Field_", originalFieldName, ".Key())")
 			g.P("}")
 			g.P()
 

@@ -18,6 +18,7 @@ package adaptation
 
 import (
 	"github.com/containerd/nri/pkg/api"
+	"github.com/containerd/nri/pkg/auth"
 )
 
 //
@@ -74,6 +75,9 @@ type (
 	ValidateContainerAdjustmentRequest  = api.ValidateContainerAdjustmentRequest
 	ValidateContainerAdjustmentResponse = api.ValidateContainerAdjustmentResponse
 	PluginInstance                      = api.PluginInstance
+
+	Role       = auth.Role
+	AuthConfig = auth.Config
 
 	PodSandbox               = api.PodSandbox
 	LinuxPodSandbox          = api.LinuxPodSandbox

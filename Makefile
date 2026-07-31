@@ -150,9 +150,9 @@ $(BIN_PATH)/wasm build/bin/wasm: FORCE
 # test targets
 #
 
-test-gopkgs: go-generate ginkgo-tests test-ulimits test-rdt test-hook-injector test-writable-cgroups
+test-gopkgs: go-generate ginkgo-tests test-ulimits test-rdt test-hook-injector test-writable-cgroups test-identity-injector
 
-SKIPPED_PKGS="ulimit-adjuster,device-injector,rdt,hook-injector,writable-cgroups"
+SKIPPED_PKGS="ulimit-adjuster,device-injector,rdt,hook-injector,writable-cgroups,identity-injector"
 
 ginkgo-tests:
 	$(Q)$(GINKGO) run \
@@ -182,6 +182,9 @@ test-hook-injector:
 
 test-writable-cgroups:
 	$(Q)cd ./plugins/writable-cgroups && $(GO_TEST) -v
+
+test-identity-injector:
+	$(Q)cd ./plugins/identity-injector && $(GO_TEST) -v
 
 codecov: SHELL := $(shell which bash)
 codecov:

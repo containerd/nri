@@ -53,21 +53,22 @@ var (
 
 type plugin struct {
 	sync.Mutex
-	idx    string
-	base   string
-	cfg    string
-	pid    int
-	cmd    *exec.Cmd
-	mux    multiplex.Mux
-	rpcc   *ttrpc.Client
-	rpcl   stdnet.Listener
-	rpcs   *ttrpc.Server
-	events EventMask
-	closed bool
-	regC   chan error
-	closeC chan struct{}
-	r      *Adaptation
-	impl   *pluginType
+	idx            string
+	base           string
+	cfg            string
+	pid            int
+	cmd            *exec.Cmd
+	mux            multiplex.Mux
+	rpcc           *ttrpc.Client
+	rpcl           stdnet.Listener
+	rpcs           *ttrpc.Server
+	events         EventMask
+	requestTimeout time.Duration
+	closed         bool
+	regC           chan error
+	closeC         chan struct{}
+	r              *Adaptation
+	impl           *pluginType
 }
 
 // SetPluginRegistrationTimeout sets the timeout for plugin registration.
@@ -83,7 +84,7 @@ func getPluginRegistrationTimeout() time.Duration {
 	return pluginRegistrationTimeout
 }
 
-// SetPluginRequestTimeout sets the timeout for plugins to handle a request.
+// SetPluginRequestTimeout sets the default timeout for plugins to handle a request.
 func SetPluginRequestTimeout(t time.Duration) {
 	timeoutCfgLock.Lock()
 	defer timeoutCfgLock.Unlock()
@@ -94,6 +95,17 @@ func getPluginRequestTimeout() time.Duration {
 	timeoutCfgLock.RLock()
 	defer timeoutCfgLock.RUnlock()
 	return pluginRequestTimeout
+}
+
+// getRequestTimeout returns the per-plugin request timeout if configured by the plugin,
+// or the global default request timeout as a fallback.
+func (p *plugin) getRequestTimeout() time.Duration {
+	p.Lock()
+	defer p.Unlock()
+	if p.requestTimeout > 0 {
+		return p.requestTimeout
+	}
+	return getPluginRequestTimeout()
 }
 
 // newLaunchedPlugin launches a pre-installed plugin with a pre-connected socketpair.
@@ -497,6 +509,10 @@ func (p *plugin) configure(ctx context.Context, name, version, config string) (e
 	}
 	p.events = events
 
+	if rpl.RequestTimeout > 0 {
+		p.requestTimeout = time.Duration(rpl.RequestTimeout) * time.Millisecond
+	}
+
 	return nil
 }
 
@@ -504,7 +520,7 @@ func (p *plugin) configure(ctx context.Context, name, version, config string) (e
 func (p *plugin) synchronize(ctx context.Context, pods []*PodSandbox, containers []*Container) ([]*ContainerUpdate, error) {
 	log.Infof(ctx, "synchronizing plugin %s", p.name())
 
-	ctx, cancel := context.WithTimeout(ctx, getPluginRequestTimeout())
+	ctx, cancel := context.WithTimeout(ctx, p.getRequestTimeout())
 	defer cancel()
 
 	var (
@@ -614,7 +630,7 @@ func (p *plugin) runPodSandbox(ctx context.Context, req *RunPodSandboxRequest) (
 		return nil, nil
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, getPluginRequestTimeout())
+	ctx, cancel := context.WithTimeout(ctx, p.getRequestTimeout())
 	defer cancel()
 
 	start := time.Now()
@@ -641,7 +657,7 @@ func (p *plugin) updatePodSandbox(ctx context.Context, req *UpdatePodSandboxRequ
 		return nil, nil
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, getPluginRequestTimeout())
+	ctx, cancel := context.WithTimeout(ctx, p.getRequestTimeout())
 	defer cancel()
 
 	start := time.Now()
@@ -667,7 +683,7 @@ func (p *plugin) postUpdatePodSandbox(ctx context.Context, req *PostUpdatePodSan
 		return nil, nil
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, getPluginRequestTimeout())
+	ctx, cancel := context.WithTimeout(ctx, p.getRequestTimeout())
 	defer cancel()
 
 	start := time.Now()
@@ -694,7 +710,7 @@ func (p *plugin) stopPodSandbox(ctx context.Context, req *StopPodSandboxRequest)
 		return nil, nil
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, getPluginRequestTimeout())
+	ctx, cancel := context.WithTimeout(ctx, p.getRequestTimeout())
 	defer cancel()
 
 	start := time.Now()
@@ -721,7 +737,7 @@ func (p *plugin) removePodSandbox(ctx context.Context, req *RemovePodSandboxRequ
 		return nil, nil
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, getPluginRequestTimeout())
+	ctx, cancel := context.WithTimeout(ctx, p.getRequestTimeout())
 	defer cancel()
 
 	start := time.Now()
@@ -748,7 +764,7 @@ func (p *plugin) createContainer(ctx context.Context, req *CreateContainerReques
 		return nil, nil
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, getPluginRequestTimeout())
+	ctx, cancel := context.WithTimeout(ctx, p.getRequestTimeout())
 	defer cancel()
 
 	start := time.Now()
@@ -777,7 +793,7 @@ func (p *plugin) postCreateContainer(ctx context.Context, req *PostCreateContain
 		return nil, nil
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, getPluginRequestTimeout())
+	ctx, cancel := context.WithTimeout(ctx, p.getRequestTimeout())
 	defer cancel()
 
 	start := time.Now()
@@ -804,7 +820,7 @@ func (p *plugin) startContainer(ctx context.Context, req *StartContainerRequest)
 		return nil, nil
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, getPluginRequestTimeout())
+	ctx, cancel := context.WithTimeout(ctx, p.getRequestTimeout())
 	defer cancel()
 
 	start := time.Now()
@@ -831,7 +847,7 @@ func (p *plugin) postStartContainer(ctx context.Context, req *PostStartContainer
 		return nil, nil
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, getPluginRequestTimeout())
+	ctx, cancel := context.WithTimeout(ctx, p.getRequestTimeout())
 	defer cancel()
 
 	start := time.Now()
@@ -858,7 +874,7 @@ func (p *plugin) updateContainer(ctx context.Context, req *UpdateContainerReques
 		return nil, nil
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, getPluginRequestTimeout())
+	ctx, cancel := context.WithTimeout(ctx, p.getRequestTimeout())
 	defer cancel()
 
 	start := time.Now()
@@ -887,7 +903,7 @@ func (p *plugin) postUpdateContainer(ctx context.Context, req *PostUpdateContain
 		return nil, nil
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, getPluginRequestTimeout())
+	ctx, cancel := context.WithTimeout(ctx, p.getRequestTimeout())
 	defer cancel()
 
 	start := time.Now()
@@ -914,7 +930,7 @@ func (p *plugin) stopContainer(ctx context.Context, req *StopContainerRequest) (
 		return nil, nil
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, getPluginRequestTimeout())
+	ctx, cancel := context.WithTimeout(ctx, p.getRequestTimeout())
 	defer cancel()
 
 	start := time.Now()
@@ -943,7 +959,7 @@ func (p *plugin) removeContainer(ctx context.Context, req *RemoveContainerReques
 		return nil, nil
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, getPluginRequestTimeout())
+	ctx, cancel := context.WithTimeout(ctx, p.getRequestTimeout())
 	defer cancel()
 
 	start := time.Now()
@@ -970,7 +986,7 @@ func (p *plugin) ValidateContainerAdjustment(ctx context.Context, req *ValidateC
 		return nil
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, getPluginRequestTimeout())
+	ctx, cancel := context.WithTimeout(ctx, p.getRequestTimeout())
 	defer cancel()
 
 	start := time.Now()

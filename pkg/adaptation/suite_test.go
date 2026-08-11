@@ -33,14 +33,8 @@ import (
 
 	"github.com/containerd/nri/pkg/stub"
 
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
+	"github.com/stretchr/testify/require"
 )
-
-func TestRuntime(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "NRI Runtime")
-}
 
 const (
 	startupTimeout        = 2 * time.Second
@@ -50,28 +44,28 @@ const (
 
 // A test suite consist of a runtime and a set of plugins.
 type Suite struct {
+	t       *testing.T
 	dir     string        // directory to create for test
 	runtime *mockRuntime  // runtime instance for test
 	plugins []*mockPlugin // plugin instances for test
 	byName  map[string]*mockPlugin
 }
 
-// SuiteOption can be applied to a suite.
-type SuiteOption func(s *Suite) error
-
 // Prepare test suite, creating test directory.
-func (s *Suite) Prepare(runtime *mockRuntime, plugins ...*mockPlugin) string {
-	var (
-		dir string
-		etc string
-	)
+func (s *Suite) Prepare(t *testing.T, runtime *mockRuntime, plugins ...*mockPlugin) string {
+	t.Helper()
 
 	logrus.SetLevel(logrus.ErrorLevel)
 
-	dir = GinkgoT().TempDir()
-	etc = filepath.Join(dir, "etc", "nri")
+	// Avoid t.TempDir() to keep Unix socket paths below platform limits.
+	dir, err := os.MkdirTemp("", "nri-")
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		require.NoError(t, os.RemoveAll(dir))
+	})
 
-	Expect(os.MkdirAll(etc, 0o755)).To(Succeed())
+	etc := filepath.Join(dir, "etc", "nri")
+	require.NoError(t, os.MkdirAll(etc, 0o755))
 
 	if runtime.name == "" {
 		runtime.name = defaultRuntimeName
@@ -80,13 +74,15 @@ func (s *Suite) Prepare(runtime *mockRuntime, plugins ...*mockPlugin) string {
 		runtime.version = defaultRuntimeVersion
 	}
 
+	s.t = t
 	s.dir = dir
 	s.runtime = runtime
-	s.plugins = plugins
-
-	if s.byName == nil {
-		s.byName = make(map[string]*mockPlugin)
+	for _, plugin := range plugins {
+		plugin.logf = t.Logf
 	}
+	s.plugins = plugins
+	s.byName = make(map[string]*mockPlugin)
+	t.Cleanup(s.Cleanup)
 
 	return dir
 }
@@ -107,7 +103,8 @@ func (s *Suite) Startup() {
 
 // StartRuntime starts the suite runtime.
 func (s *Suite) StartRuntime() {
-	Expect(s.runtime.Start(s.dir)).To(Succeed())
+	s.t.Helper()
+	require.NoError(s.t, s.runtime.Start(s.dir))
 }
 
 // StartPlugins starts the suite plugins.
@@ -115,15 +112,16 @@ func (s *Suite) StartPlugins(plugins ...*mockPlugin) {
 	for _, plugin := range plugins {
 		s.plugins = append(s.plugins, plugin)
 		s.byName[plugin.FullName()] = plugin
-		Expect(plugin.Start(s.dir)).To(Succeed())
+		require.NoError(s.t, plugin.Start(s.dir))
 	}
 }
 
 // WaitForPluginsToSync waits for the given plugins to get synchronized.
 func (s *Suite) WaitForPluginsToSync(plugins ...*mockPlugin) {
+	s.t.Helper()
 	timeout := time.After(startupTimeout)
 	for _, plugin := range plugins {
-		Expect(plugin.Wait(PluginSynchronized, timeout)).To(Succeed())
+		require.NoError(s.t, plugin.Wait(PluginSynchronized, timeout))
 	}
 	s.runtime.runtime.BlockPluginSync().Unblock() // ensure plugins are fully registered
 }
@@ -135,7 +133,6 @@ func (s *Suite) Cleanup() {
 	for _, plugin := range s.plugins {
 		plugin.Stop()
 	}
-	Expect(os.RemoveAll(s.dir)).To(Succeed())
 }
 
 // Plugin returns a plugin started by StartPlugins by full plugin name.
@@ -146,7 +143,7 @@ func (s *Suite) plugin(fullName string) *mockPlugin {
 // ------------------------------------
 
 func Log(format string, args ...interface{}) {
-	GinkgoWriter.Printf(format+"\n", args...)
+	logrus.Debugf(format, args...)
 }
 
 type mockRuntime struct {
@@ -381,6 +378,8 @@ type mockPlugin struct {
 	runtime string
 	version string
 
+	logf func(string, ...any)
+
 	q    *EventQ
 	pods map[string]*api.PodSandbox
 	ctrs map[string]*api.Container
@@ -419,8 +418,12 @@ var (
 	_ = stub.PostUpdateContainerInterface(&mockPlugin{})
 )
 
-func (m *mockPlugin) Log(format string, args ...interface{}) {
-	Log("* [plugin %s-%s] "+format, append([]interface{}{m.idx, m.name}, args...)...)
+func (m *mockPlugin) Log(format string, args ...any) {
+	logf := m.logf
+	if logf == nil {
+		logf = Log
+	}
+	logf("* [plugin %s-%s] "+format, append([]any{m.idx, m.name}, args...)...)
 }
 
 func (m *mockPlugin) SetFallbackName(name string, idx int) {

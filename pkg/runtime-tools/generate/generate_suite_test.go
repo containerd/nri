@@ -23,10 +23,10 @@ import (
 	. "github.com/onsi/gomega"
 
 	rspec "github.com/opencontainers/runtime-spec/specs-go"
-	rgen "github.com/opencontainers/runtime-tools/generate"
 
 	"github.com/containerd/nri/pkg/api"
 	xgen "github.com/containerd/nri/pkg/runtime-tools/generate"
+	"github.com/containerd/nri/pkg/runtime-tools/internal/ocigen"
 )
 
 func TestGenerate(t *testing.T) {
@@ -42,8 +42,7 @@ var _ = Describe("Adjustment", func() {
 				adjust *api.ContainerAdjustment
 			)
 
-			rg := &rgen.Generator{Config: spec}
-			xg := xgen.SpecGenerator(rg)
+			xg := xgen.SpecGenerator(ocigen.New(spec))
 
 			Expect(xg).ToNot(BeNil())
 			Expect(xg.Adjust(adjust)).To(Succeed())
@@ -60,8 +59,7 @@ var _ = Describe("Adjustment", func() {
 				}
 			)
 
-			rg := &rgen.Generator{Config: spec}
-			xg := xgen.SpecGenerator(rg)
+			xg := xgen.SpecGenerator(ocigen.New(spec))
 
 			Expect(xg).ToNot(BeNil())
 			Expect(xg.Adjust(adjust)).To(Succeed())
@@ -82,8 +80,7 @@ var _ = Describe("Adjustment", func() {
 				}
 			)
 
-			rg := &rgen.Generator{Config: spec}
-			xg := xgen.SpecGenerator(rg)
+			xg := xgen.SpecGenerator(ocigen.New(spec))
 
 			Expect(xg).ToNot(BeNil())
 			Expect(xg.Adjust(adjust)).To(Succeed())
@@ -104,8 +101,7 @@ var _ = Describe("Adjustment", func() {
 				}
 			)
 
-			rg := &rgen.Generator{Config: spec}
-			xg := xgen.SpecGenerator(rg)
+			xg := xgen.SpecGenerator(ocigen.New(spec))
 
 			Expect(xg).ToNot(BeNil())
 			Expect(xg.Adjust(adjust)).To(Succeed())
@@ -128,8 +124,7 @@ var _ = Describe("Adjustment", func() {
 				}
 			)
 
-			rg := &rgen.Generator{Config: spec}
-			xg := xgen.SpecGenerator(rg)
+			xg := xgen.SpecGenerator(ocigen.New(spec))
 
 			Expect(xg).ToNot(BeNil())
 			Expect(xg.Adjust(adjust)).To(Succeed())
@@ -151,8 +146,7 @@ var _ = Describe("Adjustment", func() {
 				}
 			)
 
-			rg := &rgen.Generator{Config: spec}
-			xg := xgen.SpecGenerator(rg)
+			xg := xgen.SpecGenerator(ocigen.New(spec))
 
 			Expect(xg).ToNot(BeNil())
 			Expect(xg.Adjust(adjust)).To(Succeed())
@@ -171,8 +165,7 @@ var _ = Describe("Adjustment", func() {
 				}
 			)
 
-			rg := &rgen.Generator{Config: spec}
-			xg := xgen.SpecGenerator(rg)
+			xg := xgen.SpecGenerator(ocigen.New(spec))
 
 			Expect(xg).ToNot(BeNil())
 			Expect(xg.Adjust(adjust)).To(Succeed())
@@ -191,8 +184,7 @@ var _ = Describe("Adjustment", func() {
 			spec.Process.OOMScoreAdj = &oomScoreAdj
 			expectedSpec.Process.OOMScoreAdj = &oomScoreAdj
 
-			rg := &rgen.Generator{Config: spec}
-			xg := xgen.SpecGenerator(rg)
+			xg := xgen.SpecGenerator(ocigen.New(spec))
 
 			Expect(xg).ToNot(BeNil())
 			Expect(xg.Adjust(adjust)).To(Succeed())
@@ -215,8 +207,7 @@ var _ = Describe("Adjustment", func() {
 				}
 			)
 
-			rg := &rgen.Generator{Config: spec}
-			xg := xgen.SpecGenerator(rg)
+			xg := xgen.SpecGenerator(ocigen.New(spec))
 
 			Expect(xg).ToNot(BeNil())
 			Expect(xg.Adjust(adjust)).To(Succeed())
@@ -239,8 +230,7 @@ var _ = Describe("Adjustment", func() {
 				}
 			)
 
-			rg := &rgen.Generator{Config: spec}
-			xg := xgen.SpecGenerator(rg)
+			xg := xgen.SpecGenerator(ocigen.New(spec))
 
 			Expect(xg).ToNot(BeNil())
 			Expect(xg.Adjust(adjust)).To(Succeed())
@@ -263,8 +253,7 @@ var _ = Describe("Adjustment", func() {
 				}
 			)
 
-			rg := &rgen.Generator{Config: spec}
-			xg := xgen.SpecGenerator(rg)
+			xg := xgen.SpecGenerator(ocigen.New(spec))
 
 			Expect(xg).ToNot(BeNil())
 			Expect(xg.Adjust(adjust)).To(Succeed())
@@ -287,8 +276,7 @@ var _ = Describe("Adjustment", func() {
 				}
 			)
 
-			rg := &rgen.Generator{Config: spec}
-			xg := xgen.SpecGenerator(rg)
+			xg := xgen.SpecGenerator(ocigen.New(spec))
 
 			Expect(xg).ToNot(BeNil())
 			Expect(xg.Adjust(adjust)).To(Succeed())
@@ -311,8 +299,7 @@ var _ = Describe("Adjustment", func() {
 				}
 			)
 
-			rg := &rgen.Generator{Config: spec}
-			xg := xgen.SpecGenerator(rg)
+			xg := xgen.SpecGenerator(ocigen.New(spec))
 
 			Expect(xg).ToNot(BeNil())
 			Expect(xg.Adjust(adjust)).To(Succeed())
@@ -335,8 +322,7 @@ var _ = Describe("Adjustment", func() {
 				}
 			)
 
-			rg := &rgen.Generator{Config: spec}
-			xg := xgen.SpecGenerator(rg)
+			xg := xgen.SpecGenerator(ocigen.New(spec))
 
 			Expect(xg).ToNot(BeNil())
 			Expect(xg.Adjust(adjust)).To(Succeed())
@@ -370,8 +356,7 @@ var _ = Describe("Adjustment", func() {
 				}
 			)
 
-			rg := &rgen.Generator{Config: spec}
-			xg := xgen.SpecGenerator(rg)
+			xg := xgen.SpecGenerator(ocigen.New(spec))
 
 			Expect(xg).ToNot(BeNil())
 			Expect(xg.Adjust(adjust)).To(Succeed())
@@ -420,8 +405,7 @@ var _ = Describe("Adjustment", func() {
 				}
 			)
 
-			rg := &rgen.Generator{Config: spec}
-			xg := xgen.SpecGenerator(rg)
+			xg := xgen.SpecGenerator(ocigen.New(spec))
 
 			Expect(xg).ToNot(BeNil())
 			Expect(xg.Adjust(adjust)).To(Succeed())
@@ -445,8 +429,8 @@ var _ = Describe("Adjustment", func() {
 			spec.Linux.Sysctl = map[string]string{
 				"delete.me": "foobar",
 			}
-			rg := &rgen.Generator{Config: spec}
-			xg := xgen.SpecGenerator(rg)
+
+			xg := xgen.SpecGenerator(ocigen.New(spec))
 
 			Expect(xg).ToNot(BeNil())
 			Expect(xg.Adjust(adjust)).To(Succeed())
@@ -470,8 +454,7 @@ var _ = Describe("Adjustment", func() {
 				},
 			}
 
-			rg := &rgen.Generator{Config: spec}
-			xg := xgen.SpecGenerator(rg)
+			xg := xgen.SpecGenerator(ocigen.New(spec))
 
 			Expect(xg).ToNot(BeNil())
 			Expect(xg.Adjust(adjust)).To(Succeed())
@@ -494,8 +477,7 @@ var _ = Describe("Adjustment", func() {
 				},
 			}
 
-			rg := &rgen.Generator{Config: spec}
-			xg := xgen.SpecGenerator(rg)
+			xg := xgen.SpecGenerator(ocigen.New(spec))
 
 			Expect(xg).ToNot(BeNil())
 			Expect(xg.Adjust(adjust)).To(Succeed())

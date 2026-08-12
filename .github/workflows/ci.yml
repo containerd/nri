@@ -116,4 +116,4 @@ jobs:
           echo "${{ github.workspace }}/bin" >> $GITHUB_PATH
 
       - run: |
-          make install-ginkgo test codecov
+          make test codecov

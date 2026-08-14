@@ -108,6 +108,8 @@ type (
 	POSIXRlimit              = api.POSIXRlimit
 	SecurityProfile          = api.SecurityProfile
 	User                     = api.User
+	OwningPlugins            = api.OwningPlugins
+	FieldOwners              = api.FieldOwners
 
 	Event     = api.Event
 	EventMask = api.EventMask

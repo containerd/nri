@@ -17,10 +17,14 @@
 package generate_test
 
 import (
+	"bytes"
+	"fmt"
+	"strings"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/sirupsen/logrus"
 
 	rspec "github.com/opencontainers/runtime-spec/specs-go"
 	rgen "github.com/opencontainers/runtime-tools/generate"
@@ -34,7 +38,59 @@ func TestGenerate(t *testing.T) {
 	RunSpecs(t, "Generate Suite")
 }
 
+type logger struct {
+	messages []string
+}
+
+func newLogger() *logger {
+	return &logger{
+		messages: []string{},
+	}
+}
+
+func (l *logger) Log(event string, fields xgen.Fields) {
+	var (
+		buf = &bytes.Buffer{}
+		log = &logrus.Logger{
+			Out: buf,
+			Formatter: &logrus.TextFormatter{
+				DisableTimestamp: true,
+				DisableQuote:     true,
+			},
+			Level: logrus.InfoLevel,
+		}
+	)
+	log.WithFields(fields).Info(event)
+	l.messages = append(l.messages, buf.String())
+}
+
+func (l *logger) MessageCount() int {
+	return len(l.messages)
+}
+
+func (l *logger) Has(event string, fields xgen.Fields) bool {
+	for _, entry := range l.messages {
+		if !strings.Contains(entry, event) {
+			continue
+		}
+		found := true
+		for k, v := range fields {
+			field := fmt.Sprintf("%s=%v", k, v)
+			if !strings.Contains(entry, field) {
+				found = false
+				break
+			}
+		}
+		if found {
+			return true
+		}
+	}
+	return false
+}
+
 var _ = Describe("Adjustment", func() {
+	testID := "test-ctr-id"
+
 	When("nil", func() {
 		It("does not modify the Spec", func() {
 			var (
@@ -42,12 +98,14 @@ var _ = Describe("Adjustment", func() {
 				adjust *api.ContainerAdjustment
 			)
 
+			al := newLogger()
 			rg := &rgen.Generator{Config: spec}
-			xg := xgen.SpecGenerator(rg)
+			xg := xgen.SpecGenerator(rg, xgen.WithLogger(al.Log, nil))
 
 			Expect(xg).ToNot(BeNil())
 			Expect(xg.Adjust(adjust)).To(Succeed())
 			Expect(spec).To(Equal(makeSpec()))
+			Expect(al.MessageCount()).To(Equal(0))
 		})
 	})
 
@@ -60,12 +118,14 @@ var _ = Describe("Adjustment", func() {
 				}
 			)
 
+			al := newLogger()
 			rg := &rgen.Generator{Config: spec}
-			xg := xgen.SpecGenerator(rg)
+			xg := xgen.SpecGenerator(rg, xgen.WithLogger(al.Log, nil))
 
 			Expect(xg).ToNot(BeNil())
 			Expect(xg.Adjust(adjust)).To(Succeed())
 			Expect(spec).To(Equal(makeSpec()))
+			Expect(al.MessageCount()).To(Equal(0))
 		})
 	})
 
@@ -80,14 +140,23 @@ var _ = Describe("Adjustment", func() {
 						"arg2",
 					},
 				}
+				plugin = "args-plugin"
+				owners = api.NewOwningPlugins()
 			)
 
+			owners.ClaimArgs(testID, plugin)
+
+			al := newLogger()
 			rg := &rgen.Generator{Config: spec}
-			xg := xgen.SpecGenerator(rg)
+			xg := xgen.SpecGenerator(rg, xgen.WithLogger(al.Log, owners.Owners[testID]))
 
 			Expect(xg).ToNot(BeNil())
 			Expect(xg.Adjust(adjust)).To(Succeed())
 			Expect(spec).To(Equal(makeSpec(withArgs("arg0", "arg1", "arg2"))))
+			Expect(al.Has(xgen.AuditSetProcessArgs,
+				xgen.Fields{
+					"nri.plugin": plugin,
+				})).To(BeTrue())
 		})
 	})
 
@@ -102,14 +171,26 @@ var _ = Describe("Adjustment", func() {
 						Soft: 123,
 					}},
 				}
+				plugin = "rlimits-plugin"
+				owners = api.NewOwningPlugins()
 			)
 
+			owners.ClaimRlimit(testID, "nofile", plugin)
+
+			al := newLogger()
 			rg := &rgen.Generator{Config: spec}
-			xg := xgen.SpecGenerator(rg)
+			xg := xgen.SpecGenerator(rg, xgen.WithLogger(al.Log, owners.Owners[testID]))
 
 			Expect(xg).ToNot(BeNil())
 			Expect(xg.Adjust(adjust)).To(Succeed())
 			Expect(spec).To(Equal(makeSpec(withRlimit("nofile", 456, 123))))
+			Expect(al.Has(xgen.AuditAddProcessRlimits,
+				xgen.Fields{
+					"value.type": "nofile",
+					"value.soft": 123,
+					"value.hard": 456,
+					"nri.plugin": plugin,
+				})).To(BeTrue())
 		})
 	})
 
@@ -126,14 +207,30 @@ var _ = Describe("Adjustment", func() {
 						},
 					},
 				}
+				plugin = "memlim-plugin"
+				owners = api.NewOwningPlugins()
 			)
 
+			owners.ClaimMemLimit(testID, plugin)
+			owners.ClaimMemSwapLimit(testID, plugin)
+
+			al := newLogger()
 			rg := &rgen.Generator{Config: spec}
-			xg := xgen.SpecGenerator(rg)
+			xg := xgen.SpecGenerator(rg, xgen.WithLogger(al.Log, owners.Owners[testID]))
 
 			Expect(xg).ToNot(BeNil())
 			Expect(xg.Adjust(adjust)).To(Succeed())
 			Expect(spec).To(Equal(makeSpec(withMemoryLimit(11111), withMemorySwap(11111))))
+			Expect(al.Has(xgen.AuditSetLinuxMemLimit,
+				xgen.Fields{
+					"value":      "11111",
+					"nri.plugin": plugin,
+				})).To(BeTrue())
+			Expect(al.Has(xgen.AuditSetLinuxMemSwapLimit,
+				xgen.Fields{
+					"value":      "11111",
+					"nri.plugin": plugin,
+				})).To(BeTrue())
 		})
 	})
 
@@ -149,14 +246,24 @@ var _ = Describe("Adjustment", func() {
 						},
 					},
 				}
+				plugin = "oomscoreadj-plugin"
+				owners = api.NewOwningPlugins()
 			)
 
+			owners.ClaimOomScoreAdj(testID, plugin)
+
+			al := newLogger()
 			rg := &rgen.Generator{Config: spec}
-			xg := xgen.SpecGenerator(rg)
+			xg := xgen.SpecGenerator(rg, xgen.WithLogger(al.Log, owners.Owners[testID]))
 
 			Expect(xg).ToNot(BeNil())
 			Expect(xg.Adjust(adjust)).To(Succeed())
 			Expect(spec).To(Equal(makeSpec(withOomScoreAdj(&oomScoreAdj))))
+			Expect(al.Has(xgen.AuditSetProcessOOMScoreAdj,
+				xgen.Fields{
+					"value":      oomScoreAdj,
+					"nri.plugin": plugin,
+				})).To(BeTrue())
 		})
 	})
 
@@ -171,8 +278,9 @@ var _ = Describe("Adjustment", func() {
 				}
 			)
 
+			al := newLogger()
 			rg := &rgen.Generator{Config: spec}
-			xg := xgen.SpecGenerator(rg)
+			xg := xgen.SpecGenerator(rg, xgen.WithLogger(al.Log, nil))
 
 			Expect(xg).ToNot(BeNil())
 			Expect(xg.Adjust(adjust)).To(Succeed())
@@ -191,8 +299,9 @@ var _ = Describe("Adjustment", func() {
 			spec.Process.OOMScoreAdj = &oomScoreAdj
 			expectedSpec.Process.OOMScoreAdj = &oomScoreAdj
 
+			al := newLogger()
 			rg := &rgen.Generator{Config: spec}
-			xg := xgen.SpecGenerator(rg)
+			xg := xgen.SpecGenerator(rg, xgen.WithLogger(al.Log, nil))
 
 			Expect(xg).ToNot(BeNil())
 			Expect(xg.Adjust(adjust)).To(Succeed())
@@ -213,14 +322,24 @@ var _ = Describe("Adjustment", func() {
 						},
 					},
 				}
+				plugin = "cpushares-plugin"
+				owners = api.NewOwningPlugins()
 			)
 
+			owners.ClaimCPUShares(testID, plugin)
+
+			al := newLogger()
 			rg := &rgen.Generator{Config: spec}
-			xg := xgen.SpecGenerator(rg)
+			xg := xgen.SpecGenerator(rg, xgen.WithLogger(al.Log, owners.Owners[testID]))
 
 			Expect(xg).ToNot(BeNil())
 			Expect(xg.Adjust(adjust)).To(Succeed())
 			Expect(spec).To(Equal(makeSpec(withCPUShares(11111))))
+			Expect(al.Has(xgen.AuditSetLinuxCPUShares,
+				xgen.Fields{
+					"value":      11111,
+					"nri.plugin": plugin,
+				})).To(BeTrue())
 		})
 	})
 
@@ -237,14 +356,24 @@ var _ = Describe("Adjustment", func() {
 						},
 					},
 				}
+				plugin = "cpuquota-plugin"
+				owners = api.NewOwningPlugins()
 			)
 
+			owners.ClaimCPUQuota(testID, plugin)
+
+			al := newLogger()
 			rg := &rgen.Generator{Config: spec}
-			xg := xgen.SpecGenerator(rg)
+			xg := xgen.SpecGenerator(rg, xgen.WithLogger(al.Log, owners.Owners[testID]))
 
 			Expect(xg).ToNot(BeNil())
 			Expect(xg.Adjust(adjust)).To(Succeed())
 			Expect(spec).To(Equal(makeSpec(withCPUQuota(11111))))
+			Expect(al.Has(xgen.AuditSetLinuxCPUQuota,
+				xgen.Fields{
+					"value":      11111,
+					"nri.plugin": plugin,
+				})).To(BeTrue())
 		})
 	})
 
@@ -261,14 +390,24 @@ var _ = Describe("Adjustment", func() {
 						},
 					},
 				}
+				plugin = "cpuperiod-plugin"
+				owners = api.NewOwningPlugins()
 			)
 
+			owners.ClaimCPUPeriod(testID, plugin)
+
+			al := newLogger()
 			rg := &rgen.Generator{Config: spec}
-			xg := xgen.SpecGenerator(rg)
+			xg := xgen.SpecGenerator(rg, xgen.WithLogger(al.Log, owners.Owners[testID]))
 
 			Expect(xg).ToNot(BeNil())
 			Expect(xg.Adjust(adjust)).To(Succeed())
 			Expect(spec).To(Equal(makeSpec(withCPUPeriod(11111))))
+			Expect(al.Has(xgen.AuditSetLinuxCPUPeriod,
+				xgen.Fields{
+					"value":      11111,
+					"nri.plugin": plugin,
+				})).To(BeTrue())
 		})
 	})
 
@@ -285,14 +424,24 @@ var _ = Describe("Adjustment", func() {
 						},
 					},
 				}
+				plugin = "cpuset-plugin"
+				owners = api.NewOwningPlugins()
 			)
 
+			owners.ClaimCPUSetCPUs(testID, plugin)
+
+			al := newLogger()
 			rg := &rgen.Generator{Config: spec}
-			xg := xgen.SpecGenerator(rg)
+			xg := xgen.SpecGenerator(rg, xgen.WithLogger(al.Log, owners.Owners[testID]))
 
 			Expect(xg).ToNot(BeNil())
 			Expect(xg.Adjust(adjust)).To(Succeed())
 			Expect(spec).To(Equal(makeSpec(withCPUSetCPUs("5,6"))))
+			Expect(al.Has(xgen.AuditSetLinuxCPUSetCPUs,
+				xgen.Fields{
+					"value":      "5,6",
+					"nri.plugin": plugin,
+				})).To(BeTrue())
 		})
 	})
 
@@ -309,14 +458,24 @@ var _ = Describe("Adjustment", func() {
 						},
 					},
 				}
+				plugin = "memset-plugin"
+				owners = api.NewOwningPlugins()
 			)
 
+			owners.ClaimCPUSetMems(testID, plugin)
+
+			al := newLogger()
 			rg := &rgen.Generator{Config: spec}
-			xg := xgen.SpecGenerator(rg)
+			xg := xgen.SpecGenerator(rg, xgen.WithLogger(al.Log, owners.Owners[testID]))
 
 			Expect(xg).ToNot(BeNil())
 			Expect(xg.Adjust(adjust)).To(Succeed())
 			Expect(spec).To(Equal(makeSpec(withCPUSetMems("5,6"))))
+			Expect(al.Has(xgen.AuditSetLinuxCPUSetMems,
+				xgen.Fields{
+					"value":      "5,6",
+					"nri.plugin": plugin,
+				})).To(BeTrue())
 		})
 	})
 
@@ -333,14 +492,23 @@ var _ = Describe("Adjustment", func() {
 						},
 					},
 				}
+				owners = api.NewOwningPlugins()
 			)
 
+			// leave unclaimed to test "unknown" plugin
+
+			al := newLogger()
 			rg := &rgen.Generator{Config: spec}
-			xg := xgen.SpecGenerator(rg)
+			xg := xgen.SpecGenerator(rg, xgen.WithLogger(al.Log, owners.Owners[testID]))
 
 			Expect(xg).ToNot(BeNil())
 			Expect(xg.Adjust(adjust)).To(Succeed())
 			Expect(spec).To(Equal(makeSpec(withPidsLimit(123))))
+			Expect(al.Has(xgen.AuditSetLinuxPidsLimit,
+				xgen.Fields{
+					"value":      123,
+					"nri.plugin": "unknown",
+				})).To(BeTrue())
 		})
 	})
 
@@ -368,10 +536,18 @@ var _ = Describe("Adjustment", func() {
 						},
 					},
 				}
+				plugin = "mount-plugin"
+				owners = api.NewOwningPlugins()
 			)
 
+			owners.ClaimMount(testID, adjust.Mounts[0].Destination, plugin)
+			owners.ClaimMount(testID, adjust.Mounts[1].Destination, plugin)
+			owners.ClaimMount(testID, adjust.Mounts[2].Destination, plugin)
+			owners.ClaimMount(testID, adjust.Mounts[3].Destination, plugin)
+
+			al := newLogger()
 			rg := &rgen.Generator{Config: spec}
-			xg := xgen.SpecGenerator(rg)
+			xg := xgen.SpecGenerator(rg, xgen.WithLogger(al.Log, owners.Owners[testID]))
 
 			Expect(xg).ToNot(BeNil())
 			Expect(xg.Adjust(adjust)).To(Succeed())
@@ -395,6 +571,26 @@ var _ = Describe("Adjustment", func() {
 					},
 				}),
 			)))
+			Expect(al.Has(xgen.AuditAddMount,
+				xgen.Fields{
+					"value.destination": "/a",
+					"nri.plugin":        plugin,
+				})).To(BeTrue())
+			Expect(al.Has(xgen.AuditAddMount,
+				xgen.Fields{
+					"value.destination": "/a/b",
+					"nri.plugin":        plugin,
+				})).To(BeTrue())
+			Expect(al.Has(xgen.AuditAddMount,
+				xgen.Fields{
+					"value.destination": "/a/b/c",
+					"nri.plugin":        plugin,
+				})).To(BeTrue())
+			Expect(al.Has(xgen.AuditAddMount,
+				xgen.Fields{
+					"value.destination": "/a/b/c/d/e",
+					"nri.plugin":        plugin,
+				})).To(BeTrue())
 		})
 	})
 
@@ -418,14 +614,23 @@ var _ = Describe("Adjustment", func() {
 						SeccompPolicy: api.FromOCILinuxSeccomp(&seccomp),
 					},
 				}
+				plugin = "seccomp-plugin"
+				owners = api.NewOwningPlugins()
 			)
 
+			owners.ClaimSeccompPolicy(testID, plugin)
+
+			al := newLogger()
 			rg := &rgen.Generator{Config: spec}
-			xg := xgen.SpecGenerator(rg)
+			xg := xgen.SpecGenerator(rg, xgen.WithLogger(al.Log, owners.Owners[testID]))
 
 			Expect(xg).ToNot(BeNil())
 			Expect(xg.Adjust(adjust)).To(Succeed())
 			Expect(*spec.Linux.Seccomp).To(Equal(seccomp))
+			Expect(al.Has(xgen.AuditSetLinuxSeccompPolicy,
+				xgen.Fields{
+					"nri.plugin": plugin,
+				})).To(BeTrue())
 		})
 	})
 
@@ -441,19 +646,31 @@ var _ = Describe("Adjustment", func() {
 						},
 					},
 				}
+				plugin = "sysctl-plugin"
+				owners = api.NewOwningPlugins()
 			)
+
+			owners.ClaimSysctl(testID, "net.ipv4.ip_forward", plugin)
+
 			spec.Linux.Sysctl = map[string]string{
 				"delete.me": "foobar",
 			}
+
+			al := newLogger()
 			rg := &rgen.Generator{Config: spec}
-			xg := xgen.SpecGenerator(rg)
+			xg := xgen.SpecGenerator(rg, xgen.WithLogger(al.Log, owners.Owners[testID]))
 
 			Expect(xg).ToNot(BeNil())
 			Expect(xg.Adjust(adjust)).To(Succeed())
 			Expect(spec.Linux.Sysctl).To(Equal(map[string]string{
 				"net.ipv4.ip_forward": "1",
 			}))
-
+			Expect(al.Has(xgen.AuditSetLinuxSysctl,
+				xgen.Fields{
+					"value.key":   "net.ipv4.ip_forward",
+					"value.value": "1",
+					"nri.plugin":  plugin,
+				})).To(BeTrue())
 		})
 	})
 
@@ -469,9 +686,16 @@ var _ = Describe("Adjustment", func() {
 					},
 				},
 			}
+			plugin := "rdt-plugin"
+			owners := api.NewOwningPlugins()
 
+			owners.ClaimRdtClosID(testID, "rdt-plugin")
+			owners.ClaimRdtSchemata(testID, "rdt-plugin")
+			owners.ClaimRdtEnableMonitoring(testID, "rdt-plugin")
+
+			al := newLogger()
 			rg := &rgen.Generator{Config: spec}
-			xg := xgen.SpecGenerator(rg)
+			xg := xgen.SpecGenerator(rg, xgen.WithLogger(al.Log, owners.Owners[testID]))
 
 			Expect(xg).ToNot(BeNil())
 			Expect(xg.Adjust(adjust)).To(Succeed())
@@ -480,6 +704,21 @@ var _ = Describe("Adjustment", func() {
 				Schemata:         []string{"L2:0=ff", "L3:0=f"},
 				EnableMonitoring: true,
 			}))
+			Expect(al.Has(xgen.AuditSetLinuxRdtClosID,
+				xgen.Fields{
+					"value":      "foo",
+					"nri.plugin": plugin,
+				})).To(BeTrue())
+			Expect(al.Has(xgen.AuditSetLinuxRdtSchemata,
+				xgen.Fields{
+					"value":      "[L2:0=ff L3:0=f]",
+					"nri.plugin": plugin,
+				})).To(BeTrue())
+			Expect(al.Has(xgen.AuditSetLinuxRdtMonitoring,
+				xgen.Fields{
+					"value":      true,
+					"nri.plugin": plugin,
+				})).To(BeTrue())
 		})
 	})
 	When("has a RDT remove adjustment", func() {
@@ -494,12 +733,14 @@ var _ = Describe("Adjustment", func() {
 				},
 			}
 
+			al := newLogger()
 			rg := &rgen.Generator{Config: spec}
-			xg := xgen.SpecGenerator(rg)
+			xg := xgen.SpecGenerator(rg, xgen.WithLogger(al.Log, nil))
 
 			Expect(xg).ToNot(BeNil())
 			Expect(xg.Adjust(adjust)).To(Succeed())
 			Expect(spec.Linux.IntelRdt).To(BeNil())
+			Expect(al.Has(xgen.AuditClearLinuxRdt, nil)).To(BeTrue())
 		})
 	})
 })

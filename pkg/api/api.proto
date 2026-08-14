@@ -183,6 +183,8 @@ message ConfigureResponse {
   // Events to subscribe the plugin for. Each bit set corresponds to an
   // enumerated Event.
   int32 events = 2;
+  // Configured request processing timeout requested by the plugin in milliseconds.
+  int64 request_timeout = 3;
 }
 
 message SynchronizeRequest {

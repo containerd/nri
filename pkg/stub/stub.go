@@ -180,6 +180,9 @@ type Stub interface {
 	// the timeout received in the Configure request otherwise.
 	RequestTimeout() time.Duration
 
+	// SetRequestTimeout sets a custom request timeout for the stub.
+	SetRequestTimeout(time.Duration)
+
 	// Logger returns the logger used by the stub.
 	Logger() nrilog.Logger
 
@@ -283,6 +286,15 @@ func WithLogger(logger nrilog.Logger) Option {
 	}
 }
 
+// WithRequestTimeout sets a custom request timeout to be requested by the stub.
+func WithRequestTimeout(t time.Duration) Option {
+	return func(s *stub) error {
+		s.requestTimeout = t
+		s.customRequestTimeout = true
+		return nil
+	}
+}
+
 // stub implements Stub.
 type stub struct {
 	sync.Mutex
@@ -308,11 +320,12 @@ type stub struct {
 	cfgErrC    chan error
 	syncReq    *api.SynchronizeRequest
 
-	registrationTimeout time.Duration
-	requestTimeout      time.Duration
-	runtimeNRIVersion   string
-	pluginNRIVersion    string
-	logger              nrilog.Logger
+	registrationTimeout  time.Duration
+	requestTimeout       time.Duration
+	customRequestTimeout bool
+	runtimeNRIVersion    string
+	pluginNRIVersion     string
+	logger               nrilog.Logger
 }
 
 // Handlers for NRI plugin event and request.
@@ -556,6 +569,13 @@ func (stub *stub) RequestTimeout() time.Duration {
 	return stub.requestTimeout
 }
 
+func (stub *stub) SetRequestTimeout(t time.Duration) {
+	stub.Lock()
+	defer stub.Unlock()
+	stub.requestTimeout = t
+	stub.customRequestTimeout = true
+}
+
 func (stub *stub) RuntimeNRIVersion() string {
 	return stub.runtimeNRIVersion
 }
@@ -676,7 +696,9 @@ func (stub *stub) Configure(ctx context.Context, req *api.ConfigureRequest) (rpl
 	}
 
 	stub.registrationTimeout = time.Duration(req.RegistrationTimeout * int64(time.Millisecond))
-	stub.requestTimeout = time.Duration(req.RequestTimeout * int64(time.Millisecond))
+	if !stub.customRequestTimeout {
+		stub.requestTimeout = time.Duration(req.RequestTimeout * int64(time.Millisecond))
+	}
 	stub.runtimeNRIVersion = req.NRIVersion
 
 	defer func() {
@@ -708,9 +730,14 @@ func (stub *stub) Configure(ctx context.Context, req *api.ConfigureRequest) (rpl
 			filepath.Base(os.Args[0]), events.PrettyString())
 	}
 
-	return &api.ConfigureResponse{
+	resp := &api.ConfigureResponse{
 		Events: int32(events),
-	}, nil
+	}
+	if stub.customRequestTimeout {
+		resp.RequestTimeout = int64(stub.requestTimeout / time.Millisecond)
+	}
+
+	return resp, nil
 }
 
 // Synchronize the state of the plugin with the runtime.

@@ -39,6 +39,7 @@ import (
 	nri "github.com/containerd/nri/pkg/adaptation"
 	"github.com/containerd/nri/pkg/api"
 	"github.com/containerd/nri/pkg/plugin"
+	"github.com/containerd/nri/pkg/stub"
 	validator "github.com/containerd/nri/plugins/default-validator/builtin"
 )
 
@@ -3348,6 +3349,25 @@ var _ = Describe("Plugin configuration request", func() {
 			s.Startup()
 			Expect(s.plugins[0].stub.RegistrationTimeout()).To(Equal(registerTimeout))
 			Expect(s.plugins[0].stub.RequestTimeout()).To(Equal(requestTimeout))
+		})
+	})
+
+	When("plugin requests custom timeout", func() {
+		var (
+			customTimeout = 10 * time.Second
+		)
+
+		BeforeEach(func() {
+			s.Prepare(&mockRuntime{}, &mockPlugin{
+				idx:     "00",
+				name:    "test",
+				options: []stub.Option{stub.WithRequestTimeout(customTimeout)},
+			})
+		})
+
+		It("should use the per-plugin request timeout", func() {
+			s.Startup()
+			Expect(s.plugins[0].stub.RequestTimeout()).To(Equal(customTimeout))
 		})
 	})
 })

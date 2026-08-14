@@ -242,18 +242,46 @@ func (r *Adaptation) Stop() {
 }
 
 // RunPodSandbox relays the corresponding CRI request to plugins.
-func (r *Adaptation) RunPodSandbox(ctx context.Context, req *RunPodSandboxRequest) error {
+// Plugins can return a PodSandboxAdjustment for the pod sandbox in their
+// response; the network IPs from every plugin are concatenated, in plugin
+// invocation order, into the response's PodSandboxAdjustment so they can be
+// propagated through the runtime (e.g. surfaced to the kubelet via CRI).
+// Duplicate IP addresses (whether reported by a single plugin or by multiple
+// plugins) are collapsed; first occurrence wins. Plugins that have nothing to
+// contribute can return an empty response or a nil response.
+func (r *Adaptation) RunPodSandbox(ctx context.Context, req *RunPodSandboxRequest) (*RunPodSandboxResponse, error) {
 	r.Lock()
 	defer r.Unlock()
 	defer r.removeClosedPlugins()
 
+	var (
+		ips  []string
+		seen = map[string]struct{}{}
+	)
 	for _, plugin := range r.plugins {
-		if _, err := plugin.runPodSandbox(ctx, req); err != nil {
-			return err
+		pluginRsp, err := plugin.runPodSandbox(ctx, req)
+		if err != nil {
+			return nil, err
+		}
+		for _, ip := range pluginRsp.GetAdjust().GetNetwork().GetIps() {
+			if ip == "" {
+				continue
+			}
+			if _, ok := seen[ip]; ok {
+				continue
+			}
+			seen[ip] = struct{}{}
+			ips = append(ips, ip)
 		}
 	}
 
-	return nil
+	rsp := &RunPodSandboxResponse{}
+	if len(ips) > 0 {
+		rsp.Adjust = &PodSandboxAdjustment{
+			Network: &PodSandboxNetwork{Ips: ips},
+		}
+	}
+	return rsp, nil
 }
 
 // UpdatePodSandbox relays the corresponding CRI request to plugins.

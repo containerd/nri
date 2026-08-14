@@ -206,7 +206,24 @@ message RunPodSandboxRequest {
   PodSandbox pod = 1;
 }
 
-message RunPodSandboxResponse{}
+message RunPodSandboxResponse {
+  // Requested adjustments to the pod sandbox being created.
+  PodSandboxAdjustment adjust = 1;
+}
+
+// Requested adjustments to a pod sandbox being created.
+message PodSandboxAdjustment {
+  // Network-related adjustments to the pod sandbox.
+  PodSandboxNetwork network = 1;
+}
+
+// Network-related adjustments to a pod sandbox.
+message PodSandboxNetwork {
+  // IP addresses assigned to the pod sandbox by the plugin. The runtime is
+  // expected to surface these (e.g. to kubelet via CRI) for the lifetime of
+  // the sandbox.
+  repeated string ips = 1;
+}
 
 message UpdatePodSandboxRequest {
   // Pod being updated.

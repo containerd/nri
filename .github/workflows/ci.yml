@@ -17,7 +17,7 @@ jobs:
 
   checks:
     name: Project Checks
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
 
     steps:
@@ -42,7 +42,7 @@ jobs:
 
   test-build:
     name: Check buildability
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
 
     steps:
@@ -81,7 +81,7 @@ jobs:
     strategy:
       matrix:
         go-version: ["1.24.x"]
-        os: [ubuntu-22.04]
+        os: [ubuntu-26.04]
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -103,7 +103,7 @@ jobs:
 
   tests:
     name: Tests
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
 
     strategy:

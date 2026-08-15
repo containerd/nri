@@ -78,6 +78,7 @@ type PluginService interface {
 	PostUpdateContainer(context.Context, *PostUpdateContainerRequest) (*PostUpdateContainerResponse, error)
 	StopContainer(context.Context, *StopContainerRequest) (*StopContainerResponse, error)
 	RemoveContainer(context.Context, *RemoveContainerRequest) (*RemoveContainerResponse, error)
+	PodSandboxStatus(context.Context, *PodSandboxStatusRequest) (*PodSandboxStatusResponse, error)
 	StateChange(context.Context, *StateChangeEvent) (*Empty, error)
 	ValidateContainerAdjustment(context.Context, *ValidateContainerAdjustmentRequest) (*ValidateContainerAdjustmentResponse, error)
 }
@@ -196,6 +197,13 @@ func RegisterPluginService(srv *ttrpc.Server, svc PluginService) {
 					return nil, err
 				}
 				return svc.RemoveContainer(ctx, &req)
+			},
+			"PodSandboxStatus": func(ctx context.Context, unmarshal func(interface{}) error) (interface{}, error) {
+				var req PodSandboxStatusRequest
+				if err := unmarshal(&req); err != nil {
+					return nil, err
+				}
+				return svc.PodSandboxStatus(ctx, &req)
 			},
 			"StateChange": func(ctx context.Context, unmarshal func(interface{}) error) (interface{}, error) {
 				var req StateChangeEvent
@@ -348,6 +356,14 @@ func (c *pluginClient) StopContainer(ctx context.Context, req *StopContainerRequ
 func (c *pluginClient) RemoveContainer(ctx context.Context, req *RemoveContainerRequest) (*RemoveContainerResponse, error) {
 	var resp RemoveContainerResponse
 	if err := c.client.Call(ctx, "nri.pkg.api.v1alpha1.Plugin", "RemoveContainer", req, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+func (c *pluginClient) PodSandboxStatus(ctx context.Context, req *PodSandboxStatusRequest) (*PodSandboxStatusResponse, error) {
+	var resp PodSandboxStatusResponse
+	if err := c.client.Call(ctx, "nri.pkg.api.v1alpha1.Plugin", "PodSandboxStatus", req, &resp); err != nil {
 		return nil, err
 	}
 	return &resp, nil

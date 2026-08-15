@@ -111,6 +111,21 @@ func (p *pluginType) UpdatePodSandbox(ctx context.Context, req *UpdatePodSandbox
 	return nil, errUnknownImpl
 }
 
+// PodSandboxStatus handles type-specific details of relaying a
+// PodSandboxStatus request.
+func (p *pluginType) PodSandboxStatus(ctx context.Context, req *PodSandboxStatusRequest) (*PodSandboxStatusResponse, error) {
+	switch {
+	case p.ttrpcImpl != nil:
+		return p.ttrpcImpl.PodSandboxStatus(ctx, req)
+	case p.builtinImpl != nil:
+		return p.builtinImpl.PodSandboxStatus(ctx, req)
+	case p.wasmImpl != nil:
+		return p.wasmImpl.PodSandboxStatus(ctx, req)
+	}
+
+	return nil, errUnknownImpl
+}
+
 // PostUpdatePodSandbox handles type-specific details of relaying a
 // PostUpdatePodSandbox request.
 func (p *pluginType) PostUpdatePodSandbox(ctx context.Context, req *PostUpdatePodSandboxRequest) (*PostUpdatePodSandboxResponse, error) {

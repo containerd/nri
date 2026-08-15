@@ -24,7 +24,7 @@ jobs:
           echo "GOPATH=${{ github.workspace }}" >> $GITHUB_ENV
           echo "${{ github.workspace }}/bin" >> $GITHUB_PATH
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
         with:
           path: src/github.com/containerd/nri
           fetch-depth: 25
@@ -41,7 +41,7 @@ jobs:
     timeout-minutes: 5
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
       - uses: $/.github/actions/install-go
 
       - name: Set env
@@ -76,7 +76,7 @@ jobs:
         os: [ubuntu-22.04]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
       - uses: $/.github/actions/install-go
         with:
           go-version: ${{ matrix.go-version }}
@@ -100,7 +100,7 @@ jobs:
         go-version: ["1.24.x"]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
       - uses: $/.github/actions/install-go
         with:
           go-version: ${{ matrix.go-version }}

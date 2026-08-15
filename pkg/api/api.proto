@@ -435,6 +435,14 @@ message Container {
   string status_message = 19;
   repeated CDIDevice CDI_devices = 20;
   User user = 21;
+  Image image = 22;
+}
+
+// Image identifies the container's image.
+message Image {
+  string name = 1;          // image reference, e.g. "registry.k8s.io/pause:3.10"
+  string digest = 2;        // resolved image index or manifest digest, e.g. "sha256:..."
+  string config_digest = 3; // image config digest (platform-specific), e.g. "sha256:..."
 }
 
 // Possible container states.

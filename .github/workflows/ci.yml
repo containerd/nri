@@ -29,7 +29,7 @@ jobs:
           path: src/github.com/containerd/nri
           fetch-depth: 25
 
-      - uses: ./src/github.com/containerd/nri/.github/actions/install-go
+      - uses: $/.github/actions/install-go
 
       - uses: containerd/project-checks@v1.2.2
         with:
@@ -42,12 +42,7 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-      - uses: ./.github/actions/install-go
-
-      # needed for wasm plugins
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
+      - uses: $/.github/actions/install-go
 
       - name: Set env
         shell: bash
@@ -82,7 +77,7 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-      - uses: ./.github/actions/install-go
+      - uses: $/.github/actions/install-go
         with:
           go-version: ${{ matrix.go-version }}
 
@@ -106,7 +101,7 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-      - uses: ./.github/actions/install-go
+      - uses: $/.github/actions/install-go
         with:
           go-version: ${{ matrix.go-version }}
 

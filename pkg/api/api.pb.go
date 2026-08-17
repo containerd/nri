@@ -3242,9 +3242,15 @@ type Image struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Name         string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`                                     // image reference, e.g. "registry.k8s.io/pause:3.10"
-	Digest       string `protobuf:"bytes,2,opt,name=digest,proto3" json:"digest,omitempty"`                                 // resolved image index or manifest digest, e.g. "sha256:..."
-	ConfigDigest string `protobuf:"bytes,3,opt,name=config_digest,json=configDigest,proto3" json:"config_digest,omitempty"` // image config digest (platform-specific), e.g. "sha256:..."
+	// image reference, e.g. "registry.k8s.io/pause:3.10"
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	// image index digest or manifest digest, e.g. "sha256:..."
+	// index media types: application/vnd.oci.image.index.v1+json, application/vnd.docker.distribution.manifest.list.v2+json
+	// manifest media types: application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.v2+json
+	Digest string `protobuf:"bytes,2,opt,name=digest,proto3" json:"digest,omitempty"`
+	// image config digest (platform-specific), e.g. "sha256:..."
+	// config media types: application/vnd.oci.image.config.v1+json, application/vnd.docker.container.image.v1+json
+	ConfigDigest string `protobuf:"bytes,3,opt,name=config_digest,json=configDigest,proto3" json:"config_digest,omitempty"`
 }
 
 func (x *Image) Reset() {

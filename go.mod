@@ -11,7 +11,7 @@ require (
 	github.com/onsi/ginkgo/v2 v2.19.1
 	github.com/onsi/gomega v1.34.0
 	github.com/opencontainers/runtime-spec v1.3.0
-	github.com/sirupsen/logrus v1.9.3
+	github.com/sirupsen/logrus v1.9.4
 	github.com/stretchr/testify v1.12.1
 	github.com/tetratelabs/wazero v1.11.0
 	go.yaml.in/yaml/v3 v3.0.5

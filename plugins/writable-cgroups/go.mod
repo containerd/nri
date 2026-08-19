@@ -5,7 +5,7 @@ go 1.24.0
 require (
 	github.com/containerd/nri v0.6.1
 	github.com/moby/sys/mountinfo v0.7.2
-	github.com/sirupsen/logrus v1.9.3
+	github.com/sirupsen/logrus v1.9.4
 	github.com/stretchr/testify v1.12.1
 )
 

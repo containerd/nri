@@ -5,7 +5,7 @@ go 1.24.2
 require (
 	github.com/containerd/nri v0.6.1
 	github.com/opencontainers/runtime-spec v1.3.0
-	github.com/sirupsen/logrus v1.9.3
+	github.com/sirupsen/logrus v1.9.4
 	github.com/stretchr/testify v1.12.1
 	go.podman.io/common v0.66.1
 	sigs.k8s.io/yaml v1.6.0

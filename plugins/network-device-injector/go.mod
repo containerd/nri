@@ -5,7 +5,7 @@ go 1.24.0
 require (
 	github.com/containerd/nri v0.6.1
 	github.com/containernetworking/plugins v1.4.1
-	github.com/sirupsen/logrus v1.9.3
+	github.com/sirupsen/logrus v1.9.4
 	github.com/vishvananda/netlink v1.2.1-beta.2
 	sigs.k8s.io/yaml v1.4.0
 )

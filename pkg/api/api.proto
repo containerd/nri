@@ -440,9 +440,15 @@ message Container {
 
 // Image identifies the container's image.
 message Image {
-  string name = 1;          // image reference, e.g. "registry.k8s.io/pause:3.10"
-  string digest = 2;        // resolved image index or manifest digest, e.g. "sha256:..."
-  string config_digest = 3; // image config digest (platform-specific), e.g. "sha256:..."
+  // image reference, e.g. "registry.k8s.io/pause:3.10"
+  string name = 1;
+  // image index digest or manifest digest, e.g. "sha256:..."
+  // index media types: application/vnd.oci.image.index.v1+json, application/vnd.docker.distribution.manifest.list.v2+json
+  // manifest media types: application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.v2+json
+  string digest = 2;
+  // image config digest (platform-specific), e.g. "sha256:..."
+  // config media types: application/vnd.oci.image.config.v1+json, application/vnd.docker.container.image.v1+json
+  string config_digest = 3;
 }
 
 // Possible container states.

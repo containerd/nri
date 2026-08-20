@@ -7,7 +7,7 @@ require (
 	github.com/r3labs/diff/v3 v3.0.0
 	github.com/sirupsen/logrus v1.9.4
 	github.com/sters/yaml-diff v0.4.0
-	sigs.k8s.io/yaml v1.3.0
+	sigs.k8s.io/yaml v1.5.0
 )
 
 require (
@@ -23,6 +23,7 @@ require (
 	github.com/opencontainers/runtime-spec v1.3.0 // indirect
 	github.com/tetratelabs/wazero v1.11.0 // indirect
 	github.com/vmihailenco/msgpack v4.0.4+incompatible // indirect
+	go.yaml.in/yaml/v2 v2.4.4 // indirect
 	golang.org/x/mod v0.32.0 // indirect
 	golang.org/x/net v0.48.0 // indirect
 	golang.org/x/sys v0.39.0 // indirect
@@ -31,7 +32,6 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20251202230838-ff82c1b0f217 // indirect
 	google.golang.org/grpc v1.79.3 // indirect
 	google.golang.org/protobuf v1.36.12 // indirect
-	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
 
 replace github.com/containerd/nri => ../..

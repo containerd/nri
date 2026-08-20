@@ -2,6 +2,9 @@ module github.com/containerd/nri/plugins/differ
 
 go 1.24.0
 
+// FIXME(thaJeztah): testing the hack from https://github.com/knqyf263/go-plugin/pull/85
+replace github.com/knqyf263/go-plugin => github.com/thaJeztah/go-plugin v0.0.0-20260820145858-a377c6eaa55d
+
 require (
 	github.com/containerd/nri v0.6.1
 	github.com/r3labs/diff/v3 v3.0.0
@@ -21,6 +24,7 @@ require (
 	github.com/mattn/go-colorable v0.1.8 // indirect
 	github.com/mattn/go-isatty v0.0.14 // indirect
 	github.com/opencontainers/runtime-spec v1.3.0 // indirect
+	github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10 // indirect
 	github.com/tetratelabs/wazero v1.11.0 // indirect
 	github.com/vmihailenco/msgpack v4.0.4+incompatible // indirect
 	go.yaml.in/yaml/v2 v2.4.4 // indirect

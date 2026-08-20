@@ -2,6 +2,9 @@ module github.com/containerd/nri
 
 go 1.24.0
 
+// FIXME(thaJeztah): testing the hack from https://github.com/knqyf263/go-plugin/pull/85
+replace github.com/knqyf263/go-plugin => github.com/thaJeztah/go-plugin v0.0.0-20260820145858-a377c6eaa55d
+
 require (
 	github.com/brianvoe/gofakeit/v7 v7.12.1
 	github.com/containerd/ttrpc v1.2.7
@@ -9,6 +12,7 @@ require (
 	github.com/knqyf263/go-plugin v0.9.0
 	github.com/moby/sys/mountinfo v0.7.2
 	github.com/opencontainers/runtime-spec v1.3.0
+	github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10
 	github.com/sirupsen/logrus v1.9.4
 	github.com/stretchr/testify v1.12.1
 	github.com/tetratelabs/wazero v1.11.0
@@ -21,7 +25,6 @@ require (
 
 require (
 	github.com/containerd/log v0.1.0 // indirect
-	github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20251202230838-ff82c1b0f217 // indirect
 )
 

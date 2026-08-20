@@ -17,6 +17,7 @@ require (
 	github.com/godbus/dbus/v5 v5.1.0 // indirect
 	github.com/knqyf263/go-plugin v0.9.0 // indirect
 	github.com/moby/sys/userns v0.1.0 // indirect
+	github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10 // indirect
 	github.com/sirupsen/logrus v1.10.1 // indirect
 	github.com/tetratelabs/wazero v1.11.0 // indirect
 	golang.org/x/exp v0.0.0-20241108190413-2d47ceb2692f // indirect

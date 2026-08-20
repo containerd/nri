@@ -24,59 +24,53 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"testing"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/testing/protocmp"
-
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 
 	rspec "github.com/opencontainers/runtime-spec/specs-go"
 
 	nri "github.com/containerd/nri/pkg/adaptation"
 	"github.com/containerd/nri/pkg/api"
-	"github.com/containerd/nri/pkg/plugin"
+	nriplugin "github.com/containerd/nri/pkg/plugin"
 	validator "github.com/containerd/nri/plugins/default-validator/builtin"
 )
 
-var _ = Describe("Configuration", func() {
-	var (
-		s = &Suite{}
-	)
+func TestConfiguration(t *testing.T) {
+	s := &Suite{}
 
-	AfterEach(func() {
-		s.Cleanup()
-	})
+	t.Run("no (extra) options given", func(t *testing.T) {
+		setup := func(t *testing.T) {
+			s.Prepare(t, &mockRuntime{}, &mockPlugin{idx: "00", name: "test"})
+		}
 
-	When("no (extra) options given", func() {
-		BeforeEach(func() {
-			s.Prepare(&mockRuntime{}, &mockPlugin{idx: "00", name: "test"})
+		t.Run("should allow startup", func(t *testing.T) {
+			setup(t)
+			require.NoError(t, s.runtime.Start(s.dir))
 		})
 
-		It("should allow startup", func() {
-			Expect(s.runtime.Start(s.dir)).To(Succeed())
-		})
+		t.Run("should allow external plugins to connect", func(t *testing.T) {
+			setup(t)
 
-		It("should allow external plugins to connect", func() {
 			var (
 				runtime = s.runtime
 				plugin  = s.plugins[0]
 				timeout = time.After(startupTimeout)
 			)
-			Expect(runtime.Start(s.dir)).To(Succeed())
-			Expect(plugin.Start(s.dir)).To(Succeed())
-			Expect(plugin.Wait(PluginSynchronized, timeout)).To(Succeed())
+			require.NoError(t, runtime.Start(s.dir))
+			require.NoError(t, plugin.Start(s.dir))
+			require.NoError(t, plugin.Wait(PluginSynchronized, timeout))
 		})
 	})
 
-	When("external connections are explicitly disabled", func() {
-		var ()
-
-		BeforeEach(func() {
-			s.Prepare(
+	t.Run("external connections are explicitly disabled", func(t *testing.T) {
+		setup := func(t *testing.T) {
+			s.Prepare(t,
 				&mockRuntime{
 					options: []nri.Option{
 						nri.WithDisabledExternalConnections(),
@@ -84,21 +78,23 @@ var _ = Describe("Configuration", func() {
 				},
 				&mockPlugin{idx: "00", name: "test"},
 			)
-		})
+		}
 
-		It("should prevent plugins from connecting", func() {
+		t.Run("should prevent plugins from connecting", func(t *testing.T) {
+			setup(t)
+
 			var (
 				runtime = s.runtime
 				plugin  = s.plugins[0]
 			)
-			Expect(runtime.Start(s.dir)).To(Succeed())
-			Expect(plugin.Start(s.dir)).ToNot(Succeed())
+			require.NoError(t, runtime.Start(s.dir))
+			require.Error(t, plugin.Start(s.dir))
 		})
 	})
-})
+}
 
-var _ = Describe("Adaptation", func() {
-	When("SyncFn is nil", func() {
+func TestAdaptation(t *testing.T) {
+	t.Run("SyncFn is nil", func(t *testing.T) {
 		var (
 			syncFn   func(ctx context.Context, cb nri.SyncCB) error
 			updateFn = func(_ context.Context, _ []*nri.ContainerUpdate) ([]*nri.ContainerUpdate, error) {
@@ -106,13 +102,13 @@ var _ = Describe("Adaptation", func() {
 			}
 		)
 
-		It("should prevent Adaptation creation with an error", func() {
+		t.Run("should prevent Adaptation creation with an error", func(t *testing.T) {
 			var (
-				dir = GinkgoT().TempDir()
+				dir = t.TempDir()
 				etc = filepath.Join(dir, "etc", "nri")
 			)
 
-			Expect(os.MkdirAll(etc, 0o755)).To(Succeed())
+			require.NoError(t, os.MkdirAll(etc, 0o755))
 
 			r, err := nri.New("mockRuntime", "0.0.1", syncFn, updateFn,
 				nri.WithPluginPath(filepath.Join(dir, "opt", "nri", "plugins")),
@@ -120,12 +116,12 @@ var _ = Describe("Adaptation", func() {
 				nri.WithSocketPath(filepath.Join(dir, "nri.sock")),
 			)
 
-			Expect(r).To(BeNil())
-			Expect(err).ToNot(BeNil())
+			require.Nil(t, r)
+			require.NotNil(t, err)
 		})
 	})
 
-	When("UpdateFn is nil", func() {
+	t.Run("UpdateFn is nil", func(t *testing.T) {
 		var (
 			updateFn func(ctx context.Context, updates []*nri.ContainerUpdate) ([]*nri.ContainerUpdate, error)
 			syncFn   = func(_ context.Context, _ nri.SyncCB) error {
@@ -133,13 +129,13 @@ var _ = Describe("Adaptation", func() {
 			}
 		)
 
-		It("should prevent Adaptation creation with an error", func() {
+		t.Run("should prevent Adaptation creation with an error", func(t *testing.T) {
 			var (
-				dir = GinkgoT().TempDir()
+				dir = t.TempDir()
 				etc = filepath.Join(dir, "etc", "nri")
 			)
 
-			Expect(os.MkdirAll(etc, 0o755)).To(Succeed())
+			require.NoError(t, os.MkdirAll(etc, 0o755))
 
 			r, err := nri.New("mockRuntime", "0.0.1", syncFn, updateFn,
 				nri.WithPluginPath(filepath.Join(dir, "opt", "nri", "plugins")),
@@ -147,19 +143,17 @@ var _ = Describe("Adaptation", func() {
 				nri.WithSocketPath(filepath.Join(dir, "nri.sock")),
 			)
 
-			Expect(r).To(BeNil())
-			Expect(err).ToNot(BeNil())
+			require.Nil(t, r)
+			require.NotNil(t, err)
 		})
 	})
-})
+}
 
-var _ = Describe("Plugin connection", func() {
-	var (
-		s = &Suite{}
-	)
+func TestPluginConnection(t *testing.T) {
+	s := &Suite{}
 
-	BeforeEach(func() {
-		s.Prepare(
+	setup := func(t *testing.T) {
+		s.Prepare(t,
 			&mockRuntime{
 				pods: map[string]*api.PodSandbox{
 					"pod0": {
@@ -195,13 +189,11 @@ var _ = Describe("Plugin connection", func() {
 				idx:  "00",
 			},
 		)
-	})
+	}
 
-	AfterEach(func() {
-		s.Cleanup()
-	})
+	t.Run("should reject plugins with an invalid name", func(t *testing.T) {
+		setup(t)
 
-	It("should reject plugins with an invalid name", func() {
 		var (
 			validPlugin = &mockPlugin{
 				name: "abcd-0123+EFGH_4567.ijkl",
@@ -215,25 +207,23 @@ var _ = Describe("Plugin connection", func() {
 
 		s.Startup()
 
-		Expect(validPlugin.Start(s.dir)).To(Succeed())
-		Expect(invalidPlugin.Start(s.dir)).ToNot(Succeed())
+		require.NoError(t, validPlugin.Start(s.dir))
+		require.Error(t, invalidPlugin.Start(s.dir))
 	})
 
-	It("should configure the plugin", func() {
-		var (
-			plugin = s.plugins[0]
-		)
+	t.Run("should configure the plugin", func(t *testing.T) {
+		setup(t)
+
+		plugin := s.plugins[0]
 
 		s.Startup()
 
-		Expect(plugin.Events()).Should(
-			ContainElement(
-				PluginConfigured,
-			),
-		)
+		require.Contains(t, plugin.Events(), PluginConfigured)
 	})
 
-	It("should synchronize the plugin after configuration", func() {
+	t.Run("should synchronize the plugin after configuration", func(t *testing.T) {
+		setup(t)
+
 		var (
 			runtime = s.runtime
 			plugin  = s.plugins[0]
@@ -241,24 +231,20 @@ var _ = Describe("Plugin connection", func() {
 
 		s.Startup()
 
-		Expect(plugin.Events()).Should(
-			ConsistOf(
-				PluginConfigured,
-				PluginSynchronized,
-			),
-		)
+		require.ElementsMatch(t, []*Event{
+			PluginConfigured,
+			PluginSynchronized,
+		}, plugin.Events())
 
-		Expect(protoEqual(plugin.pods["pod0"], runtime.pods["pod0"])).Should(BeTrue(),
-			protoDiff(plugin.pods["pod0"], runtime.pods["pod0"]))
-		Expect(protoEqual(plugin.pods["pod1"], runtime.pods["pod1"])).Should(BeTrue(),
-			protoDiff(plugin.pods["pod1"], runtime.pods["pod1"]))
-		Expect(protoEqual(plugin.ctrs["ctr0"], runtime.ctrs["ctr0"])).Should(BeTrue(),
-			protoDiff(plugin.ctrs["ctr0"], runtime.ctrs["ctr0"]))
-		Expect(protoEqual(plugin.ctrs["ctr1"], runtime.ctrs["ctr1"])).Should(BeTrue(),
-			protoDiff(plugin.ctrs["ctr1"], runtime.ctrs["ctr1"]))
+		require.True(t, protoEqual(plugin.pods["pod0"], runtime.pods["pod0"]), protoDiff(plugin.pods["pod0"], runtime.pods["pod0"]))
+		require.True(t, protoEqual(plugin.pods["pod1"], runtime.pods["pod1"]), protoDiff(plugin.pods["pod1"], runtime.pods["pod1"]))
+		require.True(t, protoEqual(plugin.ctrs["ctr0"], runtime.ctrs["ctr0"]), protoDiff(plugin.ctrs["ctr0"], runtime.ctrs["ctr0"]))
+		require.True(t, protoEqual(plugin.ctrs["ctr1"], runtime.ctrs["ctr1"]), protoDiff(plugin.ctrs["ctr1"], runtime.ctrs["ctr1"]))
 	})
 
-	It("close plugins on failed synchronization", func() {
+	t.Run("close plugins on failed synchronization", func(t *testing.T) {
+		setup(t)
+
 		var (
 			runtime = s.runtime
 			plugin0 = s.plugins[0]
@@ -268,35 +254,29 @@ var _ = Describe("Plugin connection", func() {
 
 		s.Startup()
 
-		Expect(plugin0.Events()).Should(
-			ConsistOf(
-				PluginConfigured,
-				PluginSynchronized,
-			),
-		)
+		require.ElementsMatch(t, []*Event{
+			PluginConfigured,
+			PluginSynchronized,
+		}, plugin0.Events())
 
 		runtime.failSync = true
 
 		s.StartPlugins(plugin1)
-		Expect(plugin1.Wait(PluginDisconnected, timeout)).To(Succeed())
+		require.NoError(t, plugin1.Wait(PluginDisconnected, timeout))
 	})
-})
+}
 
-var _ = Describe("Pod and container requests and events", func() {
-	var (
-		s = &Suite{}
-	)
+func TestPodAndContainerRequestsAndEvents(t *testing.T) {
+	s := &Suite{}
 
-	AfterEach(func() {
-		s.Cleanup()
-	})
+	t.Run("there are no plugins", func(t *testing.T) {
+		setup := func(t *testing.T) {
+			s.Prepare(t, &mockRuntime{})
+		}
 
-	When("there are no plugins", func() {
-		BeforeEach(func() {
-			s.Prepare(&mockRuntime{})
-		})
+		t.Run("should always succeed", func(t *testing.T) {
+			setup(t)
 
-		It("should always succeed", func() {
 			var (
 				ctx  = context.Background()
 				pod0 = &api.PodSandbox{
@@ -327,18 +307,15 @@ var _ = Describe("Pod and container requests and events", func() {
 
 			s.Startup()
 
-			Expect(s.runtime.startStopPodAndContainer(ctx, pod0, ctr0)).To(Succeed())
-			Expect(s.runtime.startStopPodAndContainer(ctx, pod1, ctr1)).To(Succeed())
+			require.NoError(t, s.runtime.startStopPodAndContainer(ctx, pod0, ctr0))
+			require.NoError(t, s.runtime.startStopPodAndContainer(ctx, pod1, ctr1))
 		})
 	})
 
-	When("when there are plugins", func() {
-		BeforeEach(func() {
-			s.Prepare(&mockRuntime{}, &mockPlugin{idx: "00", name: "test"})
-		})
-
-		DescribeTable("should honor plugins' event subscriptions",
-			func(subscriptions ...string) {
+	t.Run("when there are plugins", func(t *testing.T) {
+		runTable := func(subscriptions ...string) func(t *testing.T) {
+			return func(t *testing.T) {
+				s.Prepare(t, &mockRuntime{}, &mockPlugin{idx: "00", name: "test"})
 				var (
 					runtime = s.runtime
 					plugin  = s.plugins[0]
@@ -362,62 +339,58 @@ var _ = Describe("Pod and container requests and events", func() {
 
 				s.Startup()
 
-				Expect(runtime.startStopPodAndContainer(ctx, pod, ctr)).To(Succeed())
+				require.NoError(t, runtime.startStopPodAndContainer(ctx, pod, ctr))
 				for _, events := range subscriptions {
 					for _, event := range strings.Split(events, ",") {
 						match := &Event{Type: EventType(event)}
-						Expect(plugin.EventQ().Has(match)).To(BeTrue())
+						require.True(t, plugin.EventQ().Has(match))
 					}
 				}
-			},
-			Entry("with RunPodSandbox", "RunPodSandbox"),
-			Entry("with UpdatePodSandbox", "UpdatePodSandbox"),
-			Entry("with PostUpdatePodSandbox", "PostUpdatePodSandbox"),
-			Entry("with StopPodSandbox", "StopPodSandbox"),
-			Entry("with RemovePodSandbox", "RemovePodSandbox"),
-
-			Entry("with CreateContainer", "CreateContainer"),
-			Entry("with PostCreateContainer", "PostCreateContainer"),
-			Entry("with StartContainer", "StartContainer"),
-			Entry("with PostStartContainer", "PostStartContainer"),
-			Entry("with UpdateContainer", "UpdateContainer"),
-			Entry("with PostUpdateContainer", "PostUpdateContainer"),
-			Entry("with StopContainer", "StopContainer"),
-			Entry("with RemoveContainer", "RemoveContainer"),
-
-			Entry("with all pod events", "RunPodSandbox,StopPodSandbox,RemovePodSandbox"),
-			Entry("with all container requests", "CreateContainer,UpdateContainer,StopContainer"),
-			Entry("with all container requests and events",
+			}
+		}
+		t.Run("should honor plugins' event subscriptions", func(t *testing.T) {
+			t.Run("with RunPodSandbox", runTable("RunPodSandbox"))
+			t.Run("with UpdatePodSandbox", runTable("UpdatePodSandbox"))
+			t.Run("with PostUpdatePodSandbox", runTable("PostUpdatePodSandbox"))
+			t.Run("with StopPodSandbox", runTable("StopPodSandbox"))
+			t.Run("with RemovePodSandbox", runTable("RemovePodSandbox"))
+			t.Run("with CreateContainer", runTable("CreateContainer"))
+			t.Run("with PostCreateContainer", runTable("PostCreateContainer"))
+			t.Run("with StartContainer", runTable("StartContainer"))
+			t.Run("with PostStartContainer", runTable("PostStartContainer"))
+			t.Run("with UpdateContainer", runTable("UpdateContainer"))
+			t.Run("with PostUpdateContainer", runTable("PostUpdateContainer"))
+			t.Run("with StopContainer", runTable("StopContainer"))
+			t.Run("with RemoveContainer", runTable("RemoveContainer"))
+			t.Run("with all pod events", runTable("RunPodSandbox,StopPodSandbox,RemovePodSandbox"))
+			t.Run("with all container requests", runTable("CreateContainer,UpdateContainer,StopContainer"))
+			t.Run("with all container requests and events", runTable(
 				"CreateContainer,PostCreateContainer",
 				"StartContainer,PostStartContainer",
 				"UpdateContainer,PostUpdateContainer",
 				"StopContainer",
 				"RemoveContainer",
-			),
-			Entry("with all pod and container requests and events",
+			))
+			t.Run("with all pod and container requests and events", runTable(
 				"RunPodSandbox,UpdatePodSandbox,PostUpdatePodSandbox,StopPodSandbox,RemovePodSandbox",
 				"CreateContainer,PostCreateContainer",
 				"StartContainer,PostStartContainer",
 				"UpdateContainer,PostUpdateContainer",
 				"StopContainer",
 				"RemoveContainer",
-			),
-		)
+			))
+		})
 	})
 
-	When("when there are multiple plugins", func() {
-		BeforeEach(func() {
-			s.Prepare(
-				&mockRuntime{},
-				&mockPlugin{idx: "20", name: "test"},
-				&mockPlugin{idx: "99", name: "foo"},
-				&mockPlugin{idx: "00", name: "bar"},
-			)
-
-		})
-
-		DescribeTable("should honor plugins' event subscriptions",
-			func(subscriptions ...string) {
+	t.Run("when there are multiple plugins", func(t *testing.T) {
+		runTable := func(subscriptions ...string) func(t *testing.T) {
+			return func(t *testing.T) {
+				s.Prepare(t,
+					&mockRuntime{},
+					&mockPlugin{idx: "20", name: "test"},
+					&mockPlugin{idx: "99", name: "foo"},
+					&mockPlugin{idx: "00", name: "bar"},
+				)
 				var (
 					runtime = s.runtime
 					plugins = s.plugins
@@ -450,42 +423,38 @@ var _ = Describe("Pod and container requests and events", func() {
 
 				s.Startup()
 
-				Expect(runtime.startStopPodAndContainer(ctx, pod, ctr)).To(Succeed())
-				Expect(order).Should(
-					ConsistOf(
-						plugins[2],
-						plugins[0],
-						plugins[1],
-					),
-				)
-			},
-
-			Entry("with StartContainer", "StartContainer"),
-			Entry("with all container CRI requests",
-				"CreateContainer,StartContainer,UpdateContainer,StopContainer,RemoveContainer"),
-			Entry("with all container requests and events",
+				require.NoError(t, runtime.startStopPodAndContainer(ctx, pod, ctr))
+				require.ElementsMatch(t, []*mockPlugin{
+					plugins[2],
+					plugins[0],
+					plugins[1],
+				}, order)
+			}
+		}
+		t.Run("should honor plugins' event subscriptions", func(t *testing.T) {
+			t.Run("with StartContainer", runTable("StartContainer"))
+			t.Run("with all container CRI requests", runTable("CreateContainer,StartContainer,UpdateContainer,StopContainer,RemoveContainer"))
+			t.Run("with all container requests and events", runTable(
 				"CreateContainer,PostCreateContainer",
 				"StartContainer,PostStartContainer",
 				"UpdateContainer,PostUpdateContainer",
 				"StopContainer",
 				"RemoveContainer",
-			),
-			Entry("with all pod and container requests and events",
+			))
+			t.Run("with all pod and container requests and events", runTable(
 				"RunPodSandbox,UpdatePodSandbox,PostUpdatePodSandbox,StopPodSandbox,RemovePodSandbox",
 				"CreateContainer,PostCreateContainer",
 				"StartContainer,PostStartContainer",
 				"UpdateContainer,PostUpdateContainer",
 				"StopContainer",
 				"RemoveContainer",
-			),
-		)
+			))
+		})
 	})
-})
+}
 
-var _ = Describe("Plugin container creation adjustments", func() {
-	var (
-		s = &Suite{}
-	)
+func TestPluginContainerCreationAdjustments(t *testing.T) {
+	s := &Suite{}
 
 	adjust := func(subject string, p *mockPlugin, _ *api.PodSandbox, c *api.Container, overwrite bool) (*api.ContainerAdjustment, []*api.ContainerUpdate, error) {
 		plugin := p.idx + "-" + p.name
@@ -661,17 +630,10 @@ var _ = Describe("Plugin container creation adjustments", func() {
 		return a, nil, nil
 	}
 
-	AfterEach(func() {
-		s.Cleanup()
-	})
-
-	When("there is a single plugin", func() {
-		BeforeEach(func() {
-			s.Prepare(&mockRuntime{}, &mockPlugin{idx: "00", name: "test"})
-		})
-
-		DescribeTable("should be successfully collected without conflicts",
-			func(subject string, expected *api.ContainerAdjustment) {
+	t.Run("there is a single plugin", func(t *testing.T) {
+		runTable := func(subject string, expected *api.ContainerAdjustment) func(*testing.T) {
+			return func(t *testing.T) {
+				s.Prepare(t, &mockRuntime{}, &mockPlugin{idx: "00", name: "test"})
 				var (
 					runtime = s.runtime
 					plugin  = s.plugins[0]
@@ -738,303 +700,248 @@ var _ = Describe("Plugin container creation adjustments", func() {
 				s.Startup()
 
 				podReq := &api.RunPodSandboxRequest{Pod: pod}
-				Expect(runtime.RunPodSandbox(ctx, podReq)).To(Succeed())
+				require.NoError(t, runtime.RunPodSandbox(ctx, podReq))
 				ctrReq := &api.CreateContainerRequest{
 					Pod:       pod,
 					Container: ctr,
 				}
 				reply, err := runtime.CreateContainer(ctx, ctrReq)
-				Expect(err).To(BeNil())
-				Expect(protoEqual(reply.Adjust.Strip(), expected)).Should(BeTrue(),
-					protoDiff(reply.Adjust, expected))
-			},
-
-			Entry("adjust annotations", "annotation",
-				&api.ContainerAdjustment{
-					Annotations: map[string]string{
-						"key": "00-test",
+				require.Nil(t, err)
+				require.True(t, protoEqual(reply.Adjust.Strip(), expected), protoDiff(reply.Adjust, expected))
+			}
+		}
+		t.Run("should be successfully collected without conflicts", func(t *testing.T) {
+			t.Run("adjust annotations", runTable("annotation", &api.ContainerAdjustment{
+				Annotations: map[string]string{
+					"key": "00-test",
+				},
+			}))
+			t.Run("adjust mounts", runTable("mount", &api.ContainerAdjustment{
+				Mounts: []*api.Mount{
+					{
+						Source:      "/dev/00-test",
+						Destination: "/mnt/test",
 					},
 				},
-			),
-			Entry("adjust mounts", "mount",
-				&api.ContainerAdjustment{
-					Mounts: []*api.Mount{
+			}))
+			t.Run("remove a mount", runTable("remove mount", &api.ContainerAdjustment{
+				Mounts: []*api.Mount{
+					{
+						Destination: api.MarkForRemoval("/remove/test/destination"),
+					},
+				},
+			}))
+			t.Run("adjust environment", runTable("environment", &api.ContainerAdjustment{
+				Env: []*api.KeyValue{
+					{
+						Key:   "key",
+						Value: "00-test",
+					},
+				},
+			}))
+			t.Run("adjust arguments", runTable("arguments", &api.ContainerAdjustment{
+				Args: []string{
+					"echo",
+					"updated",
+					"argument",
+					"list",
+				},
+			}))
+			t.Run("adjust hooks", runTable("hooks", &api.ContainerAdjustment{
+				Hooks: &api.Hooks{
+					Prestart: []*api.Hook{
 						{
-							Source:      "/dev/00-test",
-							Destination: "/mnt/test",
+							Path: "/bin/00-test",
 						},
 					},
 				},
-			),
-			Entry("remove a mount", "remove mount",
-				&api.ContainerAdjustment{
-					Mounts: []*api.Mount{
+			}))
+			t.Run("adjust devices", runTable("device", &api.ContainerAdjustment{
+				Linux: &api.LinuxContainerAdjustment{
+					Devices: []*api.LinuxDevice{
 						{
-							Destination: api.MarkForRemoval("/remove/test/destination"),
+							Path:  "/dev/test",
+							Type:  "c",
+							Major: 313,
+							Minor: 100,
 						},
 					},
 				},
-			),
-			Entry("adjust environment", "environment",
-				&api.ContainerAdjustment{
-					Env: []*api.KeyValue{
+			}))
+			t.Run("adjust namespace", runTable("namespace", &api.ContainerAdjustment{
+				Linux: &api.LinuxContainerAdjustment{
+					Namespaces: []*api.LinuxNamespace{
 						{
-							Key:   "key",
-							Value: "00-test",
+							Type: "cgroup",
+							Path: "/var/run/cgroupns/replaced",
 						},
 					},
 				},
-			),
-			Entry("adjust arguments", "arguments",
-				&api.ContainerAdjustment{
-					Args: []string{
-						"echo",
-						"updated",
-						"argument",
-						"list",
+			}))
+			t.Run("adjust rlimits", runTable("rlimit", &api.ContainerAdjustment{
+				Rlimits: []*api.POSIXRlimit{{Type: "nofile", Soft: 123, Hard: 456}},
+			}))
+			t.Run("adjust CDI Devices", runTable("CDI-device", &api.ContainerAdjustment{
+				CDIDevices: []*api.CDIDevice{
+					{
+						Name: "vendor0.com/dev=dev0",
 					},
 				},
-			),
-			Entry("adjust hooks", "hooks",
-				&api.ContainerAdjustment{
-					Hooks: &api.Hooks{
-						Prestart: []*api.Hook{
+			}))
+			t.Run("adjust I/O priority", runTable("I/O priority", &api.ContainerAdjustment{
+				Linux: &api.LinuxContainerAdjustment{
+					IoPriority: &api.LinuxIOPriority{
+						Class:    api.IOPrioClass_IOPRIO_CLASS_RT,
+						Priority: 5,
+					},
+				},
+			}))
+			t.Run("adjust linux net devices", runTable("linux net device", &api.ContainerAdjustment{
+				Linux: &api.LinuxContainerAdjustment{
+					NetDevices: map[string]*api.LinuxNetDevice{
+						"hostIf": {
+							Name: "containerIf",
+						},
+					},
+				},
+			}))
+			t.Run("adjust linux scheduler", runTable("linux scheduler", &api.ContainerAdjustment{
+				Linux: &api.LinuxContainerAdjustment{
+					Scheduler: &api.LinuxScheduler{
+						Policy:   api.LinuxSchedulerPolicy_SCHED_FIFO,
+						Priority: 10,
+						Flags: []api.LinuxSchedulerFlag{
+							api.LinuxSchedulerFlag_SCHED_FLAG_RESET_ON_FORK,
+						},
+					},
+				},
+			}))
+			t.Run("adjust linux sysctl settings", runTable("linux sysctl", &api.ContainerAdjustment{
+				Linux: &api.LinuxContainerAdjustment{
+					Sysctl: map[string]string{
+						"net.core.somaxconn": "256",
+					},
+				},
+			}))
+			t.Run("adjust linux memory policy", runTable("linux memory policy", &api.ContainerAdjustment{
+				Linux: &api.LinuxContainerAdjustment{
+					MemoryPolicy: &api.LinuxMemoryPolicy{
+						Mode:  api.MpolMode_MPOL_INTERLEAVE,
+						Nodes: "0,1",
+						Flags: []api.MpolFlag{
+							api.MpolFlag_MPOL_F_STATIC_NODES,
+						},
+					},
+				},
+			}))
+			t.Run("adjust CPU resources", runTable("resources/cpu", &api.ContainerAdjustment{
+				Linux: &api.LinuxContainerAdjustment{
+					Resources: &api.LinuxResources{
+						Cpu: &api.LinuxCPU{
+							Shares:          api.UInt64(123),
+							Quota:           api.Int64(456),
+							Period:          api.UInt64(789),
+							RealtimeRuntime: api.Int64(321),
+							RealtimePeriod:  api.UInt64(654),
+							Cpus:            "0-1",
+							Mems:            "2-3",
+						},
+					},
+				},
+			}))
+			t.Run("adjust memory resources", runTable("resources/mem", &api.ContainerAdjustment{
+				Linux: &api.LinuxContainerAdjustment{
+					Resources: &api.LinuxResources{
+						Memory: &api.LinuxMemory{
+							Limit:            api.Int64(1234000),
+							Reservation:      api.Int64(4000),
+							Swap:             api.Int64(34000),
+							Kernel:           api.Int64(30000),
+							KernelTcp:        api.Int64(2000),
+							Swappiness:       api.UInt64(987),
+							DisableOomKiller: api.Bool(true),
+							UseHierarchy:     api.Bool(true),
+						},
+					},
+				},
+			}))
+			t.Run("adjust class-based resources", runTable("resources/classes", &api.ContainerAdjustment{
+				Linux: &api.LinuxContainerAdjustment{
+					Resources: &api.LinuxResources{
+						RdtClass:     api.String("00-test"),
+						BlockioClass: api.String("00-test"),
+					},
+				},
+			}))
+			t.Run("adjust hugepage limits", runTable("resources/hugepagelimits", &api.ContainerAdjustment{
+				Linux: &api.LinuxContainerAdjustment{
+					Resources: &api.LinuxResources{
+						HugepageLimits: []*api.HugepageLimit{
 							{
-								Path: "/bin/00-test",
+								PageSize: "1M",
+								Limit:    4096,
 							},
-						},
-					},
-				},
-			),
-			Entry("adjust devices", "device",
-				&api.ContainerAdjustment{
-					Linux: &api.LinuxContainerAdjustment{
-						Devices: []*api.LinuxDevice{
 							{
-								Path:  "/dev/test",
-								Type:  "c",
-								Major: 313,
-								Minor: 100,
+								PageSize: "4M",
+								Limit:    1024,
 							},
 						},
 					},
 				},
-			),
-			Entry("adjust namespace", "namespace",
-				&api.ContainerAdjustment{
-					Linux: &api.LinuxContainerAdjustment{
-						Namespaces: []*api.LinuxNamespace{
-							{
-								Type: "cgroup",
-								Path: "/var/run/cgroupns/replaced",
-							},
+			}))
+			t.Run("adjust cgroupv2 unified resources", runTable("resources/unified", &api.ContainerAdjustment{
+				Linux: &api.LinuxContainerAdjustment{
+					Resources: &api.LinuxResources{
+						Unified: map[string]string{
+							"resource.1": "value1",
+							"resource.2": "value2",
 						},
 					},
 				},
-			),
-			Entry("adjust rlimits", "rlimit",
-				&api.ContainerAdjustment{
-					Rlimits: []*api.POSIXRlimit{{Type: "nofile", Soft: 123, Hard: 456}},
+			}))
+			t.Run("adjust cgroups path", runTable("cgroupspath", &api.ContainerAdjustment{
+				Linux: &api.LinuxContainerAdjustment{
+					CgroupsPath: "/00-test",
 				},
-			),
-			Entry("adjust CDI Devices", "CDI-device",
-				&api.ContainerAdjustment{
-					CDIDevices: []*api.CDIDevice{
-						{
-							Name: "vendor0.com/dev=dev0",
-						},
+			}))
+			t.Run("adjust seccomp policy", runTable("seccomp", &api.ContainerAdjustment{
+				Linux: &api.LinuxContainerAdjustment{
+					SeccompPolicy: func() *api.LinuxSeccomp {
+						seccomp := rspec.LinuxSeccomp{
+							DefaultAction: rspec.ActAllow,
+							ListenerPath:  "/run/meshuggah-rocks.sock",
+							Architectures: []rspec.Arch{},
+							Flags:         []rspec.LinuxSeccompFlag{},
+							Syscalls: []rspec.LinuxSyscall{{
+								Names:  []string{"sched_getaffinity"},
+								Action: rspec.ActNotify,
+								Args:   []rspec.LinuxSeccompArg{},
+							}},
+						}
+						return api.FromOCILinuxSeccomp(&seccomp)
+					}(),
+				},
+			}))
+			t.Run("adjust RDT", runTable("rdt", &api.ContainerAdjustment{
+				Linux: &api.LinuxContainerAdjustment{
+					Rdt: &api.LinuxRdt{
+						ClosId:           api.String("test"),
+						Schemata:         api.RepeatedString([]string{"L3:0=ff", "MB:0=50"}),
+						EnableMonitoring: api.Bool(true),
 					},
 				},
-			),
-
-			Entry("adjust I/O priority", "I/O priority",
-				&api.ContainerAdjustment{
-					Linux: &api.LinuxContainerAdjustment{
-						IoPriority: &api.LinuxIOPriority{
-							Class:    api.IOPrioClass_IOPRIO_CLASS_RT,
-							Priority: 5,
-						},
-					},
-				},
-			),
-
-			Entry("adjust linux net devices", "linux net device",
-				&api.ContainerAdjustment{
-					Linux: &api.LinuxContainerAdjustment{
-						NetDevices: map[string]*api.LinuxNetDevice{
-							"hostIf": {
-								Name: "containerIf",
-							},
-						},
-					},
-				},
-			),
-
-			Entry("adjust linux scheduler", "linux scheduler",
-				&api.ContainerAdjustment{
-					Linux: &api.LinuxContainerAdjustment{
-						Scheduler: &api.LinuxScheduler{
-							Policy:   api.LinuxSchedulerPolicy_SCHED_FIFO,
-							Priority: 10,
-							Flags: []api.LinuxSchedulerFlag{
-								api.LinuxSchedulerFlag_SCHED_FLAG_RESET_ON_FORK,
-							},
-						},
-					},
-				},
-			),
-
-			Entry("adjust linux sysctl settings", "linux sysctl",
-				&api.ContainerAdjustment{
-					Linux: &api.LinuxContainerAdjustment{
-						Sysctl: map[string]string{
-							"net.core.somaxconn": "256",
-						},
-					},
-				},
-			),
-
-			Entry("adjust linux memory policy", "linux memory policy",
-				&api.ContainerAdjustment{
-					Linux: &api.LinuxContainerAdjustment{
-						MemoryPolicy: &api.LinuxMemoryPolicy{
-							Mode:  api.MpolMode_MPOL_INTERLEAVE,
-							Nodes: "0,1",
-							Flags: []api.MpolFlag{
-								api.MpolFlag_MPOL_F_STATIC_NODES,
-							},
-						},
-					},
-				},
-			),
-
-			Entry("adjust CPU resources", "resources/cpu",
-				&api.ContainerAdjustment{
-					Linux: &api.LinuxContainerAdjustment{
-						Resources: &api.LinuxResources{
-							Cpu: &api.LinuxCPU{
-								Shares:          api.UInt64(123),
-								Quota:           api.Int64(456),
-								Period:          api.UInt64(789),
-								RealtimeRuntime: api.Int64(321),
-								RealtimePeriod:  api.UInt64(654),
-								Cpus:            "0-1",
-								Mems:            "2-3",
-							},
-						},
-					},
-				},
-			),
-			Entry("adjust memory resources", "resources/mem",
-				&api.ContainerAdjustment{
-					Linux: &api.LinuxContainerAdjustment{
-						Resources: &api.LinuxResources{
-							Memory: &api.LinuxMemory{
-								Limit:            api.Int64(1234000),
-								Reservation:      api.Int64(4000),
-								Swap:             api.Int64(34000),
-								Kernel:           api.Int64(30000),
-								KernelTcp:        api.Int64(2000),
-								Swappiness:       api.UInt64(987),
-								DisableOomKiller: api.Bool(true),
-								UseHierarchy:     api.Bool(true),
-							},
-						},
-					},
-				},
-			),
-			Entry("adjust class-based resources", "resources/classes",
-				&api.ContainerAdjustment{
-					Linux: &api.LinuxContainerAdjustment{
-						Resources: &api.LinuxResources{
-							RdtClass:     api.String("00-test"),
-							BlockioClass: api.String("00-test"),
-						},
-					},
-				},
-			),
-			Entry("adjust hugepage limits", "resources/hugepagelimits",
-				&api.ContainerAdjustment{
-					Linux: &api.LinuxContainerAdjustment{
-						Resources: &api.LinuxResources{
-							HugepageLimits: []*api.HugepageLimit{
-								{
-									PageSize: "1M",
-									Limit:    4096,
-								},
-								{
-									PageSize: "4M",
-									Limit:    1024,
-								},
-							},
-						},
-					},
-				},
-			),
-			Entry("adjust cgroupv2 unified resources", "resources/unified",
-				&api.ContainerAdjustment{
-					Linux: &api.LinuxContainerAdjustment{
-						Resources: &api.LinuxResources{
-							Unified: map[string]string{
-								"resource.1": "value1",
-								"resource.2": "value2",
-							},
-						},
-					},
-				},
-			),
-			Entry("adjust cgroups path", "cgroupspath",
-				&api.ContainerAdjustment{
-					Linux: &api.LinuxContainerAdjustment{
-						CgroupsPath: "/00-test",
-					},
-				},
-			),
-			Entry("adjust seccomp policy", "seccomp",
-				&api.ContainerAdjustment{
-					Linux: &api.LinuxContainerAdjustment{
-						SeccompPolicy: func() *api.LinuxSeccomp {
-							seccomp := rspec.LinuxSeccomp{
-								DefaultAction: rspec.ActAllow,
-								ListenerPath:  "/run/meshuggah-rocks.sock",
-								Architectures: []rspec.Arch{},
-								Flags:         []rspec.LinuxSeccompFlag{},
-								Syscalls: []rspec.LinuxSyscall{{
-									Names:  []string{"sched_getaffinity"},
-									Action: rspec.ActNotify,
-									Args:   []rspec.LinuxSeccompArg{},
-								}},
-							}
-							return api.FromOCILinuxSeccomp(&seccomp)
-						}(),
-					},
-				},
-			),
-			Entry("adjust RDT", "rdt",
-				&api.ContainerAdjustment{
-					Linux: &api.LinuxContainerAdjustment{
-						Rdt: &api.LinuxRdt{
-							ClosId:           api.String("test"),
-							Schemata:         api.RepeatedString([]string{"L3:0=ff", "MB:0=50"}),
-							EnableMonitoring: api.Bool(true),
-						},
-					},
-				},
-			),
-		)
+			}))
+		})
 	})
 
-	When("there are multiple plugins", func() {
-		BeforeEach(func() {
-			s.Prepare(
-				&mockRuntime{},
-				&mockPlugin{idx: "10", name: "foo"},
-				&mockPlugin{idx: "00", name: "bar"},
-			)
-		})
-
-		DescribeTable("should be successfully combined if there are no conflicts",
-			func(subject string, remove, shouldFail bool, expected *api.ContainerAdjustment) {
+	t.Run("there are multiple plugins", func(t *testing.T) {
+		runTable := func(subject string, remove, shouldFail bool, expected *api.ContainerAdjustment) func(*testing.T) {
+			return func(t *testing.T) {
+				s.Prepare(t,
+					&mockRuntime{},
+					&mockPlugin{idx: "10", name: "foo"},
+					&mockPlugin{idx: "00", name: "bar"},
+				)
 				var (
 					runtime = s.runtime
 					plugins = s.plugins
@@ -1089,141 +996,116 @@ var _ = Describe("Plugin container creation adjustments", func() {
 				s.Startup()
 
 				podReq := &api.RunPodSandboxRequest{Pod: pod}
-				Expect(runtime.RunPodSandbox(ctx, podReq)).To(Succeed())
+				require.NoError(t, runtime.RunPodSandbox(ctx, podReq))
 				ctrReq := &api.CreateContainerRequest{
 					Pod:       pod,
 					Container: ctr,
 				}
 				reply, err := runtime.CreateContainer(ctx, ctrReq)
 				if shouldFail {
-					Expect(err).ToNot(BeNil())
+					require.NotNil(t, err)
 				} else {
-					Expect(err).To(BeNil())
-					Expect(protoEqual(reply.Adjust.Strip(), expected)).Should(BeTrue(),
-						protoDiff(reply.Adjust, expected))
+					require.Nil(t, err)
+					require.True(t, protoEqual(reply.Adjust.Strip(), expected), protoDiff(reply.Adjust, expected))
 				}
-			},
-
-			Entry("adjust annotations (conflicts)", "annotation", false, true, nil),
-			Entry("adjust annotations", "annotation", true, false,
-				&api.ContainerAdjustment{
-					Annotations: map[string]string{
-						"-key": "",
-						"key":  "10-foo",
+			}
+		}
+		t.Run("should be successfully combined if there are no conflicts", func(t *testing.T) {
+			t.Run("adjust annotations (conflicts)", runTable("annotation", false, true, nil))
+			t.Run("adjust annotations", runTable("annotation", true, false, &api.ContainerAdjustment{
+				Annotations: map[string]string{
+					"-key": "",
+					"key":  "10-foo",
+				},
+			}))
+			t.Run("adjust mounts (conflicts)", runTable("mount", false, true, nil))
+			t.Run("adjust mounts", runTable("mount", true, false, &api.ContainerAdjustment{
+				Mounts: []*api.Mount{
+					{
+						Source:      "/dev/10-foo",
+						Destination: "/mnt/test",
 					},
 				},
-			),
-			Entry("adjust mounts (conflicts)", "mount", false, true, nil),
-			Entry("adjust mounts", "mount", true, false,
-				&api.ContainerAdjustment{
-					Mounts: []*api.Mount{
+			}))
+			t.Run("adjust environment (conflicts)", runTable("environment", false, true, nil))
+			t.Run("adjust environment", runTable("environment", true, false, &api.ContainerAdjustment{
+				Env: []*api.KeyValue{
+					{
+						Key:   "key",
+						Value: "10-foo",
+					},
+				},
+			}))
+			t.Run("adjust arguments (conflicts)", runTable("arguments", false, true, nil))
+			t.Run("adjust arguments", runTable("arguments", true, false, &api.ContainerAdjustment{
+				Args: []string{
+					"echo",
+					"updated",
+					"argument",
+					"list",
+					"twice...",
+				},
+			}))
+			t.Run("adjust hooks", runTable("hooks", false, false, &api.ContainerAdjustment{
+				Hooks: &api.Hooks{
+					Prestart: []*api.Hook{
 						{
-							Source:      "/dev/10-foo",
-							Destination: "/mnt/test",
+							Path: "/bin/00-bar",
 						},
-					},
-				},
-			),
-			Entry("adjust environment (conflicts)", "environment", false, true, nil),
-			Entry("adjust environment", "environment", true, false,
-				&api.ContainerAdjustment{
-					Env: []*api.KeyValue{
 						{
-							Key:   "key",
-							Value: "10-foo",
+							Path: "/bin/10-foo",
 						},
 					},
 				},
-			),
-
-			Entry("adjust arguments (conflicts)", "arguments", false, true, nil),
-			Entry("adjust arguments", "arguments", true, false,
-				&api.ContainerAdjustment{
-					Args: []string{
-						"echo",
-						"updated",
-						"argument",
-						"list",
-						"twice...",
-					},
-				},
-			),
-
-			Entry("adjust hooks", "hooks", false, false,
-				&api.ContainerAdjustment{
-					Hooks: &api.Hooks{
-						Prestart: []*api.Hook{
-							{
-								Path: "/bin/00-bar",
-							},
-							{
-								Path: "/bin/10-foo",
-							},
+			}))
+			t.Run("adjust devices", runTable("device", false, true, nil))
+			t.Run("adjust devices", runTable("device", true, false, &api.ContainerAdjustment{
+				Linux: &api.LinuxContainerAdjustment{
+					Devices: []*api.LinuxDevice{
+						{
+							Path:  "/dev/test",
+							Type:  "c",
+							Major: 313,
+							Minor: 110,
 						},
 					},
 				},
-			),
-			Entry("adjust devices", "device", false, true, nil),
-			Entry("adjust devices", "device", true, false,
-				&api.ContainerAdjustment{
-					Linux: &api.LinuxContainerAdjustment{
-						Devices: []*api.LinuxDevice{
-							{
-								Path:  "/dev/test",
-								Type:  "c",
-								Major: 313,
-								Minor: 110,
-							},
+			}))
+			t.Run("adjust resources", runTable("resources/classes", false, true, nil))
+			t.Run("adjust I/O priority (conflicts)", runTable("I/O priority", false, true, nil))
+			t.Run("adjust linux net devices", runTable("linux net device", true, false, &api.ContainerAdjustment{
+				Linux: &api.LinuxContainerAdjustment{
+					NetDevices: map[string]*api.LinuxNetDevice{
+						"-hostIf": nil,
+						"hostIf": {
+							Name: "containerIf",
 						},
 					},
 				},
-			),
-			Entry("adjust resources", "resources/classes", false, true, nil),
-
-			Entry("adjust I/O priority (conflicts)", "I/O priority", false, true, nil),
-
-			Entry("adjust linux net devices", "linux net device", true, false,
-				&api.ContainerAdjustment{
-					Linux: &api.LinuxContainerAdjustment{
-						NetDevices: map[string]*api.LinuxNetDevice{
-							"-hostIf": nil,
-							"hostIf": {
-								Name: "containerIf",
-							},
-						},
+			}))
+			t.Run("adjust linux net devices (conflicts)", runTable("linux net device", false, true, nil))
+			t.Run("adjust linux scheduler (conflicts)", runTable("linux scheduler", false, true, nil))
+			t.Run("adjust RDT (conflicts)", runTable("rdt", false, true, nil))
+			t.Run("adjust RDT", runTable("rdt", true, false, &api.ContainerAdjustment{
+				Linux: &api.LinuxContainerAdjustment{
+					Rdt: &api.LinuxRdt{
+						ClosId:           api.String("foo"),
+						Schemata:         api.RepeatedString([]string{"L3:0=ff", "MB:0=50"}),
+						EnableMonitoring: api.Bool(true),
 					},
 				},
-			),
-
-			Entry("adjust linux net devices (conflicts)", "linux net device", false, true, nil),
-			Entry("adjust linux scheduler (conflicts)", "linux scheduler", false, true, nil),
-
-			Entry("adjust RDT (conflicts)", "rdt", false, true, nil),
-			Entry("adjust RDT", "rdt", true, false,
-				&api.ContainerAdjustment{
-					Linux: &api.LinuxContainerAdjustment{
-						Rdt: &api.LinuxRdt{
-							ClosId:           api.String("foo"),
-							Schemata:         api.RepeatedString([]string{"L3:0=ff", "MB:0=50"}),
-							EnableMonitoring: api.Bool(true),
-						},
-					},
-				},
-			),
-		)
+			}))
+		})
 	})
 
-	When("there are validating plugins", func() {
-		BeforeEach(func() {
-			s.Prepare(
-				&mockRuntime{},
-				&mockPlugin{idx: "00", name: "foo"},
-				&mockPlugin{idx: "00", name: "validator"},
-			)
-		})
-
-		DescribeTable("validation result should be honored",
-			func(subject string, shouldFail bool, expected *api.ContainerAdjustment) {
+	t.Run("there are validating plugins", func(t *testing.T) {
+		runTable := func(subject string, shouldFail bool, expected *api.ContainerAdjustment) func(*testing.T) {
+			return func(t *testing.T) {
+				s.Prepare(t,
+					&mockRuntime{},
+					&mockPlugin{idx: "00", name: "foo"},
+					&mockPlugin{idx: "00", name: "validator"},
+				)
 				var (
 					runtime = s.runtime
 					plugins = s.plugins
@@ -1279,36 +1161,33 @@ var _ = Describe("Plugin container creation adjustments", func() {
 				s.Startup()
 
 				podReq := &api.RunPodSandboxRequest{Pod: pod}
-				Expect(runtime.RunPodSandbox(ctx, podReq)).To(Succeed())
+				require.NoError(t, runtime.RunPodSandbox(ctx, podReq))
 				ctrReq := &api.CreateContainerRequest{
 					Pod:       pod,
 					Container: ctr,
 				}
 				reply, err := runtime.CreateContainer(ctx, ctrReq)
 				if shouldFail {
-					Expect(err).ToNot(BeNil())
+					require.NotNil(t, err)
 				} else {
-					Expect(err).To(BeNil())
-					Expect(protoEqual(reply.Adjust.Strip(), expected)).Should(BeTrue(),
-						protoDiff(reply.Adjust, expected))
+					require.Nil(t, err)
+					require.True(t, protoEqual(reply.Adjust.Strip(), expected), protoDiff(reply.Adjust, expected))
 				}
-			},
-
-			Entry("adjust allowed annotation", "annotation", false,
-				&api.ContainerAdjustment{
-					Annotations: map[string]string{
-						"key": "00-foo",
-					},
+			}
+		}
+		t.Run("validation result should be honored", func(t *testing.T) {
+			t.Run("adjust allowed annotation", runTable("annotation", false, &api.ContainerAdjustment{
+				Annotations: map[string]string{
+					"key": "00-foo",
 				},
-			),
-
-			Entry("adjust forbidden annotation", "annotation", true, nil),
-		)
+			}))
+			t.Run("adjust forbidden annotation", runTable("annotation", true, nil))
+		})
 	})
 
-	When("the default validator is enabled and OCI Hook injection is disabled", func() {
-		BeforeEach(func() {
-			s.Prepare(
+	t.Run("the default validator is enabled and OCI Hook injection is disabled", func(t *testing.T) {
+		setup := func(t *testing.T) {
+			s.Prepare(t,
 				&mockRuntime{
 					options: []nri.Option{
 						nri.WithDefaultValidator(
@@ -1323,9 +1202,10 @@ var _ = Describe("Plugin container creation adjustments", func() {
 				&mockPlugin{idx: "10", name: "validator1"},
 				&mockPlugin{idx: "20", name: "validator2"},
 			)
-		})
+		}
 
-		It("should reject OCI Hook injection", func() {
+		t.Run("should reject OCI Hook injection", func(t *testing.T) {
+			setup(t)
 			var (
 				create = func(_ *mockPlugin, _ *api.PodSandbox, ctr *api.Container) (*api.ContainerAdjustment, []*api.ContainerUpdate, error) {
 					a := &api.ContainerAdjustment{}
@@ -1379,29 +1259,29 @@ var _ = Describe("Plugin container creation adjustments", func() {
 
 			s.Startup()
 			podReq := &api.RunPodSandboxRequest{Pod: pod}
-			Expect(runtime.RunPodSandbox(ctx, podReq)).To(Succeed())
+			require.NoError(t, runtime.RunPodSandbox(ctx, podReq))
 
 			ctrReq := &api.CreateContainerRequest{
 				Pod:       pod,
 				Container: ctr0,
 			}
 			reply, err := runtime.CreateContainer(ctx, ctrReq)
-			Expect(reply).ToNot(BeNil())
-			Expect(err).To(BeNil())
+			require.NotNil(t, reply)
+			require.Nil(t, err)
 
 			ctrReq = &api.CreateContainerRequest{
 				Pod:       pod,
 				Container: ctr1,
 			}
 			reply, err = runtime.CreateContainer(ctx, ctrReq)
-			Expect(err).ToNot(BeNil())
-			Expect(reply).To(BeNil())
+			require.NotNil(t, err)
+			require.Nil(t, reply)
 		})
 	})
 
-	When("default validator disallows runtime default seccomp policy adjustment", func() {
-		BeforeEach(func() {
-			s.Prepare(
+	t.Run("default validator disallows runtime default seccomp policy adjustment", func(t *testing.T) {
+		setup := func(t *testing.T) {
+			s.Prepare(t,
 				&mockRuntime{
 					options: []nri.Option{
 						nri.WithDefaultValidator(
@@ -1416,9 +1296,11 @@ var _ = Describe("Plugin container creation adjustments", func() {
 				&mockPlugin{idx: "10", name: "validator1"},
 				&mockPlugin{idx: "20", name: "validator2"},
 			)
-		})
+		}
 
-		It("should reject runtime default seccomp policy adjustment", func() {
+		t.Run("should reject runtime default seccomp policy adjustment", func(t *testing.T) {
+			setup(t)
+
 			var (
 				create = func(_ *mockPlugin, _ *api.PodSandbox, ctr *api.Container) (*api.ContainerAdjustment, []*api.ContainerUpdate, error) {
 					a := &api.ContainerAdjustment{}
@@ -1482,29 +1364,29 @@ var _ = Describe("Plugin container creation adjustments", func() {
 
 			s.Startup()
 			podReq := &api.RunPodSandboxRequest{Pod: pod}
-			Expect(runtime.RunPodSandbox(ctx, podReq)).To(Succeed())
+			require.NoError(t, runtime.RunPodSandbox(ctx, podReq))
 
 			ctrReq := &api.CreateContainerRequest{
 				Pod:       pod,
 				Container: ctr0,
 			}
 			reply, err := runtime.CreateContainer(ctx, ctrReq)
-			Expect(reply).ToNot(BeNil())
-			Expect(err).To(BeNil())
+			require.NotNil(t, reply)
+			require.Nil(t, err)
 
 			ctrReq = &api.CreateContainerRequest{
 				Pod:       pod,
 				Container: ctr1,
 			}
 			reply, err = runtime.CreateContainer(ctx, ctrReq)
-			Expect(err).ToNot(BeNil())
-			Expect(reply).To(BeNil())
+			require.NotNil(t, err)
+			require.Nil(t, reply)
 		})
 	})
 
-	When("default validator allows runtime default seccomp policy adjustment", func() {
-		BeforeEach(func() {
-			s.Prepare(
+	t.Run("default validator allows runtime default seccomp policy adjustment", func(t *testing.T) {
+		setup := func(t *testing.T) {
+			s.Prepare(t,
 				&mockRuntime{
 					options: []nri.Option{
 						nri.WithDefaultValidator(
@@ -1519,9 +1401,11 @@ var _ = Describe("Plugin container creation adjustments", func() {
 				&mockPlugin{idx: "10", name: "validator1"},
 				&mockPlugin{idx: "20", name: "validator2"},
 			)
-		})
+		}
 
-		It("should not reject runtime default seccomp policy adjustment", func() {
+		t.Run("should not reject runtime default seccomp policy adjustment", func(t *testing.T) {
+			setup(t)
+
 			var (
 				create = func(_ *mockPlugin, _ *api.PodSandbox, ctr *api.Container) (*api.ContainerAdjustment, []*api.ContainerUpdate, error) {
 					a := &api.ContainerAdjustment{}
@@ -1585,29 +1469,29 @@ var _ = Describe("Plugin container creation adjustments", func() {
 
 			s.Startup()
 			podReq := &api.RunPodSandboxRequest{Pod: pod}
-			Expect(runtime.RunPodSandbox(ctx, podReq)).To(Succeed())
+			require.NoError(t, runtime.RunPodSandbox(ctx, podReq))
 
 			ctrReq := &api.CreateContainerRequest{
 				Pod:       pod,
 				Container: ctr0,
 			}
 			reply, err := runtime.CreateContainer(ctx, ctrReq)
-			Expect(reply).ToNot(BeNil())
-			Expect(err).To(BeNil())
+			require.NotNil(t, reply)
+			require.Nil(t, err)
 
 			ctrReq = &api.CreateContainerRequest{
 				Pod:       pod,
 				Container: ctr1,
 			}
 			reply, err = runtime.CreateContainer(ctx, ctrReq)
-			Expect(reply).ToNot(BeNil())
-			Expect(err).To(BeNil())
+			require.NotNil(t, reply)
+			require.Nil(t, err)
 		})
 	})
 
-	When("default validator disallows custom seccomp policy adjustment", func() {
-		BeforeEach(func() {
-			s.Prepare(
+	t.Run("default validator disallows custom seccomp policy adjustment", func(t *testing.T) {
+		setup := func(t *testing.T) {
+			s.Prepare(t,
 				&mockRuntime{
 					options: []nri.Option{
 						nri.WithDefaultValidator(
@@ -1622,9 +1506,11 @@ var _ = Describe("Plugin container creation adjustments", func() {
 				&mockPlugin{idx: "10", name: "validator1"},
 				&mockPlugin{idx: "20", name: "validator2"},
 			)
-		})
+		}
 
-		It("should reject custom seccomp policy adjustment", func() {
+		t.Run("should reject custom seccomp policy adjustment", func(t *testing.T) {
+			setup(t)
+
 			var (
 				create = func(_ *mockPlugin, _ *api.PodSandbox, ctr *api.Container) (*api.ContainerAdjustment, []*api.ContainerUpdate, error) {
 					a := &api.ContainerAdjustment{}
@@ -1689,29 +1575,29 @@ var _ = Describe("Plugin container creation adjustments", func() {
 
 			s.Startup()
 			podReq := &api.RunPodSandboxRequest{Pod: pod}
-			Expect(runtime.RunPodSandbox(ctx, podReq)).To(Succeed())
+			require.NoError(t, runtime.RunPodSandbox(ctx, podReq))
 
 			ctrReq := &api.CreateContainerRequest{
 				Pod:       pod,
 				Container: ctr0,
 			}
 			reply, err := runtime.CreateContainer(ctx, ctrReq)
-			Expect(reply).ToNot(BeNil())
-			Expect(err).To(BeNil())
+			require.NotNil(t, reply)
+			require.Nil(t, err)
 
 			ctrReq = &api.CreateContainerRequest{
 				Pod:       pod,
 				Container: ctr1,
 			}
 			reply, err = runtime.CreateContainer(ctx, ctrReq)
-			Expect(err).ToNot(BeNil())
-			Expect(reply).To(BeNil())
+			require.NotNil(t, err)
+			require.Nil(t, reply)
 		})
 	})
 
-	When("default validator allows custom seccomp policy adjustment", func() {
-		BeforeEach(func() {
-			s.Prepare(
+	t.Run("default validator allows custom seccomp policy adjustment", func(t *testing.T) {
+		setup := func(t *testing.T) {
+			s.Prepare(t,
 				&mockRuntime{
 					options: []nri.Option{
 						nri.WithDefaultValidator(
@@ -1726,9 +1612,11 @@ var _ = Describe("Plugin container creation adjustments", func() {
 				&mockPlugin{idx: "10", name: "validator1"},
 				&mockPlugin{idx: "20", name: "validator2"},
 			)
-		})
+		}
 
-		It("should not reject custom seccomp policy adjustment", func() {
+		t.Run("should not reject custom seccomp policy adjustment", func(t *testing.T) {
+			setup(t)
+
 			var (
 				create = func(_ *mockPlugin, _ *api.PodSandbox, ctr *api.Container) (*api.ContainerAdjustment, []*api.ContainerUpdate, error) {
 					a := &api.ContainerAdjustment{}
@@ -1793,29 +1681,29 @@ var _ = Describe("Plugin container creation adjustments", func() {
 
 			s.Startup()
 			podReq := &api.RunPodSandboxRequest{Pod: pod}
-			Expect(runtime.RunPodSandbox(ctx, podReq)).To(Succeed())
+			require.NoError(t, runtime.RunPodSandbox(ctx, podReq))
 
 			ctrReq := &api.CreateContainerRequest{
 				Pod:       pod,
 				Container: ctr0,
 			}
 			reply, err := runtime.CreateContainer(ctx, ctrReq)
-			Expect(reply).ToNot(BeNil())
-			Expect(err).To(BeNil())
+			require.NotNil(t, reply)
+			require.Nil(t, err)
 
 			ctrReq = &api.CreateContainerRequest{
 				Pod:       pod,
 				Container: ctr1,
 			}
 			reply, err = runtime.CreateContainer(ctx, ctrReq)
-			Expect(reply).ToNot(BeNil())
-			Expect(err).To(BeNil())
+			require.NotNil(t, reply)
+			require.Nil(t, err)
 		})
 	})
 
-	When("default validator disallows unconfined seccomp policy adjustment", func() {
-		BeforeEach(func() {
-			s.Prepare(
+	t.Run("default validator disallows unconfined seccomp policy adjustment", func(t *testing.T) {
+		setup := func(t *testing.T) {
+			s.Prepare(t,
 				&mockRuntime{
 					options: []nri.Option{
 						nri.WithDefaultValidator(
@@ -1830,9 +1718,11 @@ var _ = Describe("Plugin container creation adjustments", func() {
 				&mockPlugin{idx: "10", name: "validator1"},
 				&mockPlugin{idx: "20", name: "validator2"},
 			)
-		})
+		}
 
-		It("should reject unconfined seccomp policy adjustment", func() {
+		t.Run("should reject unconfined seccomp policy adjustment", func(t *testing.T) {
+			setup(t)
+
 			var (
 				create = func(_ *mockPlugin, _ *api.PodSandbox, ctr *api.Container) (*api.ContainerAdjustment, []*api.ContainerUpdate, error) {
 					a := &api.ContainerAdjustment{}
@@ -1896,29 +1786,29 @@ var _ = Describe("Plugin container creation adjustments", func() {
 
 			s.Startup()
 			podReq := &api.RunPodSandboxRequest{Pod: pod}
-			Expect(runtime.RunPodSandbox(ctx, podReq)).To(Succeed())
+			require.NoError(t, runtime.RunPodSandbox(ctx, podReq))
 
 			ctrReq := &api.CreateContainerRequest{
 				Pod:       pod,
 				Container: ctr0,
 			}
 			reply, err := runtime.CreateContainer(ctx, ctrReq)
-			Expect(reply).ToNot(BeNil())
-			Expect(err).To(BeNil())
+			require.NotNil(t, reply)
+			require.Nil(t, err)
 
 			ctrReq = &api.CreateContainerRequest{
 				Pod:       pod,
 				Container: ctr1,
 			}
 			reply, err = runtime.CreateContainer(ctx, ctrReq)
-			Expect(err).ToNot(BeNil())
-			Expect(reply).To(BeNil())
+			require.NotNil(t, err)
+			require.Nil(t, reply)
 		})
 	})
 
-	When("default validator allows unconfined seccomp policy adjustment", func() {
-		BeforeEach(func() {
-			s.Prepare(
+	t.Run("default validator allows unconfined seccomp policy adjustment", func(t *testing.T) {
+		setup := func(t *testing.T) {
+			s.Prepare(t,
 				&mockRuntime{
 					options: []nri.Option{
 						nri.WithDefaultValidator(
@@ -1933,9 +1823,11 @@ var _ = Describe("Plugin container creation adjustments", func() {
 				&mockPlugin{idx: "10", name: "validator1"},
 				&mockPlugin{idx: "20", name: "validator2"},
 			)
-		})
+		}
 
-		It("should not reject unconfined seccomp policy adjustment", func() {
+		t.Run("should not reject unconfined seccomp policy adjustment", func(t *testing.T) {
+			setup(t)
+
 			var (
 				create = func(_ *mockPlugin, _ *api.PodSandbox, ctr *api.Container) (*api.ContainerAdjustment, []*api.ContainerUpdate, error) {
 					a := &api.ContainerAdjustment{}
@@ -1999,29 +1891,29 @@ var _ = Describe("Plugin container creation adjustments", func() {
 
 			s.Startup()
 			podReq := &api.RunPodSandboxRequest{Pod: pod}
-			Expect(runtime.RunPodSandbox(ctx, podReq)).To(Succeed())
+			require.NoError(t, runtime.RunPodSandbox(ctx, podReq))
 
 			ctrReq := &api.CreateContainerRequest{
 				Pod:       pod,
 				Container: ctr0,
 			}
 			reply, err := runtime.CreateContainer(ctx, ctrReq)
-			Expect(reply).ToNot(BeNil())
-			Expect(err).To(BeNil())
+			require.NotNil(t, reply)
+			require.Nil(t, err)
 
 			ctrReq = &api.CreateContainerRequest{
 				Pod:       pod,
 				Container: ctr1,
 			}
 			reply, err = runtime.CreateContainer(ctx, ctrReq)
-			Expect(reply).ToNot(BeNil())
-			Expect(err).To(BeNil())
+			require.NotNil(t, reply)
+			require.Nil(t, err)
 		})
 	})
 
-	When("the default validator is enabled and namespace adjustment is disabled", func() {
-		BeforeEach(func() {
-			s.Prepare(
+	t.Run("the default validator is enabled and namespace adjustment is disabled", func(t *testing.T) {
+		setup := func(t *testing.T) {
+			s.Prepare(t,
 				&mockRuntime{
 					options: []nri.Option{
 						nri.WithDefaultValidator(
@@ -2036,9 +1928,11 @@ var _ = Describe("Plugin container creation adjustments", func() {
 				&mockPlugin{idx: "10", name: "validator1"},
 				&mockPlugin{idx: "20", name: "validator2"},
 			)
-		})
+		}
 
-		It("should reject namespace adjustment", func() {
+		t.Run("should reject namespace adjustment", func(t *testing.T) {
+			setup(t)
+
 			var (
 				create = func(_ *mockPlugin, _ *api.PodSandbox, ctr *api.Container) (*api.ContainerAdjustment, []*api.ContainerUpdate, error) {
 					a := &api.ContainerAdjustment{}
@@ -2087,30 +1981,31 @@ var _ = Describe("Plugin container creation adjustments", func() {
 
 			s.Startup()
 			podReq := &api.RunPodSandboxRequest{Pod: pod}
-			Expect(runtime.RunPodSandbox(ctx, podReq)).To(Succeed())
+			require.NoError(t, runtime.RunPodSandbox(ctx, podReq))
 
 			ctrReq := &api.CreateContainerRequest{
 				Pod:       pod,
 				Container: ctr0,
 			}
 			reply, err := runtime.CreateContainer(ctx, ctrReq)
-			Expect(reply).ToNot(BeNil())
-			Expect(err).To(BeNil())
+			require.NotNil(t, reply)
+			require.Nil(t, err)
 
 			ctrReq = &api.CreateContainerRequest{
 				Pod:       pod,
 				Container: ctr1,
 			}
 			reply, err = runtime.CreateContainer(ctx, ctrReq)
-			Expect(err).ToNot(BeNil())
-			Expect(reply).To(BeNil())
+			require.NotNil(t, err)
+			require.Nil(t, reply)
 		})
 	})
 
-	When("the default validator is enabled with some required plugins", func() {
-		const AnnotationDomain = plugin.AnnotationDomain
-		BeforeEach(func() {
-			s.Prepare(
+	t.Run("the default validator is enabled with some required plugins", func(t *testing.T) {
+		const AnnotationDomain = nriplugin.AnnotationDomain
+
+		setup := func(t *testing.T) {
+			s.Prepare(t,
 				&mockRuntime{
 					options: []nri.Option{
 						nri.WithDefaultValidator(
@@ -2127,9 +2022,11 @@ var _ = Describe("Plugin container creation adjustments", func() {
 				},
 				&mockPlugin{idx: "00", name: "foo"},
 			)
-		})
+		}
 
-		It("should not allow container creation if required plugins are missing", func() {
+		t.Run("should not allow container creation if required plugins are missing", func(t *testing.T) {
+			setup(t)
+
 			var (
 				runtime = s.runtime
 				ctx     = context.Background()
@@ -2144,7 +2041,7 @@ var _ = Describe("Plugin container creation adjustments", func() {
 
 			s.Startup()
 			podReq := &api.RunPodSandboxRequest{Pod: pod}
-			Expect(runtime.RunPodSandbox(ctx, podReq)).To(Succeed())
+			require.NoError(t, runtime.RunPodSandbox(ctx, podReq))
 
 			ctrReq := &api.CreateContainerRequest{
 				Pod: pod,
@@ -2156,11 +2053,13 @@ var _ = Describe("Plugin container creation adjustments", func() {
 				},
 			}
 			reply, err := runtime.CreateContainer(ctx, ctrReq)
-			Expect(reply).To(BeNil())
-			Expect(err).ToNot(BeNil())
+			require.Nil(t, reply)
+			require.NotNil(t, err)
 		})
 
-		It("should allow container creation, if missing plugins are tolerated", func() {
+		t.Run("should allow container creation, if missing plugins are tolerated", func(t *testing.T) {
+			setup(t)
+
 			var (
 				runtime = s.runtime
 				ctx     = context.Background()
@@ -2178,7 +2077,7 @@ var _ = Describe("Plugin container creation adjustments", func() {
 
 			s.Startup()
 			podReq := &api.RunPodSandboxRequest{Pod: pod}
-			Expect(runtime.RunPodSandbox(ctx, podReq)).To(Succeed())
+			require.NoError(t, runtime.RunPodSandbox(ctx, podReq))
 
 			ctrReq := &api.CreateContainerRequest{
 				Pod: pod,
@@ -2190,11 +2089,13 @@ var _ = Describe("Plugin container creation adjustments", func() {
 				},
 			}
 			reply, err := runtime.CreateContainer(ctx, ctrReq)
-			Expect(reply).ToNot(BeNil())
-			Expect(err).To(BeNil())
+			require.NotNil(t, reply)
+			require.Nil(t, err)
 		})
 
-		It("should allow container creation if all required plugins are present", func() {
+		t.Run("should allow container creation if all required plugins are present", func(t *testing.T) {
+			setup(t)
+
 			var (
 				runtime = s.runtime
 				ctx     = context.Background()
@@ -2209,7 +2110,7 @@ var _ = Describe("Plugin container creation adjustments", func() {
 
 			s.Startup()
 			podReq := &api.RunPodSandboxRequest{Pod: pod}
-			Expect(runtime.RunPodSandbox(ctx, podReq)).To(Succeed())
+			require.NoError(t, runtime.RunPodSandbox(ctx, podReq))
 
 			s.StartPlugins(&mockPlugin{idx: "10", name: "bar"})
 			s.WaitForPluginsToSync(s.plugin("10-bar"))
@@ -2224,11 +2125,13 @@ var _ = Describe("Plugin container creation adjustments", func() {
 				},
 			}
 			reply, err := runtime.CreateContainer(ctx, ctrReq)
-			Expect(reply).ToNot(BeNil())
-			Expect(err).To(BeNil())
+			require.NotNil(t, reply)
+			require.Nil(t, err)
 		})
 
-		It("should not allow container creation if annotated required plugins are missing", func() {
+		t.Run("should not allow container creation if annotated required plugins are missing", func(t *testing.T) {
+			setup(t)
+
 			var (
 				runtime = s.runtime
 				ctx     = context.Background()
@@ -2246,7 +2149,7 @@ var _ = Describe("Plugin container creation adjustments", func() {
 
 			s.Startup()
 			podReq := &api.RunPodSandboxRequest{Pod: pod}
-			Expect(runtime.RunPodSandbox(ctx, podReq)).To(Succeed())
+			require.NoError(t, runtime.RunPodSandbox(ctx, podReq))
 
 			s.StartPlugins(&mockPlugin{idx: "10", name: "bar"})
 			s.WaitForPluginsToSync(s.plugin("10-bar"))
@@ -2261,8 +2164,8 @@ var _ = Describe("Plugin container creation adjustments", func() {
 				},
 			}
 			reply, err := runtime.CreateContainer(ctx, ctrReq)
-			Expect(reply).To(BeNil())
-			Expect(err).ToNot(BeNil())
+			require.Nil(t, reply)
+			require.NotNil(t, err)
 
 			s.StartPlugins(&mockPlugin{idx: "20", name: "xyzzy"})
 			s.WaitForPluginsToSync(s.plugin("20-xyzzy"))
@@ -2277,20 +2180,16 @@ var _ = Describe("Plugin container creation adjustments", func() {
 				},
 			}
 			reply, err = runtime.CreateContainer(ctx, ctrReq)
-			Expect(reply).ToNot(BeNil())
-			Expect(err).To(BeNil())
+			require.NotNil(t, reply)
+			require.Nil(t, err)
 		})
-
 	})
-
-})
+}
 
 // --------------------------------------------
 
-var _ = Describe("Plugin container updates during creation", func() {
-	var (
-		s = &Suite{}
-	)
+func TestPluginContainerUpdatesDuringCreation(t *testing.T) {
+	s := &Suite{}
 
 	update := func(subject, which string, p *mockPlugin, _ *api.PodSandbox, ctr *api.Container) (*api.ContainerAdjustment, []*api.ContainerUpdate, error) {
 		plugin := p.idx + "-" + p.name
@@ -2341,17 +2240,10 @@ var _ = Describe("Plugin container updates during creation", func() {
 		return nil, []*api.ContainerUpdate{u}, nil
 	}
 
-	AfterEach(func() {
-		s.Cleanup()
-	})
-
-	When("there is a single plugin", func() {
-		BeforeEach(func() {
-			s.Prepare(&mockRuntime{}, &mockPlugin{idx: "00", name: "test"})
-		})
-
-		DescribeTable("should be successfully collected without conflicts",
-			func(subject string, expected *api.ContainerUpdate) {
+	t.Run("there is a single plugin", func(t *testing.T) {
+		runTable := func(subject string, expected *api.ContainerUpdate) func(*testing.T) {
+			return func(t *testing.T) {
+				s.Prepare(t, &mockRuntime{}, &mockPlugin{idx: "00", name: "test"})
 				var (
 					runtime = s.runtime
 					plugin  = s.plugins[0]
@@ -2395,118 +2287,105 @@ var _ = Describe("Plugin container updates during creation", func() {
 				s.Startup()
 
 				podReq := &api.RunPodSandboxRequest{Pod: pod0}
-				Expect(runtime.RunPodSandbox(ctx, podReq)).To(Succeed())
+				require.NoError(t, runtime.RunPodSandbox(ctx, podReq))
 				ctrReq := &api.CreateContainerRequest{
 					Pod:       pod0,
 					Container: ctr0,
 				}
 				_, err := runtime.CreateContainer(ctx, ctrReq)
-				Expect(err).To(BeNil())
+				require.Nil(t, err)
 
 				podReq = &api.RunPodSandboxRequest{Pod: pod1}
-				Expect(runtime.RunPodSandbox(ctx, podReq)).To(Succeed())
+				require.NoError(t, runtime.RunPodSandbox(ctx, podReq))
 				ctrReq = &api.CreateContainerRequest{
 					Pod:       pod1,
 					Container: ctr1,
 				}
 				reply, err = runtime.CreateContainer(ctx, ctrReq)
-				Expect(err).To(BeNil())
+				require.Nil(t, err)
 
-				Expect(len(reply.Update)).To(Equal(1))
+				require.Equal(t, 1, len(reply.Update))
 				expected.ContainerId = reply.Update[0].ContainerId
-				Expect(protoEqual(reply.Update[0].Strip(), expected)).Should(BeTrue(),
-					protoDiff(reply.Update[0], expected))
-			},
-
-			Entry("update CPU resources", "resources/cpu",
-				&api.ContainerUpdate{
-					Linux: &api.LinuxContainerUpdate{
-						Resources: &api.LinuxResources{
-							Cpu: &api.LinuxCPU{
-								Shares:          api.UInt64(123),
-								Quota:           api.Int64(456),
-								Period:          api.UInt64(789),
-								RealtimeRuntime: api.Int64(321),
-								RealtimePeriod:  api.UInt64(654),
-								Cpus:            "0-1",
-								Mems:            "2-3",
+				require.True(t, protoEqual(reply.Update[0].Strip(), expected), protoDiff(reply.Update[0], expected))
+			}
+		}
+		t.Run("should be successfully collected without conflicts", func(t *testing.T) {
+			t.Run("update CPU resources", runTable("resources/cpu", &api.ContainerUpdate{
+				Linux: &api.LinuxContainerUpdate{
+					Resources: &api.LinuxResources{
+						Cpu: &api.LinuxCPU{
+							Shares:          api.UInt64(123),
+							Quota:           api.Int64(456),
+							Period:          api.UInt64(789),
+							RealtimeRuntime: api.Int64(321),
+							RealtimePeriod:  api.UInt64(654),
+							Cpus:            "0-1",
+							Mems:            "2-3",
+						},
+					},
+				},
+			}))
+			t.Run("update memory resources", runTable("resources/memory", &api.ContainerUpdate{
+				Linux: &api.LinuxContainerUpdate{
+					Resources: &api.LinuxResources{
+						Memory: &api.LinuxMemory{
+							Limit:            api.Int64(1234000),
+							Reservation:      api.Int64(4000),
+							Swap:             api.Int64(34000),
+							Kernel:           api.Int64(30000),
+							KernelTcp:        api.Int64(2000),
+							Swappiness:       api.UInt64(987),
+							DisableOomKiller: api.Bool(true),
+							UseHierarchy:     api.Bool(true),
+						},
+					},
+				},
+			}))
+			t.Run("update class-based resources", runTable("resources/classes", &api.ContainerUpdate{
+				Linux: &api.LinuxContainerUpdate{
+					Resources: &api.LinuxResources{
+						RdtClass:     api.String("00-test"),
+						BlockioClass: api.String("00-test"),
+					},
+				},
+			}))
+			t.Run("update hugepage limits", runTable("resources/hugepagelimits", &api.ContainerUpdate{
+				Linux: &api.LinuxContainerUpdate{
+					Resources: &api.LinuxResources{
+						HugepageLimits: []*api.HugepageLimit{
+							{
+								PageSize: "1M",
+								Limit:    4096,
+							},
+							{
+								PageSize: "4M",
+								Limit:    1024,
 							},
 						},
 					},
 				},
-			),
-			Entry("update memory resources", "resources/memory",
-				&api.ContainerUpdate{
-					Linux: &api.LinuxContainerUpdate{
-						Resources: &api.LinuxResources{
-							Memory: &api.LinuxMemory{
-								Limit:            api.Int64(1234000),
-								Reservation:      api.Int64(4000),
-								Swap:             api.Int64(34000),
-								Kernel:           api.Int64(30000),
-								KernelTcp:        api.Int64(2000),
-								Swappiness:       api.UInt64(987),
-								DisableOomKiller: api.Bool(true),
-								UseHierarchy:     api.Bool(true),
-							},
+			}))
+			t.Run("update cgroupv2 unified resources", runTable("resources/unified", &api.ContainerUpdate{
+				Linux: &api.LinuxContainerUpdate{
+					Resources: &api.LinuxResources{
+						Unified: map[string]string{
+							"resource.1": "value1",
+							"resource.2": "value2",
 						},
 					},
 				},
-			),
-			Entry("update class-based resources", "resources/classes",
-				&api.ContainerUpdate{
-					Linux: &api.LinuxContainerUpdate{
-						Resources: &api.LinuxResources{
-							RdtClass:     api.String("00-test"),
-							BlockioClass: api.String("00-test"),
-						},
-					},
-				},
-			),
-			Entry("update hugepage limits", "resources/hugepagelimits",
-				&api.ContainerUpdate{
-					Linux: &api.LinuxContainerUpdate{
-						Resources: &api.LinuxResources{
-							HugepageLimits: []*api.HugepageLimit{
-								{
-									PageSize: "1M",
-									Limit:    4096,
-								},
-								{
-									PageSize: "4M",
-									Limit:    1024,
-								},
-							},
-						},
-					},
-				},
-			),
-			Entry("update cgroupv2 unified resources", "resources/unified",
-				&api.ContainerUpdate{
-					Linux: &api.LinuxContainerUpdate{
-						Resources: &api.LinuxResources{
-							Unified: map[string]string{
-								"resource.1": "value1",
-								"resource.2": "value2",
-							},
-						},
-					},
-				},
-			),
-		)
+			}))
+		})
 	})
 
-	When("there are multiple plugins", func() {
-		BeforeEach(func() {
-			s.Prepare(
-				&mockRuntime{},
-				&mockPlugin{idx: "10", name: "foo"},
-				&mockPlugin{idx: "00", name: "bar"},
-			)
-		})
-
-		DescribeTable("should fail with conflicts, successfully collected otherwise",
-			func(subject string, which string, expected *api.ContainerUpdate) {
+	t.Run("there are multiple plugins", func(t *testing.T) {
+		runTable := func(subject string, which string, expected *api.ContainerUpdate) func(*testing.T) {
+			return func(t *testing.T) {
+				s.Prepare(t,
+					&mockRuntime{},
+					&mockPlugin{idx: "10", name: "foo"},
+					&mockPlugin{idx: "00", name: "bar"},
+				)
 				var (
 					runtime = s.runtime
 					plugins = s.plugins
@@ -2550,120 +2429,108 @@ var _ = Describe("Plugin container updates during creation", func() {
 				s.Startup()
 
 				podReq := &api.RunPodSandboxRequest{Pod: pod0}
-				Expect(runtime.RunPodSandbox(ctx, podReq)).To(Succeed())
+				require.NoError(t, runtime.RunPodSandbox(ctx, podReq))
 				ctrReq := &api.CreateContainerRequest{
 					Pod:       pod0,
 					Container: ctr0,
 				}
 				_, err := runtime.CreateContainer(ctx, ctrReq)
-				Expect(err).To(BeNil())
+				require.Nil(t, err)
 
 				podReq = &api.RunPodSandboxRequest{Pod: pod1}
-				Expect(runtime.RunPodSandbox(ctx, podReq)).To(Succeed())
+				require.NoError(t, runtime.RunPodSandbox(ctx, podReq))
 				ctrReq = &api.CreateContainerRequest{
 					Pod:       pod1,
 					Container: ctr1,
 				}
 				reply, err = runtime.CreateContainer(ctx, ctrReq)
 				if which == "both" {
-					Expect(err).ToNot(BeNil())
+					require.NotNil(t, err)
 				} else {
-					Expect(err).To(BeNil())
-					Expect(len(reply.Update)).To(Equal(1))
+					require.Nil(t, err)
+					require.Equal(t, 1, len(reply.Update))
 					expected.ContainerId = reply.Update[0].ContainerId
-					Expect(protoEqual(reply.Update[0].Strip(), expected)).Should(BeTrue(),
-						protoDiff(reply.Update[0], expected))
+					require.True(t, protoEqual(reply.Update[0].Strip(), expected), protoDiff(reply.Update[0], expected))
 				}
-			},
-
-			Entry("update CPU resources", "resources/cpu", "both", nil),
-			Entry("update CPU resources", "resources/cpu", "10-foo",
-				&api.ContainerUpdate{
-					Linux: &api.LinuxContainerUpdate{
-						Resources: &api.LinuxResources{
-							Cpu: &api.LinuxCPU{
-								Shares:          api.UInt64(123),
-								Quota:           api.Int64(456),
-								Period:          api.UInt64(789),
-								RealtimeRuntime: api.Int64(321),
-								RealtimePeriod:  api.UInt64(654),
-								Cpus:            "0-1",
-								Mems:            "2-3",
+			}
+		}
+		t.Run("should fail with conflicts, successfully collected otherwise", func(t *testing.T) {
+			t.Run("update CPU resources", runTable("resources/cpu", "both", nil))
+			t.Run("update CPU resources", runTable("resources/cpu", "10-foo", &api.ContainerUpdate{
+				Linux: &api.LinuxContainerUpdate{
+					Resources: &api.LinuxResources{
+						Cpu: &api.LinuxCPU{
+							Shares:          api.UInt64(123),
+							Quota:           api.Int64(456),
+							Period:          api.UInt64(789),
+							RealtimeRuntime: api.Int64(321),
+							RealtimePeriod:  api.UInt64(654),
+							Cpus:            "0-1",
+							Mems:            "2-3",
+						},
+					},
+				},
+			}))
+			t.Run("update memory resources", runTable("resources/memory", "both", nil))
+			t.Run("update memory resources", runTable("resources/memory", "10-foo", &api.ContainerUpdate{
+				Linux: &api.LinuxContainerUpdate{
+					Resources: &api.LinuxResources{
+						Memory: &api.LinuxMemory{
+							Limit:            api.Int64(1234000),
+							Reservation:      api.Int64(4000),
+							Swap:             api.Int64(34000),
+							Kernel:           api.Int64(30000),
+							KernelTcp:        api.Int64(2000),
+							Swappiness:       api.UInt64(987),
+							DisableOomKiller: api.Bool(true),
+							UseHierarchy:     api.Bool(true),
+						},
+					},
+				},
+			}))
+			t.Run("update class-based resources", runTable("resources/classes", "both", nil))
+			t.Run("update class-based resources", runTable("resources/classes", "10-foo", &api.ContainerUpdate{
+				Linux: &api.LinuxContainerUpdate{
+					Resources: &api.LinuxResources{
+						RdtClass:     api.String("10-foo"),
+						BlockioClass: api.String("10-foo"),
+					},
+				},
+			}))
+			t.Run("update hugepage limits", runTable("resources/hugepagelimits", "both", nil))
+			t.Run("update hugepage limits", runTable("resources/hugepagelimits", "10-foo", &api.ContainerUpdate{
+				Linux: &api.LinuxContainerUpdate{
+					Resources: &api.LinuxResources{
+						HugepageLimits: []*api.HugepageLimit{
+							{
+								PageSize: "1M",
+								Limit:    4096,
+							},
+							{
+								PageSize: "4M",
+								Limit:    1024,
 							},
 						},
 					},
 				},
-			),
-			Entry("update memory resources", "resources/memory", "both", nil),
-			Entry("update memory resources", "resources/memory", "10-foo",
-				&api.ContainerUpdate{
-					Linux: &api.LinuxContainerUpdate{
-						Resources: &api.LinuxResources{
-							Memory: &api.LinuxMemory{
-								Limit:            api.Int64(1234000),
-								Reservation:      api.Int64(4000),
-								Swap:             api.Int64(34000),
-								Kernel:           api.Int64(30000),
-								KernelTcp:        api.Int64(2000),
-								Swappiness:       api.UInt64(987),
-								DisableOomKiller: api.Bool(true),
-								UseHierarchy:     api.Bool(true),
-							},
+			}))
+			t.Run("update cgroupv2 unified resources", runTable("resources/unified", "both", nil))
+			t.Run("update cgroupv2 unified resources", runTable("resources/unified", "10-foo", &api.ContainerUpdate{
+				Linux: &api.LinuxContainerUpdate{
+					Resources: &api.LinuxResources{
+						Unified: map[string]string{
+							"resource.1": "value1",
+							"resource.2": "value2",
 						},
 					},
 				},
-			),
-			Entry("update class-based resources", "resources/classes", "both", nil),
-			Entry("update class-based resources", "resources/classes", "10-foo",
-				&api.ContainerUpdate{
-					Linux: &api.LinuxContainerUpdate{
-						Resources: &api.LinuxResources{
-							RdtClass:     api.String("10-foo"),
-							BlockioClass: api.String("10-foo"),
-						},
-					},
-				},
-			),
-			Entry("update hugepage limits", "resources/hugepagelimits", "both", nil),
-			Entry("update hugepage limits", "resources/hugepagelimits", "10-foo",
-				&api.ContainerUpdate{
-					Linux: &api.LinuxContainerUpdate{
-						Resources: &api.LinuxResources{
-							HugepageLimits: []*api.HugepageLimit{
-								{
-									PageSize: "1M",
-									Limit:    4096,
-								},
-								{
-									PageSize: "4M",
-									Limit:    1024,
-								},
-							},
-						},
-					},
-				},
-			),
-			Entry("update cgroupv2 unified resources", "resources/unified", "both", nil),
-			Entry("update cgroupv2 unified resources", "resources/unified", "10-foo",
-				&api.ContainerUpdate{
-					Linux: &api.LinuxContainerUpdate{
-						Resources: &api.LinuxResources{
-							Unified: map[string]string{
-								"resource.1": "value1",
-								"resource.2": "value2",
-							},
-						},
-					},
-				},
-			),
-		)
+			}))
+		})
 	})
-})
+}
 
-var _ = Describe("Solicited container updates by plugins", func() {
-	var (
-		s = &Suite{}
-	)
+func TestSolicitedContainerUpdatesByPlugins(t *testing.T) {
+	s := &Suite{}
 
 	update := func(subject, which string, p *mockPlugin, _ *api.PodSandbox, ctr *api.Container, _, _ *api.LinuxResources) ([]*api.ContainerUpdate, error) {
 		plugin := p.idx + "-" + p.name
@@ -2714,17 +2581,10 @@ var _ = Describe("Solicited container updates by plugins", func() {
 		return []*api.ContainerUpdate{u}, nil
 	}
 
-	AfterEach(func() {
-		s.Cleanup()
-	})
-
-	When("there is a single plugin", func() {
-		BeforeEach(func() {
-			s.Prepare(&mockRuntime{}, &mockPlugin{idx: "00", name: "test"})
-		})
-
-		DescribeTable("should be successfully collected without conflicts",
-			func(subject string, expected *api.ContainerUpdate) {
+	t.Run("there is a single plugin", func(t *testing.T) {
+		runTable := func(subject string, expected *api.ContainerUpdate) func(*testing.T) {
+			return func(t *testing.T) {
+				s.Prepare(t, &mockRuntime{}, &mockPlugin{idx: "00", name: "test"})
 				var (
 					runtime = s.runtime
 					plugin  = s.plugins[0]
@@ -2755,13 +2615,13 @@ var _ = Describe("Solicited container updates by plugins", func() {
 				s.Startup()
 
 				podReq := &api.RunPodSandboxRequest{Pod: pod0}
-				Expect(runtime.RunPodSandbox(ctx, podReq)).To(Succeed())
+				require.NoError(t, runtime.RunPodSandbox(ctx, podReq))
 				ctrReq := &api.CreateContainerRequest{
 					Pod:       pod0,
 					Container: ctr0,
 				}
 				_, err := runtime.CreateContainer(ctx, ctrReq)
-				Expect(err).To(BeNil())
+				require.Nil(t, err)
 
 				updReq := &api.UpdateContainerRequest{
 					Pod:       pod0,
@@ -2790,180 +2650,167 @@ var _ = Describe("Solicited container updates by plugins", func() {
 				}
 				reply, err = runtime.UpdateContainer(ctx, updReq)
 
-				Expect(len(reply.Update)).To(Equal(1))
-				Expect(err).To(BeNil())
+				require.Equal(t, 1, len(reply.Update))
+				require.Nil(t, err)
 				expected.ContainerId = reply.Update[0].ContainerId
-				Expect(protoEqual(reply.Update[0].Strip(), expected)).Should(BeTrue(),
-					protoDiff(reply.Update[0], expected))
-			},
+				require.True(t, protoEqual(reply.Update[0].Strip(), expected), protoDiff(reply.Update[0], expected))
+			}
+		}
+		t.Run("should be successfully collected without conflicts", func(t *testing.T) {
+			t.Run("update CPU resources", runTable("resources/cpu", &api.ContainerUpdate{
+				Linux: &api.LinuxContainerUpdate{
+					Resources: &api.LinuxResources{
+						Cpu: &api.LinuxCPU{
+							Shares:          api.UInt64(123),
+							Quota:           api.Int64(456),
+							Period:          api.UInt64(789),
+							RealtimeRuntime: api.Int64(321),
+							RealtimePeriod:  api.UInt64(654),
+							Cpus:            "0-1",
+							Mems:            "2-3",
+						},
+						Memory: &api.LinuxMemory{
+							Limit:            api.Int64(9999),
+							Reservation:      api.Int64(8888),
+							Swap:             api.Int64(7777),
+							Kernel:           api.Int64(6666),
+							KernelTcp:        api.Int64(5555),
+							Swappiness:       api.UInt64(444),
+							DisableOomKiller: api.Bool(false),
+							UseHierarchy:     api.Bool(false),
+						},
+					},
+				},
+			}))
+			t.Run("update memory resources", runTable("resources/memory", &api.ContainerUpdate{
+				Linux: &api.LinuxContainerUpdate{
+					Resources: &api.LinuxResources{
+						Cpu: &api.LinuxCPU{
+							Shares:          api.UInt64(999),
+							Quota:           api.Int64(888),
+							Period:          api.UInt64(777),
+							RealtimeRuntime: api.Int64(666),
+							RealtimePeriod:  api.UInt64(555),
+							Cpus:            "444",
+							Mems:            "333",
+						},
+						Memory: &api.LinuxMemory{
+							Limit:            api.Int64(1234000),
+							Reservation:      api.Int64(4000),
+							Swap:             api.Int64(34000),
+							Kernel:           api.Int64(30000),
+							KernelTcp:        api.Int64(2000),
+							Swappiness:       api.UInt64(987),
+							DisableOomKiller: api.Bool(true),
+							UseHierarchy:     api.Bool(true),
+						},
+					},
+				},
+			}))
+			t.Run("update class-based resources", runTable("resources/classes", &api.ContainerUpdate{
+				Linux: &api.LinuxContainerUpdate{
+					Resources: &api.LinuxResources{
+						Cpu: &api.LinuxCPU{
+							Shares:          api.UInt64(999),
+							Quota:           api.Int64(888),
+							Period:          api.UInt64(777),
+							RealtimeRuntime: api.Int64(666),
+							RealtimePeriod:  api.UInt64(555),
+							Cpus:            "444",
+							Mems:            "333",
+						},
+						Memory: &api.LinuxMemory{
+							Limit:            api.Int64(9999),
+							Reservation:      api.Int64(8888),
+							Swap:             api.Int64(7777),
+							Kernel:           api.Int64(6666),
+							KernelTcp:        api.Int64(5555),
+							Swappiness:       api.UInt64(444),
+							DisableOomKiller: api.Bool(false),
+							UseHierarchy:     api.Bool(false),
+						},
 
-			Entry("update CPU resources", "resources/cpu",
-				&api.ContainerUpdate{
-					Linux: &api.LinuxContainerUpdate{
-						Resources: &api.LinuxResources{
-							Cpu: &api.LinuxCPU{
-								Shares:          api.UInt64(123),
-								Quota:           api.Int64(456),
-								Period:          api.UInt64(789),
-								RealtimeRuntime: api.Int64(321),
-								RealtimePeriod:  api.UInt64(654),
-								Cpus:            "0-1",
-								Mems:            "2-3",
+						RdtClass:     api.String("00-test"),
+						BlockioClass: api.String("00-test"),
+					},
+				},
+			}))
+			t.Run("update hugepage limits", runTable("resources/hugepagelimits", &api.ContainerUpdate{
+				Linux: &api.LinuxContainerUpdate{
+					Resources: &api.LinuxResources{
+						Cpu: &api.LinuxCPU{
+							Shares:          api.UInt64(999),
+							Quota:           api.Int64(888),
+							Period:          api.UInt64(777),
+							RealtimeRuntime: api.Int64(666),
+							RealtimePeriod:  api.UInt64(555),
+							Cpus:            "444",
+							Mems:            "333",
+						},
+						Memory: &api.LinuxMemory{
+							Limit:            api.Int64(9999),
+							Reservation:      api.Int64(8888),
+							Swap:             api.Int64(7777),
+							Kernel:           api.Int64(6666),
+							KernelTcp:        api.Int64(5555),
+							Swappiness:       api.UInt64(444),
+							DisableOomKiller: api.Bool(false),
+							UseHierarchy:     api.Bool(false),
+						},
+						HugepageLimits: []*api.HugepageLimit{
+							{
+								PageSize: "1M",
+								Limit:    4096,
 							},
-							Memory: &api.LinuxMemory{
-								Limit:            api.Int64(9999),
-								Reservation:      api.Int64(8888),
-								Swap:             api.Int64(7777),
-								Kernel:           api.Int64(6666),
-								KernelTcp:        api.Int64(5555),
-								Swappiness:       api.UInt64(444),
-								DisableOomKiller: api.Bool(false),
-								UseHierarchy:     api.Bool(false),
+							{
+								PageSize: "4M",
+								Limit:    1024,
 							},
 						},
 					},
 				},
-			),
-			Entry("update memory resources", "resources/memory",
-				&api.ContainerUpdate{
-					Linux: &api.LinuxContainerUpdate{
-						Resources: &api.LinuxResources{
-							Cpu: &api.LinuxCPU{
-								Shares:          api.UInt64(999),
-								Quota:           api.Int64(888),
-								Period:          api.UInt64(777),
-								RealtimeRuntime: api.Int64(666),
-								RealtimePeriod:  api.UInt64(555),
-								Cpus:            "444",
-								Mems:            "333",
-							},
-							Memory: &api.LinuxMemory{
-								Limit:            api.Int64(1234000),
-								Reservation:      api.Int64(4000),
-								Swap:             api.Int64(34000),
-								Kernel:           api.Int64(30000),
-								KernelTcp:        api.Int64(2000),
-								Swappiness:       api.UInt64(987),
-								DisableOomKiller: api.Bool(true),
-								UseHierarchy:     api.Bool(true),
-							},
+			}))
+			t.Run("update cgroupv2 unified resources", runTable("resources/unified", &api.ContainerUpdate{
+				Linux: &api.LinuxContainerUpdate{
+					Resources: &api.LinuxResources{
+						Cpu: &api.LinuxCPU{
+							Shares:          api.UInt64(999),
+							Quota:           api.Int64(888),
+							Period:          api.UInt64(777),
+							RealtimeRuntime: api.Int64(666),
+							RealtimePeriod:  api.UInt64(555),
+							Cpus:            "444",
+							Mems:            "333",
 						},
-					},
-				},
-			),
-			Entry("update class-based resources", "resources/classes",
-				&api.ContainerUpdate{
-					Linux: &api.LinuxContainerUpdate{
-						Resources: &api.LinuxResources{
-							Cpu: &api.LinuxCPU{
-								Shares:          api.UInt64(999),
-								Quota:           api.Int64(888),
-								Period:          api.UInt64(777),
-								RealtimeRuntime: api.Int64(666),
-								RealtimePeriod:  api.UInt64(555),
-								Cpus:            "444",
-								Mems:            "333",
-							},
-							Memory: &api.LinuxMemory{
-								Limit:            api.Int64(9999),
-								Reservation:      api.Int64(8888),
-								Swap:             api.Int64(7777),
-								Kernel:           api.Int64(6666),
-								KernelTcp:        api.Int64(5555),
-								Swappiness:       api.UInt64(444),
-								DisableOomKiller: api.Bool(false),
-								UseHierarchy:     api.Bool(false),
-							},
+						Memory: &api.LinuxMemory{
+							Limit:            api.Int64(9999),
+							Reservation:      api.Int64(8888),
+							Swap:             api.Int64(7777),
+							Kernel:           api.Int64(6666),
+							KernelTcp:        api.Int64(5555),
+							Swappiness:       api.UInt64(444),
+							DisableOomKiller: api.Bool(false),
+							UseHierarchy:     api.Bool(false),
+						},
 
-							RdtClass:     api.String("00-test"),
-							BlockioClass: api.String("00-test"),
+						Unified: map[string]string{
+							"resource.1": "value1",
+							"resource.2": "value2",
 						},
 					},
 				},
-			),
-			Entry("update hugepage limits", "resources/hugepagelimits",
-				&api.ContainerUpdate{
-					Linux: &api.LinuxContainerUpdate{
-						Resources: &api.LinuxResources{
-							Cpu: &api.LinuxCPU{
-								Shares:          api.UInt64(999),
-								Quota:           api.Int64(888),
-								Period:          api.UInt64(777),
-								RealtimeRuntime: api.Int64(666),
-								RealtimePeriod:  api.UInt64(555),
-								Cpus:            "444",
-								Mems:            "333",
-							},
-							Memory: &api.LinuxMemory{
-								Limit:            api.Int64(9999),
-								Reservation:      api.Int64(8888),
-								Swap:             api.Int64(7777),
-								Kernel:           api.Int64(6666),
-								KernelTcp:        api.Int64(5555),
-								Swappiness:       api.UInt64(444),
-								DisableOomKiller: api.Bool(false),
-								UseHierarchy:     api.Bool(false),
-							},
-							HugepageLimits: []*api.HugepageLimit{
-								{
-									PageSize: "1M",
-									Limit:    4096,
-								},
-								{
-									PageSize: "4M",
-									Limit:    1024,
-								},
-							},
-						},
-					},
-				},
-			),
-			Entry("update cgroupv2 unified resources", "resources/unified",
-				&api.ContainerUpdate{
-					Linux: &api.LinuxContainerUpdate{
-						Resources: &api.LinuxResources{
-							Cpu: &api.LinuxCPU{
-								Shares:          api.UInt64(999),
-								Quota:           api.Int64(888),
-								Period:          api.UInt64(777),
-								RealtimeRuntime: api.Int64(666),
-								RealtimePeriod:  api.UInt64(555),
-								Cpus:            "444",
-								Mems:            "333",
-							},
-							Memory: &api.LinuxMemory{
-								Limit:            api.Int64(9999),
-								Reservation:      api.Int64(8888),
-								Swap:             api.Int64(7777),
-								Kernel:           api.Int64(6666),
-								KernelTcp:        api.Int64(5555),
-								Swappiness:       api.UInt64(444),
-								DisableOomKiller: api.Bool(false),
-								UseHierarchy:     api.Bool(false),
-							},
-
-							Unified: map[string]string{
-								"resource.1": "value1",
-								"resource.2": "value2",
-							},
-						},
-					},
-				},
-			),
-		)
+			}))
+		})
 	})
 
-	When("there are multiple plugins", func() {
-		BeforeEach(func() {
-			s.Prepare(
-				&mockRuntime{},
-				&mockPlugin{idx: "10", name: "foo"},
-				&mockPlugin{idx: "00", name: "bar"},
-			)
-		})
-
-		DescribeTable("should fail with conflicts, successfully collected otherwise",
-			func(subject string, which string, expected *api.ContainerUpdate) {
+	t.Run("there are multiple plugins", func(t *testing.T) {
+		runTable := func(subject string, which string, expected *api.ContainerUpdate) func(*testing.T) {
+			return func(t *testing.T) {
+				s.Prepare(t,
+					&mockRuntime{},
+					&mockPlugin{idx: "10", name: "foo"},
+					&mockPlugin{idx: "00", name: "bar"},
+				)
 				var (
 					runtime = s.runtime
 					plugins = s.plugins
@@ -2995,13 +2842,13 @@ var _ = Describe("Solicited container updates by plugins", func() {
 				s.Startup()
 
 				podReq := &api.RunPodSandboxRequest{Pod: pod0}
-				Expect(runtime.RunPodSandbox(ctx, podReq)).To(Succeed())
+				require.NoError(t, runtime.RunPodSandbox(ctx, podReq))
 				ctrReq := &api.CreateContainerRequest{
 					Pod:       pod0,
 					Container: ctr0,
 				}
 				_, err := runtime.CreateContainer(ctx, ctrReq)
-				Expect(err).To(BeNil())
+				require.Nil(t, err)
 
 				updReq := &api.UpdateContainerRequest{
 					Pod:       pod0,
@@ -3030,198 +2877,181 @@ var _ = Describe("Solicited container updates by plugins", func() {
 				}
 				reply, err = runtime.UpdateContainer(ctx, updReq)
 				if which == "both" {
-					Expect(err).ToNot(BeNil())
+					require.NotNil(t, err)
 				} else {
-					Expect(err).To(BeNil())
-					Expect(len(reply.Update)).To(Equal(1))
+					require.Nil(t, err)
+					require.Equal(t, 1, len(reply.Update))
 					expected.ContainerId = reply.Update[0].ContainerId
-					Expect(protoEqual(reply.Update[0].Strip(), expected)).Should(BeTrue(),
-						protoDiff(reply.Update[0], expected))
+					require.True(t, protoEqual(reply.Update[0].Strip(), expected), protoDiff(reply.Update[0], expected))
 
 				}
-			},
-
-			Entry("update CPU resources", "resources/cpu", "both", nil),
-			Entry("update CPU resources", "resources/cpu", "10-foo",
-				&api.ContainerUpdate{
-					Linux: &api.LinuxContainerUpdate{
-						Resources: &api.LinuxResources{
-							Cpu: &api.LinuxCPU{
-								Shares:          api.UInt64(123),
-								Quota:           api.Int64(456),
-								Period:          api.UInt64(789),
-								RealtimeRuntime: api.Int64(321),
-								RealtimePeriod:  api.UInt64(654),
-								Cpus:            "0-1",
-								Mems:            "2-3",
+			}
+		}
+		t.Run("should fail with conflicts, successfully collected otherwise", func(t *testing.T) {
+			t.Run("update CPU resources", runTable("resources/cpu", "both", nil))
+			t.Run("update CPU resources", runTable("resources/cpu", "10-foo", &api.ContainerUpdate{
+				Linux: &api.LinuxContainerUpdate{
+					Resources: &api.LinuxResources{
+						Cpu: &api.LinuxCPU{
+							Shares:          api.UInt64(123),
+							Quota:           api.Int64(456),
+							Period:          api.UInt64(789),
+							RealtimeRuntime: api.Int64(321),
+							RealtimePeriod:  api.UInt64(654),
+							Cpus:            "0-1",
+							Mems:            "2-3",
+						},
+						Memory: &api.LinuxMemory{
+							Limit:            api.Int64(9999),
+							Reservation:      api.Int64(8888),
+							Swap:             api.Int64(7777),
+							Kernel:           api.Int64(6666),
+							KernelTcp:        api.Int64(5555),
+							Swappiness:       api.UInt64(444),
+							DisableOomKiller: api.Bool(false),
+							UseHierarchy:     api.Bool(false),
+						},
+					},
+				},
+			}))
+			t.Run("update memory resources", runTable("resources/memory", "both", nil))
+			t.Run("update memory resources", runTable("resources/memory", "10-foo", &api.ContainerUpdate{
+				Linux: &api.LinuxContainerUpdate{
+					Resources: &api.LinuxResources{
+						Cpu: &api.LinuxCPU{
+							Shares:          api.UInt64(999),
+							Quota:           api.Int64(888),
+							Period:          api.UInt64(777),
+							RealtimeRuntime: api.Int64(666),
+							RealtimePeriod:  api.UInt64(555),
+							Cpus:            "444",
+							Mems:            "333",
+						},
+						Memory: &api.LinuxMemory{
+							Limit:            api.Int64(1234000),
+							Reservation:      api.Int64(4000),
+							Swap:             api.Int64(34000),
+							Kernel:           api.Int64(30000),
+							KernelTcp:        api.Int64(2000),
+							Swappiness:       api.UInt64(987),
+							DisableOomKiller: api.Bool(true),
+							UseHierarchy:     api.Bool(true),
+						},
+					},
+				},
+			}))
+			t.Run("update class-based resources", runTable("resources/classes", "both", nil))
+			t.Run("update class-based resources", runTable("resources/classes", "10-foo", &api.ContainerUpdate{
+				Linux: &api.LinuxContainerUpdate{
+					Resources: &api.LinuxResources{
+						Cpu: &api.LinuxCPU{
+							Shares:          api.UInt64(999),
+							Quota:           api.Int64(888),
+							Period:          api.UInt64(777),
+							RealtimeRuntime: api.Int64(666),
+							RealtimePeriod:  api.UInt64(555),
+							Cpus:            "444",
+							Mems:            "333",
+						},
+						Memory: &api.LinuxMemory{
+							Limit:            api.Int64(9999),
+							Reservation:      api.Int64(8888),
+							Swap:             api.Int64(7777),
+							Kernel:           api.Int64(6666),
+							KernelTcp:        api.Int64(5555),
+							Swappiness:       api.UInt64(444),
+							DisableOomKiller: api.Bool(false),
+							UseHierarchy:     api.Bool(false),
+						},
+						RdtClass:     api.String("10-foo"),
+						BlockioClass: api.String("10-foo"),
+					},
+				},
+			}))
+			t.Run("update hugepage limits", runTable("resources/hugepagelimits", "both", nil))
+			t.Run("update hugepage limits", runTable("resources/hugepagelimits", "10-foo", &api.ContainerUpdate{
+				Linux: &api.LinuxContainerUpdate{
+					Resources: &api.LinuxResources{
+						Cpu: &api.LinuxCPU{
+							Shares:          api.UInt64(999),
+							Quota:           api.Int64(888),
+							Period:          api.UInt64(777),
+							RealtimeRuntime: api.Int64(666),
+							RealtimePeriod:  api.UInt64(555),
+							Cpus:            "444",
+							Mems:            "333",
+						},
+						Memory: &api.LinuxMemory{
+							Limit:            api.Int64(9999),
+							Reservation:      api.Int64(8888),
+							Swap:             api.Int64(7777),
+							Kernel:           api.Int64(6666),
+							KernelTcp:        api.Int64(5555),
+							Swappiness:       api.UInt64(444),
+							DisableOomKiller: api.Bool(false),
+							UseHierarchy:     api.Bool(false),
+						},
+						HugepageLimits: []*api.HugepageLimit{
+							{
+								PageSize: "1M",
+								Limit:    4096,
 							},
-							Memory: &api.LinuxMemory{
-								Limit:            api.Int64(9999),
-								Reservation:      api.Int64(8888),
-								Swap:             api.Int64(7777),
-								Kernel:           api.Int64(6666),
-								KernelTcp:        api.Int64(5555),
-								Swappiness:       api.UInt64(444),
-								DisableOomKiller: api.Bool(false),
-								UseHierarchy:     api.Bool(false),
+							{
+								PageSize: "4M",
+								Limit:    1024,
 							},
 						},
 					},
 				},
-			),
-			Entry("update memory resources", "resources/memory", "both", nil),
-			Entry("update memory resources", "resources/memory", "10-foo",
-				&api.ContainerUpdate{
-					Linux: &api.LinuxContainerUpdate{
-						Resources: &api.LinuxResources{
-							Cpu: &api.LinuxCPU{
-								Shares:          api.UInt64(999),
-								Quota:           api.Int64(888),
-								Period:          api.UInt64(777),
-								RealtimeRuntime: api.Int64(666),
-								RealtimePeriod:  api.UInt64(555),
-								Cpus:            "444",
-								Mems:            "333",
-							},
-							Memory: &api.LinuxMemory{
-								Limit:            api.Int64(1234000),
-								Reservation:      api.Int64(4000),
-								Swap:             api.Int64(34000),
-								Kernel:           api.Int64(30000),
-								KernelTcp:        api.Int64(2000),
-								Swappiness:       api.UInt64(987),
-								DisableOomKiller: api.Bool(true),
-								UseHierarchy:     api.Bool(true),
-							},
+			}))
+			t.Run("update cgroupv2 unified resources", runTable("resources/unified", "both", nil))
+			t.Run("update cgroupv2 unified resources", runTable("resources/unified", "10-foo", &api.ContainerUpdate{
+				Linux: &api.LinuxContainerUpdate{
+					Resources: &api.LinuxResources{
+						Cpu: &api.LinuxCPU{
+							Shares:          api.UInt64(999),
+							Quota:           api.Int64(888),
+							Period:          api.UInt64(777),
+							RealtimeRuntime: api.Int64(666),
+							RealtimePeriod:  api.UInt64(555),
+							Cpus:            "444",
+							Mems:            "333",
+						},
+						Memory: &api.LinuxMemory{
+							Limit:            api.Int64(9999),
+							Reservation:      api.Int64(8888),
+							Swap:             api.Int64(7777),
+							Kernel:           api.Int64(6666),
+							KernelTcp:        api.Int64(5555),
+							Swappiness:       api.UInt64(444),
+							DisableOomKiller: api.Bool(false),
+							UseHierarchy:     api.Bool(false),
+						},
+						Unified: map[string]string{
+							"resource.1": "value1",
+							"resource.2": "value2",
 						},
 					},
 				},
-			),
-			Entry("update class-based resources", "resources/classes", "both", nil),
-			Entry("update class-based resources", "resources/classes", "10-foo",
-				&api.ContainerUpdate{
-					Linux: &api.LinuxContainerUpdate{
-						Resources: &api.LinuxResources{
-							Cpu: &api.LinuxCPU{
-								Shares:          api.UInt64(999),
-								Quota:           api.Int64(888),
-								Period:          api.UInt64(777),
-								RealtimeRuntime: api.Int64(666),
-								RealtimePeriod:  api.UInt64(555),
-								Cpus:            "444",
-								Mems:            "333",
-							},
-							Memory: &api.LinuxMemory{
-								Limit:            api.Int64(9999),
-								Reservation:      api.Int64(8888),
-								Swap:             api.Int64(7777),
-								Kernel:           api.Int64(6666),
-								KernelTcp:        api.Int64(5555),
-								Swappiness:       api.UInt64(444),
-								DisableOomKiller: api.Bool(false),
-								UseHierarchy:     api.Bool(false),
-							},
-							RdtClass:     api.String("10-foo"),
-							BlockioClass: api.String("10-foo"),
-						},
-					},
-				},
-			),
-			Entry("update hugepage limits", "resources/hugepagelimits", "both", nil),
-			Entry("update hugepage limits", "resources/hugepagelimits", "10-foo",
-				&api.ContainerUpdate{
-					Linux: &api.LinuxContainerUpdate{
-						Resources: &api.LinuxResources{
-							Cpu: &api.LinuxCPU{
-								Shares:          api.UInt64(999),
-								Quota:           api.Int64(888),
-								Period:          api.UInt64(777),
-								RealtimeRuntime: api.Int64(666),
-								RealtimePeriod:  api.UInt64(555),
-								Cpus:            "444",
-								Mems:            "333",
-							},
-							Memory: &api.LinuxMemory{
-								Limit:            api.Int64(9999),
-								Reservation:      api.Int64(8888),
-								Swap:             api.Int64(7777),
-								Kernel:           api.Int64(6666),
-								KernelTcp:        api.Int64(5555),
-								Swappiness:       api.UInt64(444),
-								DisableOomKiller: api.Bool(false),
-								UseHierarchy:     api.Bool(false),
-							},
-							HugepageLimits: []*api.HugepageLimit{
-								{
-									PageSize: "1M",
-									Limit:    4096,
-								},
-								{
-									PageSize: "4M",
-									Limit:    1024,
-								},
-							},
-						},
-					},
-				},
-			),
-			Entry("update cgroupv2 unified resources", "resources/unified", "both", nil),
-			Entry("update cgroupv2 unified resources", "resources/unified", "10-foo",
-				&api.ContainerUpdate{
-					Linux: &api.LinuxContainerUpdate{
-						Resources: &api.LinuxResources{
-							Cpu: &api.LinuxCPU{
-								Shares:          api.UInt64(999),
-								Quota:           api.Int64(888),
-								Period:          api.UInt64(777),
-								RealtimeRuntime: api.Int64(666),
-								RealtimePeriod:  api.UInt64(555),
-								Cpus:            "444",
-								Mems:            "333",
-							},
-							Memory: &api.LinuxMemory{
-								Limit:            api.Int64(9999),
-								Reservation:      api.Int64(8888),
-								Swap:             api.Int64(7777),
-								Kernel:           api.Int64(6666),
-								KernelTcp:        api.Int64(5555),
-								Swappiness:       api.UInt64(444),
-								DisableOomKiller: api.Bool(false),
-								UseHierarchy:     api.Bool(false),
-							},
-							Unified: map[string]string{
-								"resource.1": "value1",
-								"resource.2": "value2",
-							},
-						},
-					},
-				},
-			),
-		)
-	})
-})
-
-var _ = Describe("Unsolicited container update requests", func() {
-	var (
-		s = &Suite{}
-	)
-
-	AfterEach(func() {
-		s.Cleanup()
-	})
-
-	When("there are plugins", func() {
-		BeforeEach(func() {
-			s.Prepare(&mockRuntime{}, &mockPlugin{idx: "00", name: "test"})
+			}))
 		})
+	})
+}
 
-		It("should fail gracefully without unstarted plugins", func() {
-			var (
-				plugin = s.plugins[0]
-			)
+func TestUnsolicitedContainerUpdateRequests(t *testing.T) {
+	s := &Suite{}
+
+	t.Run("there are plugins", func(t *testing.T) {
+		setup := func(t *testing.T) {
+			s.Prepare(t, &mockRuntime{}, &mockPlugin{idx: "00", name: "test"})
+		}
+
+		t.Run("should fail gracefully without unstarted plugins", func(t *testing.T) {
+			setup(t)
+			plugin := s.plugins[0]
 
 			s.StartRuntime()
-			Expect(plugin.Init(s.Dir())).To(Succeed())
+			require.NoError(t, plugin.Init(s.Dir()))
 
 			updates := []*api.ContainerUpdate{
 				{
@@ -3234,10 +3064,12 @@ var _ = Describe("Unsolicited container update requests", func() {
 				},
 			}
 			_, err := plugin.stub.UpdateContainers(updates)
-			Expect(err).ToNot(BeNil())
+			require.NotNil(t, err)
 		})
 
-		It("should be delivered, without crash/panic", func() {
+		t.Run("should be delivered, without crash/panic", func(t *testing.T) {
+			setup(t)
+
 			var (
 				runtime = s.runtime
 				plugin  = s.plugins[0]
@@ -3265,7 +3097,7 @@ var _ = Describe("Unsolicited container update requests", func() {
 			}
 
 			s.Startup()
-			Expect(runtime.startStopPodAndContainer(ctx, pod, ctr)).To(Succeed())
+			require.NoError(t, runtime.startStopPodAndContainer(ctx, pod, ctr))
 
 			requestedUpdates := []*api.ContainerUpdate{
 				{
@@ -3279,27 +3111,23 @@ var _ = Describe("Unsolicited container update requests", func() {
 			}
 			failed, err := plugin.stub.UpdateContainers(requestedUpdates)
 
-			Expect(failed).To(BeNil())
-			Expect(err).To(BeNil())
-			Expect(recordedUpdates).ToNot(Equal(requestedUpdates))
+			require.Nil(t, failed)
+			require.Nil(t, err)
+			require.NotEqual(t, requestedUpdates, recordedUpdates)
 		})
 	})
-})
+}
 
-var _ = Describe("Plugin configuration request", func() {
-	var (
-		s = &Suite{}
-	)
+func TestPluginConfigurationRequest(t *testing.T) {
+	s := &Suite{}
 
-	AfterEach(func() {
-		s.Cleanup()
-	})
+	setup := func(t *testing.T) {
+		s.Prepare(t, &mockRuntime{}, &mockPlugin{idx: "00", name: "test"})
+	}
 
-	BeforeEach(func() {
-		s.Prepare(&mockRuntime{}, &mockPlugin{idx: "00", name: "test"})
-	})
+	t.Run("should pass runtime version information to plugins", func(t *testing.T) {
+		setup(t)
 
-	It("should pass runtime version information to plugins", func() {
 		var (
 			runtimeName    = "test-runtime"
 			runtimeVersion = "1.2.3"
@@ -3310,62 +3138,63 @@ var _ = Describe("Plugin configuration request", func() {
 
 		s.Startup()
 
-		Expect(s.plugins[0].RuntimeName()).To(Equal(runtimeName))
-		Expect(s.plugins[0].RuntimeVersion()).To(Equal(runtimeVersion))
+		require.Equal(t, runtimeName, s.plugins[0].RuntimeName())
+		require.Equal(t, runtimeVersion, s.plugins[0].RuntimeVersion())
 	})
 
-	When("unchanged", func() {
-		It("should pass default timeout information to plugins", func() {
+	t.Run("unchanged", func(t *testing.T) {
+		t.Run("should pass default timeout information to plugins", func(t *testing.T) {
+			setup(t)
+
 			var (
 				registerTimeout = nri.DefaultPluginRegistrationTimeout
 				requestTimeout  = nri.DefaultPluginRequestTimeout
 			)
 
 			s.Startup()
-			Expect(s.plugins[0].stub.RegistrationTimeout()).To(Equal(registerTimeout))
-			Expect(s.plugins[0].stub.RequestTimeout()).To(Equal(requestTimeout))
+			require.Equal(t, registerTimeout, s.plugins[0].stub.RegistrationTimeout())
+			require.Equal(t, requestTimeout, s.plugins[0].stub.RequestTimeout())
 		})
 	})
 
-	When("reconfigured", func() {
+	t.Run("reconfigured", func(t *testing.T) {
 		var (
 			registerTimeout = nri.DefaultPluginRegistrationTimeout + 5*time.Millisecond
 			requestTimeout  = nri.DefaultPluginRequestTimeout + 7*time.Millisecond
 		)
 
-		BeforeEach(func() {
+		setup := func(t *testing.T) {
+			t.Helper()
+
 			nri.SetPluginRegistrationTimeout(registerTimeout)
 			nri.SetPluginRequestTimeout(requestTimeout)
-			s.Prepare(&mockRuntime{}, &mockPlugin{idx: "00", name: "test"})
-		})
+			s.Prepare(t, &mockRuntime{}, &mockPlugin{idx: "00", name: "test"})
 
-		AfterEach(func() {
-			nri.SetPluginRegistrationTimeout(nri.DefaultPluginRegistrationTimeout)
-			nri.SetPluginRequestTimeout(nri.DefaultPluginRequestTimeout)
-		})
+			t.Cleanup(func() {
+				nri.SetPluginRegistrationTimeout(nri.DefaultPluginRegistrationTimeout)
+				nri.SetPluginRequestTimeout(nri.DefaultPluginRequestTimeout)
+			})
+		}
 
-		It("should pass configured timeout information to plugins", func() {
+		t.Run("should pass configured timeout information to plugins", func(t *testing.T) {
+			setup(t)
 			s.Startup()
-			Expect(s.plugins[0].stub.RegistrationTimeout()).To(Equal(registerTimeout))
-			Expect(s.plugins[0].stub.RequestTimeout()).To(Equal(requestTimeout))
+			require.Equal(t, registerTimeout, s.plugins[0].stub.RegistrationTimeout())
+			require.Equal(t, requestTimeout, s.plugins[0].stub.RequestTimeout())
 		})
 	})
-})
+}
 
-var _ = Describe("NRI version exchange", func() {
-	var (
-		s = &Suite{}
-	)
+func TestNRIVersionExchange(t *testing.T) {
+	s := &Suite{}
 
-	AfterEach(func() {
-		s.Cleanup()
-	})
+	setup := func(t *testing.T) {
+		s.Prepare(t, &mockRuntime{}, &mockPlugin{idx: "00", name: "test"})
+	}
 
-	BeforeEach(func() {
-		s.Prepare(&mockRuntime{}, &mockPlugin{idx: "00", name: "test"})
-	})
+	t.Run("should pass runtime version information to plugins", func(t *testing.T) {
+		setup(t)
 
-	It("should pass runtime version information to plugins", func() {
 		var (
 			runtimeName    = "test-runtime"
 			runtimeVersion = "1.2.3"
@@ -3378,12 +3207,11 @@ var _ = Describe("NRI version exchange", func() {
 
 		s.Startup()
 
-		Expect(s.plugins[0].RuntimeName()).To(Equal(runtimeName))
-		Expect(s.plugins[0].RuntimeVersion()).To(Equal(runtimeVersion))
-		Expect(s.plugins[0].RuntimeNRIVersion()).To(Equal(nriVersion))
+		require.Equal(t, runtimeName, s.plugins[0].RuntimeName())
+		require.Equal(t, runtimeVersion, s.plugins[0].RuntimeVersion())
+		require.Equal(t, nriVersion, s.plugins[0].RuntimeNRIVersion())
 	})
-
-})
+}
 
 func protoDiff(a, b proto.Message) string {
 	return cmp.Diff(a, b, protocmp.Transform())

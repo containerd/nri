@@ -17,454 +17,287 @@
 package multiplex_test
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"strings"
 	"sync"
 	"testing"
 
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
+	"github.com/stretchr/testify/require"
 
 	nrinet "github.com/containerd/nri/pkg/net"
 	mux "github.com/containerd/nri/pkg/net/multiplex"
 )
 
-func TestMultiplex(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Connection Multiplexer")
-}
+func TestOpen(t *testing.T) {
+	setup := func(t *testing.T) (mux.Mux, mux.Mux) {
+		t.Helper()
 
-var _ = Describe("Emulated Connection Setup, Open", func() {
-	var (
-		lMux, pMux   mux.Mux
-		connID       mux.ConnID
-		lConn, pConn net.Conn
-		err          error
-	)
-
-	BeforeEach(func() {
-		lMux, pMux, err = connectMuxes()
-		Expect(err).To(BeNil())
-		Expect(lMux).ToNot(BeNil())
-		Expect(pMux).ToNot(BeNil())
-		connID = mux.LowestConnID
-	})
-
-	AfterEach(func() {
-		if lMux != nil {
+		lMux, pMux, err := connectMuxes()
+		require.NoError(t, err)
+		require.NotNil(t, lMux)
+		require.NotNil(t, pMux)
+		t.Cleanup(func() {
 			lMux.Close()
-		}
-		if pMux != nil {
 			pMux.Close()
-		}
+		})
+		return lMux, pMux
+	}
+
+	t.Run("Open should return a net.Conn", func(t *testing.T) {
+		lMux, _ := setup(t)
+
+		lConn, err := lMux.Open(mux.LowestConnID)
+		require.NoError(t, err)
+		require.NotNil(t, lConn)
 	})
 
-	It("Open should return a net.Conn", func() {
-		// When
-		lConn, err = lMux.Open(connID)
+	t.Run("Opened net.Conn should allow sending", func(t *testing.T) {
+		lMux, _ := setup(t)
 
-		// Then
-		Expect(err).To(BeNil())
-		Expect(lConn).ToNot(BeNil())
-	})
+		lConn, err := lMux.Open(mux.LowestConnID)
+		require.NoError(t, err)
+		require.NotNil(t, lConn)
 
-	It("Opened net.Conn should allow sending", func() {
-		// Given
-		lConn, err = lMux.Open(connID)
-		Expect(err).To(BeNil())
-		Expect(lConn).ToNot(BeNil())
-
-		// When
 		_, err = lConn.Write([]byte("this is a test message"))
-
-		// Then
-		Expect(err).To(BeNil())
+		require.NoError(t, err)
 	})
 
-	It("Opened net.Conn should allow receiving", func() {
-		// Given
-		pConn, err = pMux.Open(connID)
-		Expect(err).To(BeNil())
-		Expect(pConn).ToNot(BeNil())
+	t.Run("Opened net.Conn should allow receiving", func(t *testing.T) {
+		lMux, pMux := setup(t)
 
-		// When
-		lConn, err = lMux.Open(connID)
-		Expect(err).To(BeNil())
-		Expect(lConn).ToNot(BeNil())
+		pConn, err := pMux.Open(mux.LowestConnID)
+		require.NoError(t, err)
+		require.NotNil(t, pConn)
+
+		lConn, err := lMux.Open(mux.LowestConnID)
+		require.NoError(t, err)
+		require.NotNil(t, lConn)
 
 		msg := "this is a test message"
 		_, err = lConn.Write([]byte(msg))
-		Expect(err).To(BeNil())
+		require.NoError(t, err)
 
-		// Then
 		buf := make([]byte, len(msg))
 		_, err = pConn.Read(buf)
-		Expect(err).To(BeNil())
-		Expect(string(buf)).To(Equal(msg))
+		require.NoError(t, err)
+		require.Equal(t, msg, string(buf))
 	})
-})
+}
 
-var _ = Describe("Emulated Connection Setup, Close", func() {
-	var (
-		lMux, pMux   mux.Mux
-		connID       mux.ConnID
-		lConn, pConn net.Conn
-		err          error
-	)
+func TestClose(t *testing.T) {
+	setup := func(t *testing.T) (net.Conn, net.Conn) {
+		t.Helper()
 
-	BeforeEach(func() {
-		lMux, pMux, err = connectMuxes()
-		Expect(err).To(BeNil())
-		Expect(lMux).ToNot(BeNil())
-		Expect(pMux).ToNot(BeNil())
-
-		connID = mux.LowestConnID
-		lConn, err = lMux.Open(connID)
-		Expect(err).To(BeNil())
-		Expect(lConn).ToNot(BeNil())
-		pConn, err = pMux.Open(connID)
-		Expect(err).To(BeNil())
-		Expect(pConn).ToNot(BeNil())
-	})
-
-	AfterEach(func() {
-		if lMux != nil {
+		lMux, pMux, err := connectMuxes()
+		require.NoError(t, err)
+		require.NotNil(t, lMux)
+		require.NotNil(t, pMux)
+		t.Cleanup(func() {
 			lMux.Close()
-		}
-		if pMux != nil {
 			pMux.Close()
-		}
-	})
+		})
 
-	It("Closed connection should fail sending", func() {
-		// Given
+		lConn, err := lMux.Open(mux.LowestConnID)
+		require.NoError(t, err)
+		require.NotNil(t, lConn)
+		pConn, err := pMux.Open(mux.LowestConnID)
+		require.NoError(t, err)
+		require.NotNil(t, pConn)
+		return lConn, pConn
+	}
+
+	t.Run("Closed connection should fail sending", func(t *testing.T) {
+		lConn, _ := setup(t)
+
 		msg := "this is a test message"
-		_, err = lConn.Write([]byte(msg))
-		Expect(err).To(BeNil())
+		_, err := lConn.Write([]byte(msg))
+		require.NoError(t, err)
 
-		// When
-		err = lConn.Close()
-		Expect(err).To(BeNil())
+		require.NoError(t, lConn.Close())
 
-		// Then
 		_, err = lConn.Write([]byte(msg))
-		Expect(err).ToNot(BeNil())
+		require.Error(t, err)
 	})
 
-	It("Closed connection should fail receiving", func() {
-		// Given
-		err = pConn.Close()
-		Expect(err).To(BeNil())
+	t.Run("Closed connection should fail receiving", func(t *testing.T) {
+		_, pConn := setup(t)
 
-		// When
+		require.NoError(t, pConn.Close())
+
 		buf := make([]byte, 64)
-		_, err = pConn.Read(buf)
-
-		// Then
-		Expect(err).ToNot(BeNil())
+		_, err := pConn.Read(buf)
+		require.Error(t, err)
 	})
-})
+}
 
-var _ = Describe("Emulated Connection Setup, Dial", func() {
-	var (
-		lMux, pMux mux.Mux
-		connID     mux.ConnID
-		conn       net.Conn
-		err        error
-	)
+func TestDial(t *testing.T) {
+	setup := func(t *testing.T) mux.Mux {
+		t.Helper()
 
-	BeforeEach(func() {
-		lMux, pMux, err = connectMuxes()
-		Expect(err).To(BeNil())
-		Expect(lMux).ToNot(BeNil())
-		Expect(pMux).ToNot(BeNil())
-		connID = mux.LowestConnID
-	})
-
-	AfterEach(func() {
-		if lMux != nil {
+		lMux, pMux, err := connectMuxes()
+		require.NoError(t, err)
+		require.NotNil(t, lMux)
+		require.NotNil(t, pMux)
+		t.Cleanup(func() {
 			lMux.Close()
-		}
-		if pMux != nil {
 			pMux.Close()
-		}
-	})
+		})
+		return lMux
+	}
 
 	dial := func(m mux.Mux, connID mux.ConnID) (net.Conn, error) {
 		return m.Dialer(connID)("mux", "id")
 	}
 
-	It("Dial should return a net.Conn", func() {
-		// When
-		conn, err = dial(lMux, connID)
+	t.Run("Dial should return a net.Conn", func(t *testing.T) {
+		lMux := setup(t)
 
-		// Then
-		Expect(err).To(BeNil())
-		Expect(conn).ToNot(BeNil())
+		conn, err := dial(lMux, mux.LowestConnID)
+		require.NoError(t, err)
+		require.NotNil(t, conn)
 	})
 
-	It("Dialed net.Conn should allow sending", func() {
-		// Given
-		conn, err = dial(lMux, connID)
-		Expect(err).To(BeNil())
-		Expect(conn).ToNot(BeNil())
+	t.Run("Dialed net.Conn should allow sending", func(t *testing.T) {
+		lMux := setup(t)
 
-		// When
+		conn, err := dial(lMux, mux.LowestConnID)
+		require.NoError(t, err)
+		require.NotNil(t, conn)
+
 		_, err = conn.Write([]byte("this is a test message"))
-
-		// Then
-		Expect(err).To(BeNil())
+		require.NoError(t, err)
 	})
+}
 
-})
+func TestListenAccept(t *testing.T) {
+	setup := func(t *testing.T) (mux.Mux, mux.Mux) {
+		t.Helper()
 
-var _ = Describe("Emulated Connection Setup, Listen, Accept", func() {
-	var (
-		lMux, pMux   mux.Mux
-		connID       mux.ConnID
-		l            net.Listener
-		lConn, pConn net.Conn
-		err          error
-	)
-
-	BeforeEach(func() {
-		lMux, pMux, err = connectMuxes()
-		Expect(err).To(BeNil())
-		Expect(lMux).ToNot(BeNil())
-		Expect(pMux).ToNot(BeNil())
-		connID = mux.LowestConnID
-	})
-
-	AfterEach(func() {
-		if lMux != nil {
+		lMux, pMux, err := connectMuxes()
+		require.NoError(t, err)
+		require.NotNil(t, lMux)
+		require.NotNil(t, pMux)
+		t.Cleanup(func() {
 			lMux.Close()
-		}
-		if pMux != nil {
 			pMux.Close()
-		}
-	})
-
-	accept := func(m mux.Mux, connID mux.ConnID) (net.Conn, error) {
-		l, err = m.Listen(connID)
-		if err != nil {
-			return nil, err
-		}
-		return l.Accept()
+		})
+		return lMux, pMux
 	}
 
-	It("Listen should return a net.Listener", func() {
-		// When
-		l, err = pMux.Listen(connID)
+	accept := func(m mux.Mux, connID mux.ConnID) (net.Listener, net.Conn, error) {
+		l, err := m.Listen(connID)
+		if err != nil {
+			return nil, nil, err
+		}
+		conn, err := l.Accept()
+		return l, conn, err
+	}
 
-		// Then
-		Expect(err).To(BeNil())
-		Expect(l).ToNot(BeNil())
+	t.Run("Listen should return a net.Listener", func(t *testing.T) {
+		_, pMux := setup(t)
+
+		l, err := pMux.Listen(mux.LowestConnID)
+		require.NoError(t, err)
+		require.NotNil(t, l)
 	})
 
-	It("Accept on the net.Listener should return a net.Conn", func() {
-		// When
-		pConn, err = accept(pMux, connID)
+	t.Run("Accept on the net.Listener should return a net.Conn", func(t *testing.T) {
+		_, pMux := setup(t)
 
-		// Then
-		Expect(err).To(BeNil())
-		Expect(pConn).ToNot(BeNil())
+		_, pConn, err := accept(pMux, mux.LowestConnID)
+		require.NoError(t, err)
+		require.NotNil(t, pConn)
 	})
 
-	It("Accepted net.Conn should allow receiving", func() {
-		// Given
-		pConn, err = accept(pMux, connID)
-		Expect(err).To(BeNil())
-		Expect(pConn).ToNot(BeNil())
+	t.Run("Accepted net.Conn should allow receiving", func(t *testing.T) {
+		lMux, pMux := setup(t)
 
-		// When
-		lConn, err = lMux.Open(connID)
-		Expect(err).To(BeNil())
-		Expect(lConn).ToNot(BeNil())
+		_, pConn, err := accept(pMux, mux.LowestConnID)
+		require.NoError(t, err)
+		require.NotNil(t, pConn)
+
+		lConn, err := lMux.Open(mux.LowestConnID)
+		require.NoError(t, err)
+		require.NotNil(t, lConn)
 
 		msg := "this is a test message"
 		_, err = lConn.Write([]byte(msg))
-		Expect(err).To(BeNil())
+		require.NoError(t, err)
 
-		// Then
 		buf := make([]byte, len(msg))
 		_, err = pConn.Read(buf)
-		Expect(err).To(BeNil())
-		Expect(string(buf)).To(Equal(msg))
+		require.NoError(t, err)
+		require.Equal(t, msg, string(buf))
 	})
+}
 
-})
+func TestTransmittingData(t *testing.T) {
+	setup := func(t *testing.T, connCnt int) ([]net.Conn, []net.Conn) {
+		t.Helper()
 
-var _ = Describe("Transmitting data", func() {
-	var (
-		lMux mux.Mux
-		pMux mux.Mux
-		err  error
-	)
-
-	When("single connection", func() {
-		It("send and receive messages", func() {
-			connCnt := 1
-			msgCnt := 64
-
-			lMux, pMux, err = connectMuxes()
-			Expect(err).To(BeNil())
-			Expect(lMux).ToNot(BeNil())
-			Expect(pMux).ToNot(BeNil())
-
-			lConn, pConn, err := openMuxes(lMux, pMux, connCnt)
-			Expect(err).To(BeNil())
-			Expect(len(lConn)).To(Equal(connCnt))
-			Expect(len(pConn)).To(Equal(connCnt))
-
-			sendAndReceive(lConn, pConn, msgCnt)
-		})
-	})
-
-	When("multiple connections", func() {
-		It("send and receive messages concurrently", func() {
-			connCnt := 16
-			msgCnt := 64
-
-			lMux, pMux, err = connectMuxes()
-			Expect(err).To(BeNil())
-			Expect(lMux).ToNot(BeNil())
-			Expect(pMux).ToNot(BeNil())
-
-			lConn, pConn, err := openMuxes(lMux, pMux, connCnt)
-			Expect(err).To(BeNil())
-			Expect(len(lConn)).To(Equal(connCnt))
-			Expect(len(pConn)).To(Equal(connCnt))
-
-			sendAndReceive(lConn, pConn, msgCnt)
-		})
-	})
-
-	When("an oversized message is sent", func() {
-		It("it is transmitted in multiple chunks", func() {
-			var (
-				connCnt        = 1
-				maxPayloadSize = 10 + 4<<20
-				overflowFactor = 3
-			)
-
-			lMux, pMux, err = connectMuxes()
-			Expect(err).To(BeNil())
-			Expect(lMux).ToNot(BeNil())
-			Expect(pMux).ToNot(BeNil())
-
-			lConn, pConn, err := openMuxes(lMux, pMux, connCnt)
-			Expect(err).To(BeNil())
-			Expect(len(lConn)).To(Equal(connCnt))
-			Expect(len(pConn)).To(Equal(connCnt))
-
-			msg := strings.Repeat("a", overflowFactor*maxPayloadSize)
-			cnt, err := lConn[0].Write([]byte(msg))
-			Expect(err).To(BeNil())
-			Expect(cnt).To(Equal(len([]byte(msg))))
-
-			rcv := make([]byte, overflowFactor*maxPayloadSize)
-			size := 0
-			for i := 0; size < len([]byte(msg)) && i < overflowFactor; i++ {
-				cnt, err := pConn[0].Read(rcv[size:])
-				Expect(err).To(BeNil())
-				Expect(cnt).To(Equal(maxPayloadSize))
-				size += cnt
-			}
-			Expect(rcv).To(Equal([]byte(msg)))
-
-			msg = strings.Repeat("b", 200)
-			cnt, err = lConn[0].Write([]byte(msg))
-			Expect(err).To(BeNil())
-			Expect(cnt).To(Equal(len([]byte(msg))))
-
-			rcv = make([]byte, len([]byte(msg)))
-			cnt, err = pConn[0].Read(rcv)
-			Expect(err).To(BeNil())
-			Expect(cnt).To(Equal(len([]byte(msg))))
-			Expect(rcv).To(Equal([]byte(msg)))
-		})
-	})
-})
-
-/*
-// TODO
-var _ = Describe("Read Queue Length", func() {
-	var (
-		lMux, pMux   mux.Mux
-		connID       mux.ConnID
-		lConn, pConn net.Conn
-		err          error
-		qLen         = 1
-	)
-
-	BeforeEach(func() {
-		lMux, pMux, err = connectMuxes(mux.WithReadQueueLength(qLen))
-		Expect(err).To(BeNil())
-		Expect(lMux).ToNot(BeNil())
-		Expect(pMux).ToNot(BeNil())
-
-		connID = mux.LowestConnID
-		lConn, err = lMux.Open(connID)
-		Expect(err).To(BeNil())
-		Expect(lConn).ToNot(BeNil())
-		pConn, err = pMux.Open(connID)
-		Expect(err).To(BeNil())
-		Expect(pConn).ToNot(BeNil())
-	})
-
-	AfterEach(func() {
-		if lMux != nil {
+		lMux, pMux, err := connectMuxes()
+		require.NoError(t, err)
+		require.NotNil(t, lMux)
+		require.NotNil(t, pMux)
+		t.Cleanup(func() {
 			lMux.Close()
-		}
-		if pMux != nil {
 			pMux.Close()
-		}
+		})
+
+		lConn, pConn, err := openMuxes(lMux, pMux, connCnt)
+		require.NoError(t, err)
+		require.Len(t, lConn, connCnt)
+		require.Len(t, pConn, connCnt)
+		return lConn, pConn
+	}
+
+	t.Run("single connection", func(t *testing.T) {
+		lConn, pConn := setup(t, 1)
+		require.NoError(t, sendAndReceive(lConn, pConn, 64))
 	})
 
-	It("Messages get queued up till queue length", func() {
-		var msg string
-
-		// When
-		for i := 0; i < qLen; i++ {
-			msg = fmt.Sprintf("qlen test message #%d", i)
-			_, err = lConn.Write([]byte(msg))
-			Expect(err).To(BeNil())
-		}
-
-		// Then
-		buf := make([]byte, len(msg))
-		for i := 0; i < qLen; i++ {
-			_, err = pConn.Read(buf)
-			Expect(err).To(BeNil())
-		}
+	t.Run("multiple connections", func(t *testing.T) {
+		lConn, pConn := setup(t, 16)
+		require.NoError(t, sendAndReceive(lConn, pConn, 64))
 	})
 
-	It("Queue overflow closes mux, connections, results in read error", func() {
-		var msg string
+	t.Run("an oversized message is transmitted in multiple chunks", func(t *testing.T) {
+		const (
+			maxPayloadSize = 10 + 4<<20
+			overflowFactor = 3
+		)
 
-		// When
-		for i := 0; i < qLen+1; i++ {
-			msg = fmt.Sprintf("qlen test message #%d", i)
-			_, err = lConn.Write([]byte(msg))
-			Expect(err).To(BeNil())
+		lConn, pConn := setup(t, 1)
+
+		msg := strings.Repeat("a", overflowFactor*maxPayloadSize)
+		cnt, err := lConn[0].Write([]byte(msg))
+		require.NoError(t, err)
+		require.Equal(t, len(msg), cnt)
+
+		rcv := make([]byte, overflowFactor*maxPayloadSize)
+		size := 0
+		for i := 0; size < len(msg) && i < overflowFactor; i++ {
+			cnt, err := pConn[0].Read(rcv[size:])
+			require.NoError(t, err)
+			require.Equal(t, maxPayloadSize, cnt)
+			size += cnt
 		}
+		require.Equal(t, []byte(msg), rcv)
 
-		// Then
-		buf := make([]byte, len(msg))
-		for i := 0; i < qLen; i++ {
-			_, err = pConn.Read(buf)
-		}
-		_, err = pConn.Read(buf)
-		Expect(err).ToNot(BeNil())
+		msg = strings.Repeat("b", 200)
+		cnt, err = lConn[0].Write([]byte(msg))
+		require.NoError(t, err)
+		require.Equal(t, len(msg), cnt)
 
+		rcv = make([]byte, len(msg))
+		cnt, err = pConn[0].Read(rcv)
+		require.NoError(t, err)
+		require.Equal(t, len(msg), cnt)
+		require.Equal(t, []byte(msg), rcv)
 	})
-})
-
-var _ = Describe("Blocking and Unblocking", func() {
-	// TODO...
-})
-*/
+}
 
 // getSocketPairConn returns connections for a socketpair.
 func getSocketPairConn() (net.Conn, net.Conn, error) {
@@ -528,90 +361,129 @@ func openMuxes(lMux, pMux mux.Mux, count int) ([]net.Conn, []net.Conn, error) {
 	return lConn, pConn, nil
 }
 
-func sendAndReceive(lConn, pConn []net.Conn, msgCount int) {
-	var (
-		wg     = &sync.WaitGroup{}
-		start  = make(chan struct{})
-		maxMsg = 64
-		endMsg = ""
-	)
+func sendAndReceive(lConn, pConn []net.Conn, msgCount int) error {
+	const maxMsg = 64
 
-	// message sender
-	write := func(id int, conn net.Conn, messages []string) []string {
-		var (
-			msg string
-			cnt int
-			err error
-		)
+	var wg sync.WaitGroup
+	start := make(chan struct{})
+	errs := make(chan error, 1)
 
+	var failOnce sync.Once
+	fail := func(err error) {
+		failOnce.Do(func() {
+			errs <- err
+			for _, conn := range lConn {
+				conn.Close()
+			}
+			for _, conn := range pConn {
+				conn.Close()
+			}
+		})
+	}
+
+	write := func(id int, conn net.Conn, messages []string) ([]string, error) {
 		if messages == nil {
 			for i := 0; i < msgCount; i++ {
 				msg := fmt.Sprintf("[%d] message #%d/%d", id, i+1, msgCount)
-				Expect(len(msg) <= maxMsg).To(BeTrue())
+				if len(msg) > maxMsg {
+					return nil, fmt.Errorf("message length %d exceeds maximum %d", len(msg), maxMsg)
+				}
 				messages = append(messages, msg)
 			}
 		}
 
-		for _, msg = range messages {
-			cnt, err = conn.Write([]byte(msg))
-			Expect(err).To(BeNil())
-			Expect(cnt).To(Equal(len(msg)))
+		for _, msg := range messages {
+			cnt, err := conn.Write([]byte(msg))
+			if err != nil {
+				return nil, err
+			}
+			if cnt != len(msg) {
+				return nil, fmt.Errorf("wrote %d bytes, expected %d", cnt, len(msg))
+			}
 		}
 
-		cnt, err = conn.Write([]byte(endMsg))
-		Expect(err).To(BeNil())
-		Expect(cnt).To(Equal(len(endMsg)))
+		cnt, err := conn.Write(nil)
+		if err != nil {
+			return nil, err
+		}
+		if cnt != 0 {
+			return nil, fmt.Errorf("wrote %d bytes for end message, expected 0", cnt)
+		}
 
-		return messages
+		return messages, nil
 	}
 
-	// message receiver and collector
-	read := func(conn net.Conn) []string {
-		var (
-			msg  = make([]byte, maxMsg)
-			recv []string
-			cnt  int
-			err  error
-		)
-
+	read := func(conn net.Conn) ([]string, error) {
+		msg := make([]byte, maxMsg)
+		var recv []string
 		for {
-			cnt, err = conn.Read(msg)
-			Expect(err).To(BeNil())
+			cnt, err := conn.Read(msg)
+			if err != nil {
+				return nil, err
+			}
 			if cnt == 0 {
-				return recv
+				return recv, nil
 			}
 			recv = append(recv, string(msg[:cnt]))
 		}
 	}
 
-	// send and receive, or the other way around, check echoed messages for equality
 	sendrecv := func(id int, conn net.Conn, sender bool) {
-		var (
-			sent []string
-			recv []string
-		)
-
 		defer wg.Done()
 		<-start
 
 		if sender {
-			sent = write(id, conn, nil)
-			recv = read(conn)
-			Expect(sent).To(Equal(recv))
-		} else {
-			recv = read(conn)
-			write(id, conn, recv)
+			sent, err := write(id, conn, nil)
+			if err != nil {
+				fail(err)
+				return
+			}
+			recv, err := read(conn)
+			if err != nil {
+				fail(err)
+				return
+			}
+			if !equalStrings(sent, recv) {
+				fail(errors.New("sent and received messages differ"))
+			}
+			return
+		}
+
+		recv, err := read(conn)
+		if err != nil {
+			fail(err)
+			return
+		}
+		if _, err := write(id, conn, recv); err != nil {
+			fail(err)
 		}
 	}
 
-	// set up senders and receivers, waiting for a trigger to start
 	for i := 0; i < len(lConn); i++ {
+		wg.Add(2)
 		go sendrecv(i, lConn[i], true)
 		go sendrecv(i, pConn[i], false)
-		wg.Add(2)
 	}
 
-	// trigger senders/receivers and wait for them to finish
 	close(start)
 	wg.Wait()
+
+	select {
+	case err := <-errs:
+		return err
+	default:
+		return nil
+	}
+}
+
+func equalStrings(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }

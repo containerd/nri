@@ -380,6 +380,9 @@ func (stub *stub) Start(ctx context.Context) (retErr error) {
 		return fmt.Errorf("stub already started")
 	}
 	stub.doneC = make(chan struct{})
+	// Snapshot before any goroutines are running: Configure() rewrites this
+	// field without the stub lock once the ttrpc server is up.
+	cfgTimeout := stub.registrationTimeout
 
 	err := stub.connect()
 	if err != nil {
@@ -423,6 +426,12 @@ func (stub *stub) Start(ctx context.Context) (retErr error) {
 		return fmt.Errorf("failed to multiplex ttrpc client connection: %w", err)
 	}
 
+	// Create the error channels before ttrpc.NewClient spawns the goroutine
+	// whose OnClose callback (connClosed) may send on cfgErrC without holding
+	// stub.Lock().
+	stub.srvErrC = make(chan error, 1)
+	stub.cfgErrC = make(chan error, 1)
+
 	clientOpts := []ttrpc.ClientOpts{
 		ttrpc.WithOnClose(func() {
 			stub.connClosed()
@@ -435,9 +444,6 @@ func (stub *stub) Start(ctx context.Context) (retErr error) {
 			stub.rpcc = nil
 		}
 	}()
-
-	stub.srvErrC = make(chan error, 1)
-	stub.cfgErrC = make(chan error, 1)
 
 	go func(l stdnet.Listener, doneC chan struct{}, srvErrC chan error) {
 		srvErrC <- rpcs.Serve(ctx, l)
@@ -456,8 +462,22 @@ func (stub *stub) Start(ctx context.Context) (retErr error) {
 		return err
 	}
 
-	if err = <-stub.cfgErrC; err != nil {
-		return err
+	// The runtime should Configure() us immediately after a successful register().
+	// Bound the wait so Start() cannot block forever holding stub.Lock() if the
+	// runtime accepts registration but never issues Configure(), and let context
+	// cancellation and connection loss (via connClosed -> cfgErrC) break the wait.
+	cfgTimer := time.NewTimer(cfgTimeout)
+	defer cfgTimer.Stop()
+
+	select {
+	case err = <-stub.cfgErrC:
+		if err != nil {
+			return err
+		}
+	case <-cfgTimer.C:
+		return fmt.Errorf("timed out waiting for Configure() from runtime after %s", cfgTimeout)
+	case <-ctx.Done():
+		return fmt.Errorf("context cancelled while waiting for Configure() from runtime: %w", ctx.Err())
 	}
 
 	stub.logger.Infof(ctx, "Started plugin %s...", stub.Name())
@@ -624,6 +644,14 @@ func (stub *stub) register(ctx context.Context) error {
 
 // Handle a lost connection.
 func (stub *stub) connClosed() {
+	// Start() may be blocked on cfgErrC while holding stub.Lock(). Signal it
+	// first (non-blocking; cfgErrC has cap 1) so it can return and release the
+	// lock before we take it below.
+	select {
+	case stub.cfgErrC <- fmt.Errorf("connection closed before Configure(): %w", ttrpc.ErrClosed):
+	default:
+	}
+
 	stub.Lock()
 	stub.close()
 	stub.Unlock()
@@ -680,7 +708,13 @@ func (stub *stub) Configure(ctx context.Context, req *api.ConfigureRequest) (rpl
 	stub.runtimeNRIVersion = req.NRIVersion
 
 	defer func() {
-		stub.cfgErrC <- retErr
+		// Non-blocking: Start() may have already given up (timeout / ctx / conn
+		// loss) and is no longer receiving; the buffered slot may also already
+		// hold connClosed()'s error.
+		select {
+		case stub.cfgErrC <- retErr:
+		default:
+		}
 	}()
 
 	if handler := stub.handlers.Configure; handler == nil {

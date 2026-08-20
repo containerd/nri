@@ -5,7 +5,7 @@ go 1.24.0
 require (
 	github.com/containerd/nri v0.6.1
 	github.com/containernetworking/plugins v1.4.1
-	github.com/sirupsen/logrus v1.9.3
+	github.com/sirupsen/logrus v1.9.4
 	github.com/vishvananda/netlink v1.2.1-beta.2
 	sigs.k8s.io/yaml v1.4.0
 )
@@ -14,7 +14,6 @@ require (
 	github.com/containerd/log v0.1.0 // indirect
 	github.com/containerd/ttrpc v1.2.7 // indirect
 	github.com/knqyf263/go-plugin v0.9.0 // indirect
-	github.com/kr/text v0.2.0 // indirect
 	github.com/opencontainers/runtime-spec v1.3.0 // indirect
 	github.com/tetratelabs/wazero v1.11.0 // indirect
 	github.com/vishvananda/netns v0.0.4 // indirect

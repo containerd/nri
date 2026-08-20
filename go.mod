@@ -15,7 +15,7 @@ require (
 	go.yaml.in/yaml/v3 v3.0.5
 	golang.org/x/sys v0.39.0
 	google.golang.org/grpc v1.65.1
-	google.golang.org/protobuf v1.34.1
+	google.golang.org/protobuf v1.36.12
 )
 
 require (

@@ -6,7 +6,7 @@ replace github.com/containerd/nri => ../..
 
 require (
 	github.com/containerd/log v0.1.0
-	github.com/containerd/nri v0.0.0
+	github.com/containerd/nri v0.12.2
 	github.com/sirupsen/logrus v1.9.4
 	github.com/stretchr/testify v1.12.1
 )

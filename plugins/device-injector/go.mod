@@ -3,7 +3,7 @@ module github.com/containerd/nri/plugins/device-injector
 go 1.24.0
 
 require (
-	github.com/containerd/nri v0.6.1
+	github.com/containerd/nri v0.12.2
 	github.com/sirupsen/logrus v1.9.4
 	github.com/stretchr/testify v1.12.1
 	sigs.k8s.io/yaml v1.5.0

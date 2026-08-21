@@ -21,50 +21,75 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/containerd/cgroups"
-	"github.com/containerd/nri/skel"
-	types "github.com/containerd/nri/types/v1"
+	"github.com/containerd/cgroups/v3"
+	"github.com/containerd/cgroups/v3/cgroup1"
+	"github.com/containerd/cgroups/v3/cgroup2"
+	"github.com/containerd/log"
+	"github.com/containerd/nri/pkg/api"
+	"github.com/containerd/nri/pkg/stub"
 	"github.com/opencontainers/runtime-spec/specs-go"
-	"github.com/sirupsen/logrus"
 )
 
-// clearCFS clears any cfs quotas for the containers
-type clearCFS struct {
-}
+// clearCFS clears any CFS quotas for containers.
+type clearCFS struct{}
 
-func (c *clearCFS) Type() string {
-	return "clearcfs"
-}
-
-func (c *clearCFS) Invoke(ctx context.Context, r *types.Request) (*types.Result, error) {
-	result := r.NewResult(c.Type())
-
-	if r.State != types.Create {
-		return result, nil
+func (c *clearCFS) CreateContainer(ctx context.Context, _ *api.PodSandbox, container *api.Container) (*api.ContainerAdjustment, []*api.ContainerUpdate, error) {
+	if container.Annotations["qos.class"] != "ls" {
+		return nil, nil, nil
+	}
+	if container.Linux == nil {
+		return nil, nil, nil
 	}
 
-	switch r.Spec.Annotations["qos.class"] {
-	case "ls":
-		logrus.Debugf("clearing cfs for %s", r.ID)
-		control, err := cgroups.Load(cgroups.V1, cgroups.StaticPath(r.Spec.CgroupsPath))
+	log.G(ctx).Debugf("clearing CFS quota for %s", container.Id)
+
+	if err := clearCFSQuota(container.Linux.CgroupsPath); err != nil {
+		return nil, nil, err
+	}
+
+	return nil, nil, nil
+}
+
+func clearCFSQuota(path string) error {
+	switch cgroups.Mode() {
+	case cgroups.Unified:
+		control, err := cgroup2.Load(path)
 		if err != nil {
-			return nil, err
+			return err
+		}
+		return control.Update(&cgroup2.Resources{
+			CPU: &cgroup2.CPU{
+				Max: cgroup2.NewCPUMax(nil, nil),
+			},
+		})
+
+	case cgroups.Legacy, cgroups.Hybrid:
+		control, err := cgroup1.Load(cgroup1.StaticPath(path))
+		if err != nil {
+			return err
 		}
 
 		quota := int64(-1)
-		return result, control.Update(&specs.LinuxResources{
+		return control.Update(&specs.LinuxResources{
 			CPU: &specs.LinuxCPU{
 				Quota: &quota,
 			},
 		})
+
+	default:
+		return fmt.Errorf("cgroups are not available")
 	}
-	return result, nil
 }
 
 func main() {
-	ctx := context.Background()
-	if err := skel.Run(ctx, &clearCFS{}); err != nil {
-		fmt.Fprintf(os.Stderr, "%s", err)
+	s, err := stub.New(&clearCFS{}, stub.WithPluginName("clearcfs"))
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+
+	if err := s.Run(context.Background()); err != nil {
+		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }

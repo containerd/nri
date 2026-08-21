@@ -2,7 +2,7 @@ module github.com/containerd/nri/plugins/wasm
 
 go 1.24.0
 
-require github.com/containerd/nri v0.6.1
+require github.com/containerd/nri v0.12.2
 
 require (
 	github.com/containerd/log v0.1.0 // indirect

@@ -3,7 +3,7 @@ module github.com/containerd/nri/plugins/hook-injector
 go 1.24.2
 
 require (
-	github.com/containerd/nri v0.6.1
+	github.com/containerd/nri v0.12.2
 	github.com/opencontainers/runtime-spec v1.3.0
 	github.com/sirupsen/logrus v1.9.4
 	github.com/stretchr/testify v1.12.1

@@ -3,7 +3,7 @@ module github.com/containerd/nri/plugins/logger
 go 1.24.0
 
 require (
-	github.com/containerd/nri v0.6.1
+	github.com/containerd/nri v0.12.2
 	github.com/sirupsen/logrus v1.9.4
 	sigs.k8s.io/yaml v1.5.0
 )

@@ -146,9 +146,12 @@ subscription.
 
 NRI plugins can subscribe to the following pod lifecycle events:
 
-  - creation
-  - stopping
-  - removal
+  - creation (RunPodSandbox)
+  - stopping (StopPodSandbox)
+  - removal (RemovePodSandbox)
+
+For detailed specifications of pod sandbox event timing, state requirements, and plugin
+expectations, see [Pod Sandbox Lifecycle Hooks](docs/pod-sandbox-lifecycle.md).
 
 The following table lists the pod sandbox properties exposed to NRI plugins, together with
 the first NRI, containerd and CRI-O versions each was available in.

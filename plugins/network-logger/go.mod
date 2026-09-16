@@ -8,12 +8,12 @@ require (
 )
 
 require (
+	github.com/Masterminds/semver/v3 v3.5.0 // indirect
 	github.com/containerd/log v0.1.0 // indirect
 	github.com/containerd/ttrpc v1.2.7 // indirect
 	github.com/knqyf263/go-plugin v0.9.0 // indirect
 	github.com/opencontainers/runtime-spec v1.3.0 // indirect
 	github.com/tetratelabs/wazero v1.11.0 // indirect
-	golang.org/x/mod v0.32.0 // indirect
 	golang.org/x/sys v0.39.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240528184218-531527333157 // indirect
 	google.golang.org/grpc v1.65.1 // indirect

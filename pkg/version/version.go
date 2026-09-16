@@ -18,10 +18,11 @@ package version
 
 import (
 	"runtime/debug"
+	"sort"
 	"strconv"
 	"strings"
 
-	"golang.org/x/mod/semver"
+	"github.com/Masterminds/semver/v3"
 )
 
 const (
@@ -63,8 +64,8 @@ func GetFromBuildInfo() string {
 }
 
 // majorMinorPatch returns the major.minor.patch prefix of the semantic version v.
-func majorMinorPatch(v string) string {
-	return strings.TrimSuffix(strings.TrimSuffix(v, semver.Build(v)), semver.Prerelease(v))
+func majorMinorPatch(sv *semver.Version) string {
+	return strings.TrimSuffix(strings.TrimSuffix(sv.Original(), sv.Metadata()), sv.Prerelease())
 }
 
 // FindClosestMatch returns the largest version smaller or equal to a given one.
@@ -76,33 +77,52 @@ func FindClosestMatch(v string, versions []string) string {
 	// obviously not the case. In lack of a better choice, we strip any such
 	// suffix from v before comparison.
 	v = stripGitSuffix(v)
-	semver.Sort(versions)
+
+	var parsedVersions []*semver.Version
+	for _, version := range versions {
+		semverVersion, err := semver.NewVersion(version)
+		if err != nil {
+			continue
+		}
+		parsedVersions = append(parsedVersions, semverVersion)
+	}
+
+	sort.Sort(semver.Collection(parsedVersions))
+
+	semverV, err := semver.NewVersion(v)
+	if err != nil {
+		return ""
+	}
 
 	latest := ""
-	for _, ver := range versions {
-		if semver.Compare(ver, v) > 0 {
+	for _, pv := range parsedVersions {
+		if pv.Compare(semverV) > 0 {
 			break
 		}
-		latest = ver
+		latest = pv.Original()
 	}
 	return latest
 }
 
 // stripGitSuffix strips any git described suffix from a version string.
 // We expect a valid git suffix to be of the form "-N-gSHA1[.m], where
-// N is an decimal integer and SHA1 is a hexadecimal integer.
+// N is a decimal integer and SHA1 is a hexadecimal integer.
 func stripGitSuffix(version string) string {
-	mmp := majorMinorPatch(version)
-	pre := semver.Prerelease(version)
+	sv, err := semver.NewVersion(version)
+	if err != nil {
+		return version
+	}
+	mmp := majorMinorPatch(sv)
+	pre := sv.Prerelease()
+
+	if len(pre) == 0 {
+		return version
+	}
 	if mmp+pre != version {
 		return version
 	}
 
-	if len(pre) == 0 || pre[0] != '-' {
-		return version
-	}
-
-	commits, gsha1, ok := strings.Cut(pre[1:], "-")
+	commits, gsha1, ok := strings.Cut(pre, "-")
 	if !ok || len(gsha1) == 0 || gsha1[0] != 'g' {
 		return version
 	}
@@ -115,5 +135,5 @@ func stripGitSuffix(version string) string {
 		return version
 	}
 
-	return mmp
+	return strings.TrimSuffix(mmp, "-")
 }

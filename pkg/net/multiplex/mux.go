@@ -191,6 +191,12 @@ func (m *mux) Open(id ConnID) (net.Conn, error) {
 	m.connLock.Lock()
 	defer m.connLock.Unlock()
 
+	select {
+	case <-m.doneC:
+		return nil, net.ErrClosed
+	default:
+	}
+
 	c, ok := m.conns[id]
 	if !ok {
 		c = &conn{

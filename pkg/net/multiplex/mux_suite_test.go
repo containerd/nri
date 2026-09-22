@@ -19,6 +19,7 @@ package multiplex_test
 import (
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"strings"
 	"sync"
@@ -130,6 +131,45 @@ func TestClose(t *testing.T) {
 		_, err := pConn.Read(buf)
 		require.Error(t, err)
 	})
+}
+
+func TestOpenClosedMux(t *testing.T) {
+	for _, closePeer := range []bool{false, true} {
+		t.Run(fmt.Sprintf("close peer=%t", closePeer), func(t *testing.T) {
+			lMux, pMux, err := connectMuxes()
+			require.NoError(t, err)
+			t.Cleanup(func() {
+				lMux.Close()
+				pMux.Close()
+			})
+
+			conn, err := lMux.Open(mux.LowestConnID)
+			require.NoError(t, err)
+			if closePeer {
+				require.NoError(t, pMux.Close())
+				_, err = conn.Read(make([]byte, 1))
+				require.ErrorIs(t, err, io.EOF)
+			} else {
+				require.NoError(t, lMux.Close())
+			}
+
+			for _, id := range []mux.ConnID{mux.LowestConnID, mux.LowestConnID + 1} {
+				t.Run(fmt.Sprintf("connection %d", id), func(t *testing.T) {
+					conn, err := lMux.Open(id)
+					require.ErrorIs(t, err, net.ErrClosed)
+					require.Nil(t, conn)
+
+					conn, err = lMux.Dialer(id)("mux", "id")
+					require.ErrorIs(t, err, net.ErrClosed)
+					require.Nil(t, conn)
+
+					listener, err := lMux.Listen(id)
+					require.ErrorIs(t, err, net.ErrClosed)
+					require.Nil(t, listener)
+				})
+			}
+		})
+	}
 }
 
 func TestDial(t *testing.T) {

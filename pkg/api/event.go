@@ -91,6 +91,7 @@ func ParseEventMask(events ...string) (EventMask, error) {
 	for _, event := range events {
 		lcEvents := strings.ToLower(event)
 		for _, name := range strings.Split(lcEvents, ",") {
+			name = strings.TrimSpace(name)
 			switch name {
 			case "all":
 				mask |= ValidEvents
@@ -111,7 +112,7 @@ func ParseEventMask(events ...string) (EventMask, error) {
 				continue
 			}
 
-			bit, ok := bits[strings.TrimSpace(name)]
+			bit, ok := bits[name]
 			if !ok {
 				return 0, fmt.Errorf("unknown event %q", name)
 			}

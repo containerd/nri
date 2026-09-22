@@ -384,6 +384,7 @@ type mockPlugin struct {
 	pods map[string]*api.PodSandbox
 	ctrs map[string]*api.Container
 
+	configure            func(*mockPlugin, context.Context, string, string, string) (stub.EventMask, error)
 	runPodSandbox        func(*mockPlugin, *api.PodSandbox, *api.Container) error
 	updatePodSandbox     func(*mockPlugin, *api.PodSandbox, *api.LinuxResources, *api.LinuxResources) error
 	postUpdatePodSandbox func(*mockPlugin, *api.PodSandbox, *api.Container) error
@@ -578,7 +579,10 @@ func (m *mockPlugin) onClose() {
 	}
 }
 
-func (m *mockPlugin) Configure(_ context.Context, _, runtime, version string) (stub.EventMask, error) {
+func (m *mockPlugin) Configure(ctx context.Context, cfg, runtime, version string) (stub.EventMask, error) {
+	if m.configure != nil {
+		return m.configure(m, ctx, cfg, runtime, version)
+	}
 	m.q.Add(PluginConfigured)
 
 	m.runtime = runtime

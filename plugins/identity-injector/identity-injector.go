@@ -25,8 +25,9 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"sync"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/sirupsen/logrus"
 	"sigs.k8s.io/yaml"
@@ -44,6 +45,11 @@ import (
 const (
 	// identityKey is the prefix of the key used for identity annotations in the podspec.
 	identityKey = "identity.noderesource.dev"
+
+	// initialWriteTimeout is the maximum time startCertificateWatcher will wait for
+	// both the SVID and the bundle to be written to the host directory before returning
+	// an error to the caller (and therefore blocking the container from starting).
+	initialWriteTimeout = 30 * time.Second
 
 	// Default paths for certificate files in the container
 	defaultCertFileName      = "svid.pem"
@@ -310,19 +316,18 @@ func (p *plugin) startCertificateWatcher(pod *api.PodSandbox, ctr *api.Container
 	watcherCtx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 
+	// Buffered so a goroutine that signals and then exits immediately never blocks.
+	svidReady   := make(chan error, 1)
+	bundleReady := make(chan error, 1)
+
 	// Use WaitGroup to coordinate both goroutines
 	var wg sync.WaitGroup
 	wg.Add(2) // We have 2 goroutines: SVID watcher and bundle watcher
 
-	// Store watcher info
-	p.watchersMu.Lock()
-	p.watchers[watcherKey] = &containerWatcher{
-		cancel: cancel,
-		done:   done,
-	}
-	p.watchersMu.Unlock()
-
-	// Goroutine to wait for both watchers to finish and then close done channel
+	// Goroutine to wait for both watchers to finish and then close done channel.
+	// The watcher map entry is registered only after setup succeeds (below), so this
+	// cleanup goroutine may race a delete that already happened in the error path —
+	// that is safe because delete on a missing key is a no-op.
 	go func() {
 		wg.Wait()
 		close(done)
@@ -348,38 +353,54 @@ func (p *plugin) startCertificateWatcher(pod *api.PodSandbox, ctr *api.Container
 		stream, err := p.delegatedIdentityClient.SubscribeToX509SVIDs(watcherCtx, req)
 
 		if err != nil {
-			// Error here means that there is no way to fetch certificates for the requested pid
-			// This can happen for example when there is no workload registered with the Spire Server
-			// associated with that pid. Therefore no retry logic needed here.
-			// Plugin will not stop the container. This is left to the application to deal with this error.
-
-			// Just log the error. Returning the error not possible because the goroutine here does not return anything
-			log.Errorf("%s: failed to subscribe to X509 SVIDs: %v", containerName(pod, ctr), err)
+			// Error here means that there is no way to fetch certificates for the requested pid.
+			// Signal the setup failure so the caller can propagate it instead of starting
+			// the container with an empty mount directory.
+			svidReady <- fmt.Errorf("%s: failed to subscribe to X509 SVIDs: %w", containerName(pod, ctr), err)
 			return
 		}
+
+		// Track whether the caller has already been unblocked for the initial write.
+		svidPrimed := false
 
 		// Process streaming updates
 		// This loop also takes care of retrying to fetch certificates
 		for {
 			if err := watcherCtx.Err(); err != nil {
-				log.Errorf("%s: SVID watcher context cancelled: %v", containerName(pod, ctr), err)
+				// Context cancelled is an expected shutdown path (StopContainer/Shutdown),
+				// not an application error — log at Info, not Error.
+				log.Infof("%s: SVID watcher context cancelled: %v", containerName(pod, ctr), err)
+				if !svidPrimed {
+					svidReady <- fmt.Errorf("%s: SVID watcher cancelled before initial write: %w", containerName(pod, ctr), err)
+				}
 				return
 			}
 
 			resp, err := stream.Recv()
 			if err != nil {
-				log.Errorf("%s: bundle stream error: %v", containerName(pod, ctr), err)
+				log.Errorf("%s: SVID stream error: %v", containerName(pod, ctr), err)
+				if !svidPrimed {
+					svidReady <- fmt.Errorf("%s: SVID stream closed before initial write: %w", containerName(pod, ctr), err)
+				}
 				return
 			}
 
-			// Process the certificate update
+			// processSvidUpdate returns nil (not an error) when the SVID list is empty,
+			// treating it as a transient "not yet minted" state — keep looping.
 			if err := p.processSvidUpdate(containerName(pod, ctr), pid, hostDir, config, resp.X509Svids); err != nil {
-				log.Errorf("%s: failed to process certificate update: %v", containerName(pod, ctr), err) // Just log the error. Returning the error not possible because the goroutine here does not return anything
-
+				log.Errorf("%s: failed to process certificate update: %v", containerName(pod, ctr), err)
+				if !svidPrimed {
+					svidReady <- fmt.Errorf("%s: initial SVID write failed: %w", containerName(pod, ctr), err)
+				}
 				// this error is a fatal error which should stop further execution/processing
 				return
 			}
 
+			// Signal readiness only after a non-empty SVID has been written to disk.
+			if !svidPrimed && len(resp.X509Svids) > 0 {
+				svidPrimed = true
+				svidReady <- nil
+			}
 		}
 	}()
 
@@ -401,37 +422,105 @@ func (p *plugin) startCertificateWatcher(pod *api.PodSandbox, ctr *api.Container
 		stream, err := p.delegatedIdentityClient.SubscribeToX509Bundles(watcherCtx, req)
 
 		if err != nil {
-			// Error here means that there is no way to fetch certificate bundles.
-			// Therefore no retry logic needed here.
-			// Plugin will not stop the container. This is left to the application to deal with this error.
-
-			// Just log the error. Returning the error not possible because the goroutine here does not return anything
-			log.Errorf("%s: failed to subscribe to X509 Bundles: %v", containerName(pod, ctr), err)
+			// Signal the setup failure so the caller can propagate it.
+			bundleReady <- fmt.Errorf("%s: failed to subscribe to X509 Bundles: %w", containerName(pod, ctr), err)
 			return
 		}
+
+		// Track whether the caller has already been unblocked for the initial write.
+		bundlePrimed := false
 
 		// Process streaming updates
 		for {
 			if err := watcherCtx.Err(); err != nil {
-				log.Errorf("%s: bundle watcher context cancelled: %v", containerName(pod, ctr), err)
+				// Context cancelled is an expected shutdown path (StopContainer/Shutdown),
+				// not an application error — log at Info, not Error.
+				log.Infof("%s: bundle watcher context cancelled: %v", containerName(pod, ctr), err)
+				if !bundlePrimed {
+					bundleReady <- fmt.Errorf("%s: bundle watcher cancelled before initial write: %w", containerName(pod, ctr), err)
+				}
 				return
 			}
 
 			resp, err := stream.Recv()
 			if err != nil {
 				log.Errorf("%s: bundle stream error: %v", containerName(pod, ctr), err)
+				if !bundlePrimed {
+					bundleReady <- fmt.Errorf("%s: bundle stream closed before initial write: %w", containerName(pod, ctr), err)
+				}
 				return
 			}
 
-			// Process the bundle update
+			// processBundleUpdate returns nil (not an error) when caCertificates is empty,
+			// treating it as a transient state — keep looping.
 			if err := p.processBundleUpdate(containerName(pod, ctr), hostDir, config, resp.CaCertificates); err != nil {
 				log.Errorf("%s: failed to process bundle update: %v", containerName(pod, ctr), err)
+				if !bundlePrimed {
+					bundleReady <- fmt.Errorf("%s: initial bundle write failed: %w", containerName(pod, ctr), err)
+				}
 				return
+			}
+
+			// Signal readiness only after a non-empty bundle has been written to disk.
+			if !bundlePrimed && len(resp.CaCertificates) > 0 {
+				bundlePrimed = true
+				bundleReady <- nil
 			}
 
 			log.Infof("%s: bundle updated", containerName(pod, ctr))
 		}
 	}()
+
+	// Block until both the SVID and bundle have been written to the host directory
+	// for the first time, or until the setup timeout expires.
+	// The goroutines continue running after this point for certificate rotation.
+	setupCtx, setupCancel := context.WithTimeout(context.Background(), initialWriteTimeout)
+	defer setupCancel()
+
+	// Collect exactly one signal from each goroutine (svidReady and bundleReady).
+	// Each channel is buffered(1) and each goroutine sends at most once, so neither
+	// goroutine can block on a send regardless of whether we read the channel.
+	// On the first error or timeout we break early; the second goroutine may send
+	// later into its buffered channel and the value is simply never read — no leak,
+	// no deadlock.
+	var setupErr error
+	for range 2 {
+		select {
+		case err := <-svidReady:
+			if err != nil {
+				setupErr = err
+			}
+		case err := <-bundleReady:
+			if err != nil {
+				setupErr = err
+			}
+		case <-setupCtx.Done():
+			setupErr = fmt.Errorf("%s: timed out waiting for initial SVID and bundle writes", containerName(pod, ctr))
+		}
+		if setupErr != nil {
+			break
+		}
+	}
+
+	if setupErr != nil {
+		// cancel is idempotent: a goroutine's defer cancel() may have already fired
+		// if it exited due to a stream error; calling it again here is safe and
+		// ensures the peer goroutine is also stopped when we return early.
+		cancel()
+		// The watcher map entry has not been registered yet (registration is below),
+		// so there is nothing to delete here.
+		return setupErr
+	}
+
+	// Both artifacts are on disk. Register the watcher entry now so that
+	// StopContainer/Shutdown can find and cancel it.  Doing this after setup
+	// avoids a window where StopContainer could see a half-initialised entry.
+	p.watchersMu.Lock()
+	p.watchers[watcherKey] = &containerWatcher{
+		cancel: cancel,
+		done:   done,
+	}
+	p.watchersMu.Unlock()
 
 	return nil
 }

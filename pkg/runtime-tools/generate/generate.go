@@ -605,7 +605,6 @@ func (g *Generator) AdjustMounts(mounts []*nri.Mount) error {
 		return nil
 	}
 
-	propagation := ""
 	for _, m := range mounts {
 		if destination, marked := m.IsMarkedForRemoval(); marked {
 			g.RemoveMount(destination)
@@ -614,6 +613,7 @@ func (g *Generator) AdjustMounts(mounts []*nri.Mount) error {
 
 		g.RemoveMount(m.Destination)
 
+		propagation := ""
 		mnt := m.ToOCI(&propagation)
 		switch propagation {
 		case "rprivate":

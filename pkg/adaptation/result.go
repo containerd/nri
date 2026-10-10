@@ -1091,13 +1091,37 @@ func (r *result) adjustLinuxNetDevices(devices map[string]*LinuxNetDevice, plugi
 	return nil
 }
 
-func (r *result) updateResources(reply, u *ContainerUpdate, plugin string) error {
+func (r *result) updateResources(reply, u *ContainerUpdate, plugin string) (retErr error) {
 	if u.Linux == nil || u.Linux.Resources == nil {
 		return nil
 	}
 
 	var resources *LinuxResources
 	request, id := r.request.update, u.ContainerId
+
+	// Stage this container's ownership together with its resource values.
+	owners, hadOwners := r.owners.Owners[id]
+	if owners != nil {
+		staged := &api.FieldOwners{
+			Simple:   maps.Clone(owners.Simple),
+			Compound: maps.Clone(owners.Compound),
+		}
+		for field, compound := range owners.Compound {
+			if compound != nil {
+				staged.Compound[field] = &api.CompoundFieldOwners{Owners: maps.Clone(compound.Owners)}
+			}
+		}
+		r.owners.Owners[id] = staged
+	}
+	defer func() {
+		if retErr != nil {
+			if hadOwners {
+				r.owners.Owners[id] = owners
+			} else {
+				delete(r.owners.Owners, id)
+			}
+		}
+	}()
 
 	// operate on a copy: we won't touch anything on (ignored) failures
 	if request != nil && request.Container.Id == id {

@@ -780,6 +780,8 @@ func (g *Generator) SetLinuxResourcesPidsLimit(limit int64) {
 	}
 	if limit > UnlimitedPidsLimit {
 		g.Config.Linux.Resources.Pids.Limit = &limit
+	} else {
+		g.Config.Linux.Resources.Pids.Limit = nil
 	}
 }
 

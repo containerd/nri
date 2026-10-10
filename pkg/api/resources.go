@@ -72,8 +72,8 @@ func FromOCILinuxResources(o *rspec.LinuxResources, _ map[string]string) *LinuxR
 		})
 	}
 	if p := o.Pids; p != nil {
-		l.Pids = &LinuxPids{}
-		if p.Limit != nil && *p.Limit != 0 {
+		l.Pids = &LinuxPids{Limit: UnlimitedPidsLimit}
+		if p.Limit != nil {
 			l.Pids.Limit = *p.Limit
 		}
 	}

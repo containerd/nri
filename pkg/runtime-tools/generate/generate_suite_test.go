@@ -192,6 +192,21 @@ func TestAdjustment(t *testing.T) {
 				return makeSpec(withPidsLimit(123))
 			},
 		},
+		{
+			doc: "unlimited pids",
+			adjust: &api.ContainerAdjustment{
+				Linux: &api.LinuxContainerAdjustment{
+					Resources: &api.LinuxResources{
+						Pids: &api.LinuxPids{Limit: api.UnlimitedPidsLimit},
+					},
+				},
+			},
+			expected: func() *rspec.Spec {
+				spec := makeSpec()
+				spec.Linux.Resources.Pids.Limit = nil
+				return spec
+			},
+		},
 	}
 
 	for _, tc := range tests {

@@ -1145,7 +1145,7 @@ func (r *result) updateResources(reply, u *ContainerUpdate, plugin string) error
 		}
 		resources.RdtClass = String(v.GetValue())
 	}
-	if v := resources.GetPids(); v != nil {
+	if v := u.Linux.Resources.GetPids(); v != nil {
 		if err := r.owners.ClaimPidsLimit(id, plugin); err != nil {
 			return err
 		}

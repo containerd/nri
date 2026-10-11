@@ -325,10 +325,39 @@ func (g *Generator) AdjustResources(r *nri.LinuxResources) error {
 			g.SetLinuxResourcesCPURealtimePeriod(r.Cpu.GetRealtimePeriod().GetValue())
 		}
 	}
-	if r.Memory != nil {
-		if l := r.Memory.GetLimit().GetValue(); l != 0 {
+	if m := r.Memory; m != nil && (m.Limit != nil || m.Reservation != nil ||
+		m.Swap != nil || m.Kernel != nil || m.KernelTcp != nil || m.Swappiness != nil ||
+		m.DisableOomKiller != nil || m.UseHierarchy != nil) {
+		g.initConfigLinuxResources()
+		if g.Config.Linux.Resources.Memory == nil {
+			g.Config.Linux.Resources.Memory = &rspec.LinuxMemory{}
+		}
+		memory := g.Config.Linux.Resources.Memory
+		if m.Limit != nil {
+			l := m.Limit.GetValue()
 			g.SetLinuxResourcesMemoryLimit(l)
 			g.SetLinuxResourcesMemorySwap(l)
+		}
+		if m.Swap != nil {
+			g.SetLinuxResourcesMemorySwap(m.Swap.GetValue())
+		}
+		if m.Reservation != nil {
+			memory.Reservation = m.Reservation.Get()
+		}
+		if m.Kernel != nil {
+			memory.Kernel = m.Kernel.Get() //nolint:staticcheck // preserve the supported legacy field
+		}
+		if m.KernelTcp != nil {
+			memory.KernelTCP = m.KernelTcp.Get()
+		}
+		if m.Swappiness != nil {
+			memory.Swappiness = m.Swappiness.Get()
+		}
+		if m.DisableOomKiller != nil {
+			memory.DisableOOMKiller = m.DisableOomKiller.Get()
+		}
+		if m.UseHierarchy != nil {
+			memory.UseHierarchy = m.UseHierarchy.Get()
 		}
 	}
 	for _, l := range r.HugepageLimits {

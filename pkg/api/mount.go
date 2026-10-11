@@ -67,8 +67,8 @@ func (m *Mount) Cmp(v *Mount) bool {
 		return false
 	}
 
-	mOpts := make([]string, len(m.Options))
-	vOpts := make([]string, len(m.Options))
+	mOpts := append([]string(nil), m.Options...)
+	vOpts := append([]string(nil), v.Options...)
 	sort.Strings(mOpts)
 	sort.Strings(vOpts)
 

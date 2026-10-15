@@ -339,12 +339,15 @@ func (r *Adaptation) CreateContainer(ctx context.Context, req *CreateContainerRe
 	}
 
 	for _, plugin := range r.plugins {
-		if validate != nil {
-			validate.AddPlugin(plugin.base, plugin.idx)
-		}
 		rpl, err := plugin.createContainer(ctx, req)
 		if err != nil {
 			return nil, err
+		}
+		// Only report plugins which processed the container to validators.
+		// A plugin closed while handling the request has been dropped and
+		// the request proceeds without it.
+		if validate != nil && !plugin.isClosed() {
+			validate.AddPlugin(plugin.base, plugin.idx)
 		}
 		err = result.apply(rpl, plugin.name())
 		if err != nil {

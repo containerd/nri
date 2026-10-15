@@ -19,11 +19,13 @@ package adaptation_test
 import (
 	"context"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -38,6 +40,7 @@ import (
 	nri "github.com/containerd/nri/pkg/adaptation"
 	"github.com/containerd/nri/pkg/api"
 	nriplugin "github.com/containerd/nri/pkg/plugin"
+	"github.com/containerd/nri/pkg/stub"
 	validator "github.com/containerd/nri/plugins/default-validator/builtin"
 )
 
@@ -2183,7 +2186,309 @@ func TestPluginContainerCreationAdjustments(t *testing.T) {
 			require.NotNil(t, reply)
 			require.Nil(t, err)
 		})
+
+		t.Run("should allow container creation if a required plugin is not subscribed to CreateContainer", func(t *testing.T) {
+			var (
+				foo = &mockPlugin{idx: "00", name: "foo", mask: api.MustParseEventMask("RunPodSandbox", "CreateContainer")}
+				bar = &mockPlugin{idx: "10", name: "bar", mask: api.MustParseEventMask("RunPodSandbox")}
+			)
+			setupRequired(t, s, "foo", "bar")(foo, bar)
+
+			reply, err := createContainer(t, s, nil)
+			require.NoError(t, err)
+			require.NotNil(t, reply)
+		})
+
+		// A required plugin which fails to process the container, by exceeding
+		// the request timeout or by losing its connection, is dropped by the
+		// runtime and the request proceeds without it. It must not be reported
+		// to validators as a plugin consulted for the container.
+		t.Run("should not allow container creation if a required plugin failed to process it", func(t *testing.T) {
+			for _, tc := range createContainerFailures() {
+				t.Run(tc.name, func(t *testing.T) {
+					var (
+						events  = api.MustParseEventMask("RunPodSandbox", "CreateContainer")
+						foo     = &mockPlugin{idx: "00", name: "foo", mask: events}
+						bar     = &mockPlugin{idx: "10", name: "bar", mask: events}
+						trigger = tc.prepare(t, bar)
+					)
+					setupRequired(t, s, "foo", "bar")(foo, bar)
+
+					reply, err := createContainer(t, s, trigger)
+					require.Nil(t, reply)
+					require.ErrorContains(t, err, `required plugin "bar" not present`)
+					require.NoError(t, bar.Wait(PluginDisconnected, time.After(startupTimeout)))
+				})
+			}
+		})
+
+		// If a plugin fails the request, validation never runs: the plugin
+		// error is reported, not a validation error.
+		t.Run("should report the plugin error if a plugin fails the request", func(t *testing.T) {
+			key := "key"
+
+			for _, tc := range []struct {
+				name    string
+				prepare func(foo, bar *mockPlugin)
+				errMsg  string
+			}{
+				{
+					name: "returns an error",
+					prepare: func(foo, _ *mockPlugin) {
+						foo.createContainer = func(*mockPlugin, *api.PodSandbox, *api.Container) (*api.ContainerAdjustment, []*api.ContainerUpdate, error) {
+							return nil, nil, fmt.Errorf("foo refused the container")
+						}
+					},
+					errMsg: "foo refused the container",
+				},
+				{
+					name: "conflicts with another plugin",
+					prepare: func(foo, bar *mockPlugin) {
+						for _, p := range []*mockPlugin{foo, bar} {
+							p.createContainer = func(p *mockPlugin, _ *api.PodSandbox, _ *api.Container) (*api.ContainerAdjustment, []*api.ContainerUpdate, error) {
+								a := &api.ContainerAdjustment{}
+								a.AddAnnotation(key, p.name)
+								return a, nil, nil
+							}
+						}
+					},
+					errMsg: "both tried to set",
+				},
+			} {
+				t.Run(tc.name, func(t *testing.T) {
+					var (
+						events = api.MustParseEventMask("RunPodSandbox", "CreateContainer")
+						foo    = &mockPlugin{idx: "00", name: "foo", mask: events}
+						bar    = &mockPlugin{idx: "10", name: "bar", mask: events}
+					)
+					tc.prepare(foo, bar)
+					// xyzzy is required but absent: validation would fail if it ran.
+					setupRequired(t, s, "foo", "bar", "xyzzy")(foo, bar)
+
+					reply, err := createContainer(t, s, nil)
+					require.Nil(t, reply)
+					require.ErrorContains(t, err, tc.errMsg)
+					require.NotContains(t, err.Error(), "required plugin")
+				})
+			}
+		})
 	})
+
+	// The plugins reported to validators as consulted for a container are the
+	// registered plugins, in invocation order, which processed the request.
+	t.Run("plugins consulted for a container are reported to validators", func(t *testing.T) {
+		// recorder is a validator plugin recording the plugins it was told
+		// were consulted for the container.
+		type recorder struct {
+			*mockPlugin
+			sync.Mutex
+			consulted []string
+		}
+
+		newRecorder := func() *recorder {
+			r := &recorder{
+				mockPlugin: &mockPlugin{
+					idx:  "99",
+					name: "validator",
+					mask: api.MustParseEventMask("ValidateContainerAdjustment"),
+				},
+			}
+			r.validateAdjustment = func(_ *mockPlugin, req *api.ValidateContainerAdjustmentRequest) error {
+				r.Lock()
+				defer r.Unlock()
+				r.consulted = nil
+				for _, p := range req.GetPlugins() {
+					r.consulted = append(r.consulted, p.Index+"-"+p.Name)
+				}
+				return nil
+			}
+			return r
+		}
+
+		for _, tc := range []struct {
+			name      string
+			barEvents []string
+			prepare   func(t *testing.T, p *mockPlugin) func()
+			consulted []string
+		}{
+			{
+				name:      "in invocation order",
+				consulted: []string{"00-foo", "10-bar", "99-validator"},
+			},
+			{
+				name:      "including plugins not subscribed to CreateContainer",
+				barEvents: []string{"RunPodSandbox"},
+				consulted: []string{"00-foo", "10-bar", "99-validator"},
+			},
+			{
+				name:      "excluding a plugin which " + createContainerFailures()[0].name,
+				prepare:   createContainerFailures()[0].prepare,
+				consulted: []string{"00-foo", "99-validator"},
+			},
+			{
+				name:      "excluding a plugin which " + createContainerFailures()[1].name,
+				prepare:   createContainerFailures()[1].prepare,
+				consulted: []string{"00-foo", "99-validator"},
+			},
+			{
+				name:      "excluding a plugin which " + createContainerFailures()[2].name,
+				prepare:   createContainerFailures()[2].prepare,
+				consulted: []string{"00-foo", "99-validator"},
+			},
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				nri.SetPluginRequestTimeout(shortRequestTimeout)
+				t.Cleanup(func() {
+					nri.SetPluginRequestTimeout(nri.DefaultPluginRequestTimeout)
+				})
+
+				barEvents := tc.barEvents
+				if barEvents == nil {
+					barEvents = []string{"RunPodSandbox", "CreateContainer"}
+				}
+				var (
+					foo     = &mockPlugin{idx: "00", name: "foo", mask: api.MustParseEventMask("RunPodSandbox", "CreateContainer")}
+					bar     = &mockPlugin{idx: "10", name: "bar", mask: api.MustParseEventMask(barEvents...)}
+					rec     = newRecorder()
+					trigger func()
+				)
+				if tc.prepare != nil {
+					trigger = tc.prepare(t, bar)
+				}
+				s.Prepare(t, &mockRuntime{}, foo, bar, rec.mockPlugin)
+
+				reply, err := createContainer(t, s, trigger)
+				require.NoError(t, err)
+				require.NotNil(t, reply)
+
+				rec.Lock()
+				defer rec.Unlock()
+				require.Equal(t, tc.consulted, rec.consulted)
+			})
+		}
+	})
+}
+
+// shortRequestTimeout is used by tests which need a plugin to exceed the
+// plugin request timeout. Such plugins simply block until released.
+const shortRequestTimeout = 100 * time.Millisecond
+
+// setupRequired prepares a suite with the default validator requiring the
+// given plugins, and returns a function to register the plugins to start.
+func setupRequired(t *testing.T, s *Suite, required ...string) func(plugins ...*mockPlugin) {
+	t.Helper()
+	nri.SetPluginRequestTimeout(shortRequestTimeout)
+	t.Cleanup(func() {
+		nri.SetPluginRequestTimeout(nri.DefaultPluginRequestTimeout)
+	})
+	return func(plugins ...*mockPlugin) {
+		s.Prepare(t,
+			&mockRuntime{
+				options: []nri.Option{
+					nri.WithDefaultValidator(
+						&validator.DefaultValidatorConfig{
+							Enable:          true,
+							RequiredPlugins: required,
+						},
+					),
+				},
+			},
+			plugins...,
+		)
+	}
+}
+
+// createContainer starts the suite, runs a pod sandbox, calls trigger if
+// given, and then requests the creation of a container in the pod.
+func createContainer(t *testing.T, s *Suite, trigger func()) (*api.CreateContainerResponse, error) {
+	t.Helper()
+
+	var (
+		ctx = context.Background()
+		pod = &api.PodSandbox{
+			Id:        "pod0",
+			Name:      "pod0",
+			Uid:       "uid0",
+			Namespace: "default",
+		}
+	)
+
+	s.Startup()
+	require.NoError(t, s.runtime.RunPodSandbox(ctx, &api.RunPodSandboxRequest{Pod: pod}))
+
+	if trigger != nil {
+		trigger()
+	}
+
+	return s.runtime.CreateContainer(ctx, &api.CreateContainerRequest{
+		Pod: pod,
+		Container: &api.Container{
+			Id:           "ctr0",
+			PodSandboxId: "pod0",
+			Name:         "ctr0",
+			State:        api.ContainerState_CONTAINER_CREATED,
+		},
+	})
+}
+
+// disconnectable captures the connection of a plugin so that it can be
+// closed at will, emulating the plugin dying. Must be called before the
+// plugin is started.
+func disconnectable(p *mockPlugin) func() error {
+	var conn net.Conn
+	p.options = append(p.options,
+		stub.WithDialer(func(path string) (net.Conn, error) {
+			c, err := net.Dial("unix", path)
+			conn = c
+			return c, err
+		}),
+	)
+	return func() error { return conn.Close() }
+}
+
+// createContainerFailure describes a way for a plugin to fail processing a
+// CreateContainer request. prepare sets the plugin up before it is started
+// and returns an optional trigger to call right before the request.
+type createContainerFailure struct {
+	name    string
+	prepare func(t *testing.T, p *mockPlugin) func()
+}
+
+func createContainerFailures() []createContainerFailure {
+	return []createContainerFailure{
+		{
+			name: "timed out",
+			prepare: func(t *testing.T, p *mockPlugin) func() {
+				release := make(chan struct{})
+				t.Cleanup(func() { close(release) })
+				p.createContainer = func(*mockPlugin, *api.PodSandbox, *api.Container) (*api.ContainerAdjustment, []*api.ContainerUpdate, error) {
+					<-release
+					return nil, nil, nil
+				}
+				return nil
+			},
+		},
+		{
+			name: "disconnected while processing it",
+			prepare: func(_ *testing.T, p *mockPlugin) func() {
+				disconnect := disconnectable(p)
+				p.createContainer = func(*mockPlugin, *api.PodSandbox, *api.Container) (*api.ContainerAdjustment, []*api.ContainerUpdate, error) {
+					return nil, nil, disconnect()
+				}
+				return nil
+			},
+		},
+		{
+			name: "disconnected before it",
+			prepare: func(t *testing.T, p *mockPlugin) func() {
+				disconnect := disconnectable(p)
+				return func() {
+					require.NoError(t, disconnect())
+					require.NoError(t, p.Wait(PluginDisconnected, time.After(startupTimeout)))
+				}
+			},
+		},
+	}
 }
 
 // --------------------------------------------

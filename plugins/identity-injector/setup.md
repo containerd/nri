@@ -14,6 +14,8 @@ The goal of this step is to have the Spire Server and Spire Agent up and running
 
 The SPIRE Server needs a `PersistentVolume` backed by a host directory (`/tmp/spire-data`) so that its SQLite database (used to store registration entries and keys) survives pod restarts. The `chmod 777` ensures the SPIRE Server container (which runs as a non-root user) can write to that directory.
 
+> **⚠ Local ephemeral environment only.** The `chmod 777` below is a pragmatic shortcut for this single-developer, single-session local cluster where the UID/GID of the upstream SPIRE quickstart image is not fixed. It is **not** a pattern to copy into any shared, persistent, or production setup. For those environments, prefer `chown <uid>:<gid>` to grant ownership to the specific user the container runs as, set `fsGroup` in the pod's `securityContext` so Kubernetes handles group ownership automatically, or configure the container to run with a known UID/GID and grant access with `0700`/`0750` permissions.
+
 The manifests applied from the SPIRE tutorials repository install:
 - A `spire` namespace to isolate all SPIRE resources.
 - ServiceAccounts, ClusterRoles, and ClusterRoleBindings granting SPIRE the Kubernetes API access it needs for node attestation and workload attestation.
@@ -345,6 +347,8 @@ Selector         : k8s:pod-name:bbid0
 **Why:** The test cluster is an isolated local Kubernetes cluster (started via `local-cluster-up.sh`) that does not have access to any external image registry. A local Docker registry (listening on `localhost:5000`) is used as a substitute. The plugin image must be built from source and pushed to this registry so that the Kubernetes node can pull it when the DaemonSet pod is scheduled.
 
 The host directories `/var/run/spiffe/` and `/var/run/spiffe/secrets/` are created in advance because the plugin container mounts them to store the SVIDs it fetches from SPIRE. The `chmod 777` ensures the plugin process (which may run as a non-root user) can write certificate files into the secrets directory.
+
+> **⚠ Local ephemeral environment only.** The `chmod 777` below is a pragmatic shortcut for this single-developer, single-session local cluster where the UID/GID of the plugin container is not fixed ahead of time. It is **not** a pattern to copy into any shared, persistent, or production setup. For those environments, prefer `chown <uid>:<gid>` to grant ownership to the specific user the container runs as, set `fsGroup` in the pod's `securityContext` so Kubernetes handles group ownership automatically, or configure the container to run with a known UID/GID and grant access with `0700`/`0750` permissions. Key material under world-writable directories can be read or replaced by any process on the host.
 
 `make build/bin/identity-injector` compiles the plugin binary. The `docker build` step packages it into a container image using the shared plugin `Dockerfile`. The `docker tag` and `docker push` steps make the image available in the local registry.
 

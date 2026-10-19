@@ -88,6 +88,42 @@ have requested to containers. This interface allows one to set up and enforce
 cluster- or node-wide boundary conditions for changes NRI plugins are allowed
 to make.
 
+### Transport for External Plugins
+
+External plugins use
+[ttRPC](https://github.com/containerd/ttrpc/blob/main/PROTOCOL.md), not gRPC,
+over a Unix-domain connection. NRI's [multiplexer](pkg/net/multiplex) carries
+two logical connections over that connection:
+
+| Connection ID | Service | RPC client | RPC server |
+|---------------|---------|------------|------------|
+| 1 | `Plugin` | Runtime | Plugin |
+| 2 | `Runtime` | Plugin | Runtime |
+
+Both ends use the same IDs, defined in
+[`pkg/net/multiplex/ttrpc.go`](pkg/net/multiplex/ttrpc.go). Each logical
+connection is bidirectional: requests and their responses use the same ID.
+Opening a logical connection does not send a separate handshake on the wire.
+
+Each mux frame starts with this eight-byte header, followed by the indicated
+number of payload bytes:
+
+| Byte offset | Size | Value |
+|-------------|------|-------|
+| 0 | 4 bytes | Connection ID, unsigned integer in big-endian order |
+| 4 | 4 bytes | Payload length in bytes, unsigned integer in big-endian order |
+
+The payload contains ttRPC bytes for the specified logical connection; the
+mux header is separate from ttRPC's own message header. A ttRPC message can
+span multiple mux frames. See [`mux.go`](pkg/net/multiplex/mux.go) for the
+reference framing implementation.
+
+A plugin must serve the `Plugin` service on connection 1 while making calls
+to the `Runtime` service on connection 2. Start handling both connections
+before calling `Runtime.RegisterPlugin`: the runtime can call
+`Plugin.Configure` before the registration response reaches the plugin.
+The registration and synchronization sequence is described below.
+
 ### Deprecated Interfaces
 
 #### StateChange
@@ -134,6 +170,31 @@ updates it considers necessary to any of the known containers in response.
 Once the handshake sequence is over and the plugin has registered with NRI,
 it will start receiving pod and container lifecycle events according to its
 subscription.
+
+#### Event Subscriptions
+
+`ConfigureResponse.events` is a bit mask, not an `Event` enum value. For an
+event with enum value `e`, set bit `1 << (e - 1)`, and combine the bits for
+the desired events with bitwise OR. `UNKNOWN` and `LAST` are sentinels, not
+events to subscribe to. The enum is defined in [`api.proto`](pkg/api/api.proto)
+and the Go helpers are in [`event.go`](pkg/api/event.go).
+
+Subscribe only to events the plugin handles and the target runtime's NRI
+version recognizes. An enum generated from a newer NRI version can contain
+events an older runtime does not recognize. The runtime rejects a nonzero
+mask containing bits outside its `ValidEvents` mask, which causes plugin
+registration to fail. Recognizing an event bit does not guarantee that a
+particular runtime integration emits that event. `ConfigureRequest` provides
+runtime and NRI version information, but does not advertise a supported-event
+mask.
+
+A zero mask on the wire selects all events known to the runtime's NRI
+version; it does not mean an empty subscription. This differs from the Go
+stub's convenience behavior: when a plugin's `Configure` callback returns
+zero, or the plugin has no `Configure` callback, the stub sends the mask
+derived from the event handlers implemented by the plugin. Plugins written
+without the Go stub must choose their subscription explicitly rather than
+relying on that local handler discovery.
 
 ### Pod Data and Available Lifecycle Events
 

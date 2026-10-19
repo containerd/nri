@@ -29,6 +29,7 @@ import (
 	nri "github.com/containerd/nri/pkg/adaptation"
 	"github.com/containerd/nri/pkg/api"
 	"github.com/containerd/nri/pkg/stub"
+	validator "github.com/containerd/nri/plugins/default-validator/builtin"
 )
 
 // These tests run the failure policy through the full stack: stub, ttrpc
@@ -51,14 +52,17 @@ const requestTimeout = 100 * time.Millisecond
 
 // blocker is a request handler that blocks until released.
 type blocker struct {
+	arrived chan struct{}
 	release chan struct{}
 	done    chan struct{}
+	first   sync.Once
 	once    sync.Once
 }
 
 func newBlocker(t *testing.T) *blocker {
 	t.Helper()
 	b := &blocker{
+		arrived: make(chan struct{}),
 		release: make(chan struct{}),
 		done:    make(chan struct{}),
 	}
@@ -69,9 +73,20 @@ func newBlocker(t *testing.T) *blocker {
 
 // handle blocks until released, then marks the blocked request as done.
 func (b *blocker) handle() error {
+	b.first.Do(func() { close(b.arrived) })
 	<-b.release
 	b.once.Do(func() { close(b.done) })
 	return nil
+}
+
+// WaitArrived waits until the first request has reached the handler.
+func (b *blocker) WaitArrived(t *testing.T) {
+	t.Helper()
+	select {
+	case <-b.arrived:
+	case <-time.After(startupTimeout):
+		t.Fatal("timed out waiting for a request to reach the blocked handler")
+	}
 }
 
 // Release unblocks the handler.
@@ -270,5 +285,212 @@ func TestPluginFailurePolicy(t *testing.T) {
 			stub.WithFailurePolicy(nil),
 		)
 		require.Error(t, err)
+	})
+}
+
+func TestPluginFailureScenarios(t *testing.T) {
+	s := &Suite{}
+
+	setup := func(t *testing.T, runtime *mockRuntime, plugins ...*mockPlugin) {
+		t.Helper()
+		nri.SetPluginRequestTimeout(requestTimeout)
+		t.Cleanup(func() {
+			nri.SetPluginRequestTimeout(nri.DefaultPluginRequestTimeout)
+		})
+		s.Prepare(t, runtime, plugins...)
+	}
+
+	var (
+		ctx  = context.Background()
+		pod0 = &api.PodSandbox{Id: "pod0", Name: "pod0", Uid: "uid0", Namespace: "default"}
+		pod1 = &api.PodSandbox{Id: "pod1", Name: "pod1", Uid: "uid1", Namespace: "default"}
+		pod2 = &api.PodSandbox{Id: "pod2", Name: "pod2", Uid: "uid2", Namespace: "default"}
+		ctr0 = &api.Container{Id: "ctr0", PodSandboxId: "pod0", Name: "ctr0", State: api.ContainerState_CONTAINER_CREATED}
+
+		keepAndFail = &api.FailurePolicy{FailRequest: true, KeepConnected: true}
+
+		runPod = func(ctx context.Context, pod *api.PodSandbox) error {
+			return s.runtime.RunPodSandbox(ctx, &api.RunPodSandboxRequest{Pod: pod})
+		}
+
+		newPlugin = func(idx, name string, policy *api.FailurePolicy) *mockPlugin {
+			p := &mockPlugin{
+				idx:  idx,
+				name: name,
+				mask: api.MustParseEventMask("RunPodSandbox", "CreateContainer"),
+			}
+			if policy != nil {
+				p.options = []stub.Option{stub.WithFailurePolicy(policy)}
+			}
+			return p
+		}
+
+		blockPlugin = func(t *testing.T, p *mockPlugin) *blocker {
+			b := newBlocker(t)
+			p.runPodSandbox = func(*mockPlugin, *api.PodSandbox, *api.Container) error {
+				return b.handle()
+			}
+			return b
+		}
+	)
+
+	// Scenario A: the runtime sets a deadline on the operation. NRI calls
+	// the plugins one after the other. Each plugin has its own request
+	// timeout, but all of them share the runtime deadline. A slow plugin
+	// consumes the budget of the plugins after it.
+	t.Run("A: a slow plugin consumes the runtime deadline of the plugins after it", func(t *testing.T) {
+		slow00 := newPlugin("00", "slow00", nil)
+		slow10 := newPlugin("10", "slow10", nil)
+		blockPlugin(t, slow00)
+		b10 := blockPlugin(t, slow10)
+		setup(t, &mockRuntime{}, slow00, slow10)
+		s.Startup()
+
+		// Cancel the runtime context once the request reaches plugin 10.
+		// This emulates a runtime deadline that expires at that moment.
+		rctx, cancel := context.WithCancel(ctx)
+		defer cancel()
+		go func() {
+			b10.WaitArrived(t)
+			cancel()
+		}()
+
+		start := time.Now()
+		err := runPod(rctx, pod0)
+		elapsed := time.Since(start)
+
+		// The runtime gets its own error. No plugin is named.
+		require.ErrorIs(t, err, context.Canceled)
+		require.NotContains(t, err.Error(), slow10.FullName())
+		// Plugin 10 received the request only after plugin 00 timed out.
+		require.GreaterOrEqual(t, elapsed, requestTimeout)
+		// Plugin 00 is dropped for its timeout. Plugin 10 is not.
+		require.NoError(t, slow00.Wait(PluginDisconnected, time.After(startupTimeout)))
+		require.False(t, slow10.EventQ().Has(PluginDisconnected))
+	})
+
+	// Scenario B: a plugin that never answers. There is no health check and
+	// no counter of failures.
+	//
+	// Today, without a policy: each request drops the plugin. The plugin
+	// reconnects, is still hung, and the next request times out and drops
+	// it again. Each request waits the full timeout.
+	//
+	// With keep_connected: the same, without the reconnect. Each request
+	// waits the full timeout and the plugin stays registered. With
+	// fail_request too, each request fails.
+	t.Run("B: a plugin that never answers delays each request by the full timeout", func(t *testing.T) {
+		t.Run("no policy: dropped, reconnects, dropped again", func(t *testing.T) {
+			hung := newPlugin("00", "hung", nil)
+			blockPlugin(t, hung)
+			setup(t, &mockRuntime{}, hung)
+			s.Startup()
+
+			start := time.Now()
+			require.NoError(t, runPod(ctx, pod0))
+			require.GreaterOrEqual(t, time.Since(start), requestTimeout)
+			require.NoError(t, hung.Wait(PluginDisconnected, time.After(startupTimeout)))
+
+			// The plugin restarts. A new instance of the same plugin
+			// registers, and it is still hung.
+			restarted := newPlugin("00", "hung", nil)
+			blockPlugin(t, restarted)
+			s.StartPlugins(restarted)
+			s.WaitForPluginsToSync(restarted)
+
+			start = time.Now()
+			require.NoError(t, runPod(ctx, pod1))
+			require.GreaterOrEqual(t, time.Since(start), requestTimeout)
+			require.NoError(t, restarted.Wait(PluginDisconnected, time.After(startupTimeout)))
+		})
+
+		t.Run("fail_request+keep_connected: each request fails, the plugin stays", func(t *testing.T) {
+			hung := newPlugin("00", "hung", keepAndFail)
+			blockPlugin(t, hung)
+			setup(t, &mockRuntime{}, hung)
+			s.Startup()
+
+			for _, pod := range []*api.PodSandbox{pod0, pod1, pod2} {
+				start := time.Now()
+				err := runPod(ctx, pod)
+				require.ErrorIs(t, err, context.DeadlineExceeded)
+				require.ErrorContains(t, err, hung.FullName())
+				require.GreaterOrEqual(t, time.Since(start), requestTimeout)
+			}
+			require.False(t, hung.EventQ().Has(PluginDisconnected))
+		})
+	})
+
+	// Scenario C: plugin 10 depends on the adjustments of plugin 00. Plugin
+	// 00 has no policy and times out in CreateContainer.
+	//
+	// Today: NRI drops plugin 00 and calls plugin 10 with a container that
+	// lacks the adjustments of plugin 00. Nothing in the request tells
+	// plugin 10 that plugin 00 did not run. The container is created
+	// without the adjustments.
+	t.Run("C: a plugin runs after a dropped plugin without knowing it", func(t *testing.T) {
+		var (
+			b       = newBlocker(t)
+			seenEnv []string
+			slow    = newPlugin("00", "slow", nil)
+			next    = newPlugin("10", "next", nil)
+		)
+		// Plugin 00 would add an environment variable, but it blocks.
+		slow.createContainer = func(*mockPlugin, *api.PodSandbox, *api.Container) (*api.ContainerAdjustment, []*api.ContainerUpdate, error) {
+			if err := b.handle(); err != nil {
+				return nil, nil, err
+			}
+			a := &api.ContainerAdjustment{}
+			a.AddEnv("FROM_SLOW", "1")
+			return a, nil, nil
+		}
+		// Plugin 10 records the environment it sees.
+		next.createContainer = func(_ *mockPlugin, _ *api.PodSandbox, ctr *api.Container) (*api.ContainerAdjustment, []*api.ContainerUpdate, error) {
+			seenEnv = ctr.GetEnv()
+			return nil, nil, nil
+		}
+		setup(t, &mockRuntime{}, slow, next)
+		s.Startup()
+
+		require.NoError(t, runPod(ctx, pod0))
+		rpl, err := s.runtime.CreateContainer(ctx, &api.CreateContainerRequest{Pod: pod0, Container: ctr0})
+		require.NoError(t, err)
+		require.NoError(t, slow.Wait(PluginDisconnected, time.After(startupTimeout)))
+		require.NoError(t, next.Wait(ContainerEvent(ctr0, CreateContainer), time.After(startupTimeout)))
+
+		// Plugin 10 ran, and saw no sign of plugin 00.
+		require.Empty(t, seenEnv)
+		// The container has no adjustment from plugin 00.
+		require.Empty(t, rpl.GetAdjust().GetEnv())
+	})
+
+	// Scenario D: the required plugins check of the default validator is
+	// the existing guard for plugins that must be present.
+	//
+	// Today: the check uses the list of plugins consulted for the
+	// container. NRI adds a plugin to the list before it relays the
+	// request. A plugin that times out and is dropped is still in the
+	// list. The check does not catch it, and the container is created
+	// without the required plugin being present.
+	t.Run("D: the required plugins check does not catch a dropped plugin", func(t *testing.T) {
+		b := newBlocker(t)
+		slow := newPlugin("00", "slow", nil)
+		slow.createContainer = func(*mockPlugin, *api.PodSandbox, *api.Container) (*api.ContainerAdjustment, []*api.ContainerUpdate, error) {
+			return nil, nil, b.handle()
+		}
+		setup(t, &mockRuntime{
+			options: []nri.Option{
+				nri.WithDefaultValidator(&validator.DefaultValidatorConfig{
+					Enable:          true,
+					RequiredPlugins: []string{"slow"},
+				}),
+			},
+		}, slow)
+		s.Startup()
+
+		require.NoError(t, runPod(ctx, pod0))
+		_, err := s.runtime.CreateContainer(ctx, &api.CreateContainerRequest{Pod: pod0, Container: ctr0})
+		require.NoError(t, err)
+		require.NoError(t, slow.Wait(PluginDisconnected, time.After(startupTimeout)))
 	})
 }

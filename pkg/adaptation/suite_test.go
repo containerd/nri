@@ -380,7 +380,10 @@ type mockPlugin struct {
 
 	logf func(string, ...any)
 
-	q    *EventQ
+	q *EventQ
+	// mu protects pods and ctrs. A plugin kept connected after a timeout
+	// can receive a request while an earlier handler still runs.
+	mu   sync.Mutex
 	pods map[string]*api.PodSandbox
 	ctrs map[string]*api.Container
 
@@ -592,12 +595,36 @@ func (m *mockPlugin) Configure(_ context.Context, _, runtime, version string) (s
 	return events, nil
 }
 
-func (m *mockPlugin) Synchronize(_ context.Context, pods []*api.PodSandbox, ctrs []*api.Container) ([]*api.ContainerUpdate, error) {
-	for _, pod := range pods {
+// track records the pod and the container, if any, in the plugin state.
+func (m *mockPlugin) track(pod *api.PodSandbox, ctr *api.Container) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if pod != nil {
 		m.pods[pod.Id] = pod
 	}
-	for _, ctr := range ctrs {
+	if ctr != nil {
 		m.ctrs[ctr.Id] = ctr
+	}
+}
+
+// forget removes the pod or the container from the plugin state.
+func (m *mockPlugin) forget(pod *api.PodSandbox, ctr *api.Container) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if pod != nil {
+		delete(m.pods, pod.Id)
+	}
+	if ctr != nil {
+		delete(m.ctrs, ctr.Id)
+	}
+}
+
+func (m *mockPlugin) Synchronize(_ context.Context, pods []*api.PodSandbox, ctrs []*api.Container) ([]*api.ContainerUpdate, error) {
+	for _, pod := range pods {
+		m.track(pod, nil)
+	}
+	for _, ctr := range ctrs {
+		m.track(nil, ctr)
 	}
 
 	m.q.Add(PluginSynchronized)
@@ -610,98 +637,91 @@ func (m *mockPlugin) Shutdown(_ context.Context) {
 }
 
 func (m *mockPlugin) RunPodSandbox(_ context.Context, pod *api.PodSandbox) error {
-	m.pods[pod.Id] = pod
+	m.track(pod, nil)
 	err := m.runPodSandbox(m, pod, nil)
 	m.q.Add(PodSandboxEvent(pod, RunPodSandbox))
 	return err
 }
 
 func (m *mockPlugin) UpdatePodSandbox(_ context.Context, pod *api.PodSandbox, overhead *api.LinuxResources, res *api.LinuxResources) error {
-	m.pods[pod.Id] = pod
+	m.track(pod, nil)
 	m.q.Add(PodSandboxEvent(pod, UpdatePodSandbox))
 
 	return m.updatePodSandbox(m, pod, overhead, res)
 }
 
 func (m *mockPlugin) PostUpdatePodSandbox(_ context.Context, pod *api.PodSandbox) error {
-	m.pods[pod.Id] = pod
+	m.track(pod, nil)
 	err := m.postUpdatePodSandbox(m, pod, nil)
 	m.q.Add(PodSandboxEvent(pod, PostUpdatePodSandbox))
 	return err
 }
 
 func (m *mockPlugin) StopPodSandbox(_ context.Context, pod *api.PodSandbox) error {
-	m.pods[pod.Id] = pod
+	m.track(pod, nil)
 	err := m.stopPodSandbox(m, pod, nil)
 	m.q.Add(PodSandboxEvent(pod, StopPodSandbox))
 	return err
 }
 
 func (m *mockPlugin) RemovePodSandbox(_ context.Context, pod *api.PodSandbox) error {
-	delete(m.pods, pod.Id)
+	m.forget(pod, nil)
 	err := m.removePodSandbox(m, pod, nil)
 	m.q.Add(PodSandboxEvent(pod, RemovePodSandbox))
 	return err
 }
 
 func (m *mockPlugin) CreateContainer(_ context.Context, pod *api.PodSandbox, ctr *api.Container) (*api.ContainerAdjustment, []*api.ContainerUpdate, error) {
-	m.pods[pod.Id] = pod
-	m.ctrs[ctr.Id] = ctr
+	m.track(pod, ctr)
 	m.q.Add(ContainerEvent(ctr, CreateContainer))
 
 	return m.createContainer(m, pod, ctr)
 }
 
 func (m *mockPlugin) PostCreateContainer(_ context.Context, pod *api.PodSandbox, ctr *api.Container) error {
-	m.pods[pod.Id] = pod
-	m.ctrs[ctr.Id] = ctr
+	m.track(pod, ctr)
 	m.q.Add(ContainerEvent(ctr, PostCreateContainer))
 
 	return m.postCreateContainer(m, pod, ctr)
 }
 
 func (m *mockPlugin) StartContainer(_ context.Context, pod *api.PodSandbox, ctr *api.Container) error {
-	m.pods[pod.Id] = pod
-	m.ctrs[ctr.Id] = ctr
+	m.track(pod, ctr)
 	m.q.Add(ContainerEvent(ctr, StartContainer))
 
 	return m.startContainer(m, pod, ctr)
 }
 
 func (m *mockPlugin) PostStartContainer(_ context.Context, pod *api.PodSandbox, ctr *api.Container) error {
-	m.pods[pod.Id] = pod
-	m.ctrs[ctr.Id] = ctr
+	m.track(pod, ctr)
 	m.q.Add(ContainerEvent(ctr, PostStartContainer))
 
 	return m.postStartContainer(m, pod, ctr)
 }
 
 func (m *mockPlugin) UpdateContainer(_ context.Context, pod *api.PodSandbox, ctr *api.Container, res *api.LinuxResources) ([]*api.ContainerUpdate, error) {
-	m.pods[pod.Id] = pod
-	m.ctrs[ctr.Id] = ctr
+	m.track(pod, ctr)
 	m.q.Add(ContainerEvent(ctr, UpdateContainer))
 
 	return m.updateContainer(m, pod, ctr, res)
 }
 
 func (m *mockPlugin) PostUpdateContainer(_ context.Context, pod *api.PodSandbox, ctr *api.Container) error {
-	m.pods[pod.Id] = pod
-	m.ctrs[ctr.Id] = ctr
+	m.track(pod, ctr)
 	m.q.Add(ContainerEvent(ctr, PostUpdateContainer))
 
 	return m.postUpdateContainer(m, pod, ctr)
 }
 
 func (m *mockPlugin) StopContainer(_ context.Context, pod *api.PodSandbox, ctr *api.Container) ([]*api.ContainerUpdate, error) {
-	m.pods[pod.Id] = pod
-	m.ctrs[ctr.Id] = ctr
+	m.track(pod, ctr)
 	m.q.Add(ContainerEvent(ctr, StopContainer))
 
 	return m.stopContainer(m, pod, ctr)
 }
 
 func (m *mockPlugin) RemoveContainer(_ context.Context, pod *api.PodSandbox, ctr *api.Container) error {
-	delete(m.ctrs, ctr.Id)
+	m.forget(nil, ctr)
 	m.q.Add(ContainerEvent(ctr, RemoveContainer))
 
 	return m.removeContainer(m, pod, ctr)

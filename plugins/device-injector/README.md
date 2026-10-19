@@ -95,19 +95,24 @@ Mounts are annotated in a similar manner to devices, but using the
 `mounts.noderesource.dev` annotation key prefix. As with devices, the
 `mounts.nri.io` annotation key prefix is also supported.
 
-The annotation value syntax for mount injection is
+For instance, the following annotation injects `/home` into container `c0` at
+`/host-home` as a read-only bind mount:
 
+```yaml
+metadata:
+  name: mount-test
+  annotations:
+    mounts.noderesource.dev/container.c0: |
+      - source: /home
+        destination: /host-home
+        type: bind
+        options:
+          - bind
+          - ro
 ```
-  - source: <mount source0>
-    destination: <mount destination0>
-    type: <mount type0>
-    options:
-      - option0
-        option1
-        ...
-  - source: <mount source1>
-    ...
-```
+
+Each mount option must be a separate YAML list item. A continuation line without
+`-` is folded into the preceding item instead of adding another option.
 
 ### Network Device Annotations
 

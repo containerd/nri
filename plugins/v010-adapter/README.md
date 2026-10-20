@@ -44,17 +44,21 @@ sudo cp build/bin/v010-adapter /usr/local/bin
 # Make sure NRI is enabled in containerd:
 systemctl stop containerd
 cp /etc/containerd/config.toml /etc/containerd/config.toml.orig
-containerd config dump > /etc/containerd/config.toml
+# Read the backup so redirection does not truncate the input configuration.
+containerd --config /etc/containerd/config.toml.orig config dump > /etc/containerd/config.toml
 $EDITOR /etc/containerd/config.toml
 #  Change `disable = true` to `disable = false` in the
 #      `[plugins."io.containerd.nri.v1.nri"]` section.
 systemctl start containerd
 # Verify that NRI is enabled.
-[ -e /var/run/nri.sock ] && echo "NRI is enabled" || echo "NRI is disabled"
+[ -e /var/run/nri/nri.sock ] && echo "NRI is enabled" || echo "NRI is disabled"
 # Link the adapter plugin among the automatically launched plugins.
 sudo mkdir -p /opt/nri/plugins
 sudo ln -s /usr/local/bin/v010-adapter /opt/nri/plugins/00-v010-adapter
 ```
+
+If NRI's `socket_path` is customized in the containerd configuration, check
+that path instead of the default `/var/run/nri/nri.sock`.
 
 Once this is done, any NRI v0.1.0 plugin binaries found in `/opt/nri/bin`
 which are also enabled in /etc/nri/conf.json should be executed for each

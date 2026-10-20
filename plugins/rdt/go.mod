@@ -1,6 +1,6 @@
 module github.com/containerd/nri/plugins/rdt
 
-go 1.24.0
+go 1.26.4
 
 replace github.com/containerd/nri => ../..
 

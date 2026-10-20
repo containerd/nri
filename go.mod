@@ -1,6 +1,6 @@
 module github.com/containerd/nri
 
-go 1.24.0
+go 1.26.4
 
 require (
 	github.com/brianvoe/gofakeit/v7 v7.12.1
@@ -20,7 +20,7 @@ require (
 
 require (
 	github.com/containerd/log v0.1.0 // indirect
-	github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10 // indirect
+	github.com/planetscale/vtprotobuf v0.6.1-0.20260702190614-8ae5a48058df // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20251202230838-ff82c1b0f217 // indirect
 )
 

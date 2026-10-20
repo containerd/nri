@@ -1,6 +1,6 @@
 module github.com/containerd/nri/plugins/device-injector
 
-go 1.24.0
+go 1.26.4
 
 require (
 	github.com/containerd/nri v0.12.2

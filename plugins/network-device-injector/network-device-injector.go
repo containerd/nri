@@ -214,7 +214,8 @@ func parseNetdevices(annotations map[string]string) ([]netdevice, error) {
 	}
 
 	// validate and default
-	for _, n := range netdevices {
+	for i := range netdevices {
+		n := &netdevices[i]
 		if n.NewName == "" {
 			n.NewName = n.Name
 		}

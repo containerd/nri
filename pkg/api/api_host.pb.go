@@ -342,6 +342,11 @@ func (p *pluginPlugin) Configure(ctx context.Context, request *ConfigureRequest)
 		resSize &^= (1 << 31)
 	}
 
+	// We don't need the memory after deserialization: make sure it is freed.
+	if resPtr != 0 {
+		defer p.free.Call(ctx, uint64(resPtr))
+	}
+
 	// The pointer is a linear memory offset, which is where we write the name.
 	bytes, ok := p.module.Memory().Read(resPtr, resSize)
 	if !ok {
@@ -396,6 +401,11 @@ func (p *pluginPlugin) Synchronize(ctx context.Context, request *SynchronizeRequ
 	if (resSize & (1 << 31)) > 0 {
 		isErrResponse = true
 		resSize &^= (1 << 31)
+	}
+
+	// We don't need the memory after deserialization: make sure it is freed.
+	if resPtr != 0 {
+		defer p.free.Call(ctx, uint64(resPtr))
 	}
 
 	// The pointer is a linear memory offset, which is where we write the name.
@@ -454,6 +464,11 @@ func (p *pluginPlugin) Shutdown(ctx context.Context, request *Empty) (*Empty, er
 		resSize &^= (1 << 31)
 	}
 
+	// We don't need the memory after deserialization: make sure it is freed.
+	if resPtr != 0 {
+		defer p.free.Call(ctx, uint64(resPtr))
+	}
+
 	// The pointer is a linear memory offset, which is where we write the name.
 	bytes, ok := p.module.Memory().Read(resPtr, resSize)
 	if !ok {
@@ -508,6 +523,11 @@ func (p *pluginPlugin) RunPodSandbox(ctx context.Context, request *RunPodSandbox
 	if (resSize & (1 << 31)) > 0 {
 		isErrResponse = true
 		resSize &^= (1 << 31)
+	}
+
+	// We don't need the memory after deserialization: make sure it is freed.
+	if resPtr != 0 {
+		defer p.free.Call(ctx, uint64(resPtr))
 	}
 
 	// The pointer is a linear memory offset, which is where we write the name.
@@ -566,6 +586,11 @@ func (p *pluginPlugin) UpdatePodSandbox(ctx context.Context, request *UpdatePodS
 		resSize &^= (1 << 31)
 	}
 
+	// We don't need the memory after deserialization: make sure it is freed.
+	if resPtr != 0 {
+		defer p.free.Call(ctx, uint64(resPtr))
+	}
+
 	// The pointer is a linear memory offset, which is where we write the name.
 	bytes, ok := p.module.Memory().Read(resPtr, resSize)
 	if !ok {
@@ -620,6 +645,11 @@ func (p *pluginPlugin) PostUpdatePodSandbox(ctx context.Context, request *PostUp
 	if (resSize & (1 << 31)) > 0 {
 		isErrResponse = true
 		resSize &^= (1 << 31)
+	}
+
+	// We don't need the memory after deserialization: make sure it is freed.
+	if resPtr != 0 {
+		defer p.free.Call(ctx, uint64(resPtr))
 	}
 
 	// The pointer is a linear memory offset, which is where we write the name.
@@ -678,6 +708,11 @@ func (p *pluginPlugin) StopPodSandbox(ctx context.Context, request *StopPodSandb
 		resSize &^= (1 << 31)
 	}
 
+	// We don't need the memory after deserialization: make sure it is freed.
+	if resPtr != 0 {
+		defer p.free.Call(ctx, uint64(resPtr))
+	}
+
 	// The pointer is a linear memory offset, which is where we write the name.
 	bytes, ok := p.module.Memory().Read(resPtr, resSize)
 	if !ok {
@@ -732,6 +767,11 @@ func (p *pluginPlugin) RemovePodSandbox(ctx context.Context, request *RemovePodS
 	if (resSize & (1 << 31)) > 0 {
 		isErrResponse = true
 		resSize &^= (1 << 31)
+	}
+
+	// We don't need the memory after deserialization: make sure it is freed.
+	if resPtr != 0 {
+		defer p.free.Call(ctx, uint64(resPtr))
 	}
 
 	// The pointer is a linear memory offset, which is where we write the name.
@@ -790,6 +830,11 @@ func (p *pluginPlugin) CreateContainer(ctx context.Context, request *CreateConta
 		resSize &^= (1 << 31)
 	}
 
+	// We don't need the memory after deserialization: make sure it is freed.
+	if resPtr != 0 {
+		defer p.free.Call(ctx, uint64(resPtr))
+	}
+
 	// The pointer is a linear memory offset, which is where we write the name.
 	bytes, ok := p.module.Memory().Read(resPtr, resSize)
 	if !ok {
@@ -844,6 +889,11 @@ func (p *pluginPlugin) PostCreateContainer(ctx context.Context, request *PostCre
 	if (resSize & (1 << 31)) > 0 {
 		isErrResponse = true
 		resSize &^= (1 << 31)
+	}
+
+	// We don't need the memory after deserialization: make sure it is freed.
+	if resPtr != 0 {
+		defer p.free.Call(ctx, uint64(resPtr))
 	}
 
 	// The pointer is a linear memory offset, which is where we write the name.
@@ -902,6 +952,11 @@ func (p *pluginPlugin) StartContainer(ctx context.Context, request *StartContain
 		resSize &^= (1 << 31)
 	}
 
+	// We don't need the memory after deserialization: make sure it is freed.
+	if resPtr != 0 {
+		defer p.free.Call(ctx, uint64(resPtr))
+	}
+
 	// The pointer is a linear memory offset, which is where we write the name.
 	bytes, ok := p.module.Memory().Read(resPtr, resSize)
 	if !ok {
@@ -956,6 +1011,11 @@ func (p *pluginPlugin) PostStartContainer(ctx context.Context, request *PostStar
 	if (resSize & (1 << 31)) > 0 {
 		isErrResponse = true
 		resSize &^= (1 << 31)
+	}
+
+	// We don't need the memory after deserialization: make sure it is freed.
+	if resPtr != 0 {
+		defer p.free.Call(ctx, uint64(resPtr))
 	}
 
 	// The pointer is a linear memory offset, which is where we write the name.
@@ -1014,6 +1074,11 @@ func (p *pluginPlugin) UpdateContainer(ctx context.Context, request *UpdateConta
 		resSize &^= (1 << 31)
 	}
 
+	// We don't need the memory after deserialization: make sure it is freed.
+	if resPtr != 0 {
+		defer p.free.Call(ctx, uint64(resPtr))
+	}
+
 	// The pointer is a linear memory offset, which is where we write the name.
 	bytes, ok := p.module.Memory().Read(resPtr, resSize)
 	if !ok {
@@ -1068,6 +1133,11 @@ func (p *pluginPlugin) PostUpdateContainer(ctx context.Context, request *PostUpd
 	if (resSize & (1 << 31)) > 0 {
 		isErrResponse = true
 		resSize &^= (1 << 31)
+	}
+
+	// We don't need the memory after deserialization: make sure it is freed.
+	if resPtr != 0 {
+		defer p.free.Call(ctx, uint64(resPtr))
 	}
 
 	// The pointer is a linear memory offset, which is where we write the name.
@@ -1126,6 +1196,11 @@ func (p *pluginPlugin) StopContainer(ctx context.Context, request *StopContainer
 		resSize &^= (1 << 31)
 	}
 
+	// We don't need the memory after deserialization: make sure it is freed.
+	if resPtr != 0 {
+		defer p.free.Call(ctx, uint64(resPtr))
+	}
+
 	// The pointer is a linear memory offset, which is where we write the name.
 	bytes, ok := p.module.Memory().Read(resPtr, resSize)
 	if !ok {
@@ -1180,6 +1255,11 @@ func (p *pluginPlugin) RemoveContainer(ctx context.Context, request *RemoveConta
 	if (resSize & (1 << 31)) > 0 {
 		isErrResponse = true
 		resSize &^= (1 << 31)
+	}
+
+	// We don't need the memory after deserialization: make sure it is freed.
+	if resPtr != 0 {
+		defer p.free.Call(ctx, uint64(resPtr))
 	}
 
 	// The pointer is a linear memory offset, which is where we write the name.
@@ -1238,6 +1318,11 @@ func (p *pluginPlugin) StateChange(ctx context.Context, request *StateChangeEven
 		resSize &^= (1 << 31)
 	}
 
+	// We don't need the memory after deserialization: make sure it is freed.
+	if resPtr != 0 {
+		defer p.free.Call(ctx, uint64(resPtr))
+	}
+
 	// The pointer is a linear memory offset, which is where we write the name.
 	bytes, ok := p.module.Memory().Read(resPtr, resSize)
 	if !ok {
@@ -1292,6 +1377,11 @@ func (p *pluginPlugin) ValidateContainerAdjustment(ctx context.Context, request 
 	if (resSize & (1 << 31)) > 0 {
 		isErrResponse = true
 		resSize &^= (1 << 31)
+	}
+
+	// We don't need the memory after deserialization: make sure it is freed.
+	if resPtr != 0 {
+		defer p.free.Call(ctx, uint64(resPtr))
 	}
 
 	// The pointer is a linear memory offset, which is where we write the name.

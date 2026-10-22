@@ -90,7 +90,7 @@ func ParseEventMask(events ...string) (EventMask, error) {
 
 	for _, event := range events {
 		lcEvents := strings.ToLower(event)
-		for _, name := range strings.Split(lcEvents, ",") {
+		for name := range strings.SplitSeq(lcEvents, ",") {
 			switch name {
 			case "all":
 				mask |= ValidEvents

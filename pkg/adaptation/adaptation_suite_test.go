@@ -341,7 +341,7 @@ func TestPodAndContainerRequestsAndEvents(t *testing.T) {
 
 				require.NoError(t, runtime.startStopPodAndContainer(ctx, pod, ctr))
 				for _, events := range subscriptions {
-					for _, event := range strings.Split(events, ",") {
+					for event := range strings.SplitSeq(events, ",") {
 						match := &Event{Type: EventType(event)}
 						require.True(t, plugin.EventQ().Has(match))
 					}

@@ -169,7 +169,7 @@ func (r *result) stopContainerResponse() *StopContainerResponse {
 	}
 }
 
-func (r *result) apply(response interface{}, plugin string) error {
+func (r *result) apply(response any, plugin string) error {
 	switch rpl := response.(type) {
 	case *CreateContainerResponse:
 		if rpl == nil {

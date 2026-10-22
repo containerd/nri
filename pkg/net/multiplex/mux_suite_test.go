@@ -340,7 +340,7 @@ func openMuxes(lMux, pMux mux.Mux, count int) ([]net.Conn, []net.Conn, error) {
 		err   error
 	)
 
-	for i := 0; i < count; i++ {
+	for i := range count {
 		conn, err = lMux.Open(mux.LowestConnID + mux.ConnID(i))
 		if err != nil {
 			lMux.Trunk().Close()
@@ -383,7 +383,7 @@ func sendAndReceive(lConn, pConn []net.Conn, msgCount int) error {
 
 	write := func(id int, conn net.Conn, messages []string) ([]string, error) {
 		if messages == nil {
-			for i := 0; i < msgCount; i++ {
+			for i := range msgCount {
 				msg := fmt.Sprintf("[%d] message #%d/%d", id, i+1, msgCount)
 				if len(msg) > maxMsg {
 					return nil, fmt.Errorf("message length %d exceeds maximum %d", len(msg), maxMsg)
@@ -459,7 +459,7 @@ func sendAndReceive(lConn, pConn []net.Conn, msgCount int) error {
 		}
 	}
 
-	for i := 0; i < len(lConn); i++ {
+	for i := range lConn {
 		wg.Add(2)
 		go sendrecv(i, lConn[i], true)
 		go sendrecv(i, pConn[i], false)

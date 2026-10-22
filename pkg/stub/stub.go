@@ -305,7 +305,6 @@ type stub struct {
 	started    bool
 	doneC      chan struct{}
 	srvErrC    chan error
-	cfgErrC    chan error
 	syncReq    *api.SynchronizeRequest
 
 	registrationTimeout time.Duration
@@ -380,11 +379,21 @@ func (stub *stub) Start(ctx context.Context) (retErr error) {
 		return fmt.Errorf("stub already started")
 	}
 	stub.doneC = make(chan struct{})
+	// Snapshot before any goroutines are running: Configure() rewrites this
+	// field without the stub lock once the ttrpc server is up.
+	cfgTimeout := stub.registrationTimeout
 
 	err := stub.connect()
 	if err != nil {
 		return err
 	}
+	defer func() {
+		if retErr != nil {
+			// close() only resets a started stub. Drop the connection here
+			// (rpcm.Close() closes it) so a retry dials a new one.
+			stub.conn = nil
+		}
+	}()
 
 	rpcm := multiplex.Multiplex(stub.conn)
 	defer func() {
@@ -416,16 +425,21 @@ func (stub *stub) Start(ctx context.Context) (retErr error) {
 		}
 	}()
 
-	api.RegisterPluginService(rpcs, stub)
+	// cfgErrC is local to this attempt: callbacks from an earlier, failed
+	// attempt may still run and must not signal this one.
+	cfgErrC := make(chan error, 1)
+	api.RegisterPluginService(rpcs, &pluginService{stub: stub, cfgErrC: cfgErrC})
 
 	conn, err := rpcm.Open(multiplex.RuntimeServiceConn)
 	if err != nil {
 		return fmt.Errorf("failed to multiplex ttrpc client connection: %w", err)
 	}
 
+	stub.srvErrC = make(chan error, 1)
+
 	clientOpts := []ttrpc.ClientOpts{
 		ttrpc.WithOnClose(func() {
-			stub.connClosed()
+			stub.connClosed(cfgErrC)
 		}),
 	}
 	rpcc := ttrpc.NewClient(conn, append(clientOpts, stub.clientOpts...)...)
@@ -435,9 +449,6 @@ func (stub *stub) Start(ctx context.Context) (retErr error) {
 			stub.rpcc = nil
 		}
 	}()
-
-	stub.srvErrC = make(chan error, 1)
-	stub.cfgErrC = make(chan error, 1)
 
 	go func(l stdnet.Listener, doneC chan struct{}, srvErrC chan error) {
 		srvErrC <- rpcs.Serve(ctx, l)
@@ -456,8 +467,22 @@ func (stub *stub) Start(ctx context.Context) (retErr error) {
 		return err
 	}
 
-	if err = <-stub.cfgErrC; err != nil {
-		return err
+	// The runtime should Configure() us immediately after a successful register().
+	// Bound the wait so Start() cannot block forever holding stub.Lock() if the
+	// runtime accepts registration but never issues Configure(), and let context
+	// cancellation and connection loss (via connClosed -> cfgErrC) break the wait.
+	cfgTimer := time.NewTimer(cfgTimeout)
+	defer cfgTimer.Stop()
+
+	select {
+	case err = <-cfgErrC:
+		if err != nil {
+			return err
+		}
+	case <-cfgTimer.C:
+		return fmt.Errorf("timed out waiting for Configure() from runtime after %s", cfgTimeout)
+	case <-ctx.Done():
+		return fmt.Errorf("context cancelled while waiting for Configure() from runtime: %w", ctx.Err())
 	}
 
 	stub.logger.Infof(ctx, "Started plugin %s...", stub.Name())
@@ -622,8 +647,36 @@ func (stub *stub) register(ctx context.Context) error {
 	return nil
 }
 
-// Handle a lost connection.
-func (stub *stub) connClosed() {
+// pluginService is the PluginService registered for one Start() attempt. It
+// reports the result of Configure() on that attempt's cfgErrC.
+type pluginService struct {
+	*stub
+	cfgErrC chan<- error
+}
+
+func (s *pluginService) Configure(ctx context.Context, req *api.ConfigureRequest) (*api.ConfigureResponse, error) {
+	rpl, err := s.stub.Configure(ctx, req)
+	// Non-blocking: Start() may have already given up (timeout, ctx or
+	// connection loss), and the buffered slot may already hold connClosed()'s
+	// error.
+	select {
+	case s.cfgErrC <- err:
+	default:
+	}
+	return rpl, err
+}
+
+// Handle a lost connection. cfgErrC belongs to the Start() attempt that
+// created the connection.
+func (stub *stub) connClosed(cfgErrC chan<- error) {
+	// Start() may be blocked on cfgErrC while holding stub.Lock(). Signal it
+	// first (non-blocking; cfgErrC has cap 1) so it can return and release the
+	// lock before we take it below.
+	select {
+	case cfgErrC <- fmt.Errorf("connection closed before Configure(): %w", ttrpc.ErrClosed):
+	default:
+	}
+
 	stub.Lock()
 	stub.close()
 	stub.Unlock()
@@ -678,10 +731,6 @@ func (stub *stub) Configure(ctx context.Context, req *api.ConfigureRequest) (rpl
 	stub.registrationTimeout = time.Duration(req.RegistrationTimeout * int64(time.Millisecond))
 	stub.requestTimeout = time.Duration(req.RequestTimeout * int64(time.Millisecond))
 	stub.runtimeNRIVersion = req.NRIVersion
-
-	defer func() {
-		stub.cfgErrC <- retErr
-	}()
 
 	if handler := stub.handlers.Configure; handler == nil {
 		events = stub.events

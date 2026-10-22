@@ -945,22 +945,19 @@ func (p *plugin) warnDeprecatedEvent(ctx context.Context, event Event) {
 }
 
 // handleRequestError handles an error from a relayed request. ctx is the
-// context of the runtime. It is not the context with the request timeout.
+// runtime context without the per-request timeout.
 //
-// Two kinds of errors are not plugin failures. The function returns them
-// unchanged and the request fails:
+// The function returns errors unchanged when:
 //
-//   - an error returned by the plugin,
-//   - any error after the runtime cancelled ctx or its deadline expired.
-//     The plugin is not responsible for that, even if the request timeout
-//     expired too.
+//   - the plugin returned the error, or
+//   - the runtime cancelled ctx or the runtime deadline expired.
 //
 // A fatal error is a plugin failure: the plugin did not answer the request.
-// The failure policy of the plugin applies. The function takes two
+// The failure policy of the plugin applies. The function makes two
 // independent decisions. It drops the plugin unless the policy keeps it
 // (see dropsPlugin). It fails the request only if the policy says so.
 // Otherwise the request proceeds without the plugin. A returned error
-// names the plugin and the request, because the runtime reports it.
+// names the plugin and the request because the runtime reports it.
 func (p *plugin) handleRequestError(ctx context.Context, event Event, err error) error {
 	if ctx.Err() != nil || !isFatalError(err) {
 		return err
@@ -984,8 +981,7 @@ func (p *plugin) handleRequestError(ctx context.Context, event Event, err error)
 
 // dropsPlugin returns true if the plugin must be closed and unregistered
 // for the error. A fatal error drops the plugin, with one exception: a
-// request timeout does not drop a plugin with KeepConnected set. The timeout
-// only means that the plugin did not handle this request in time. A lost
+// request timeout does not drop a plugin with KeepConnected set. A lost
 // connection or a protocol error always drops the plugin.
 func (p *plugin) dropsPlugin(err error) bool {
 	if !isFatalError(err) {

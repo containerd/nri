@@ -283,6 +283,15 @@ func WithLogger(logger nrilog.Logger) Option {
 	}
 }
 
+// WithPluginRegistrationTimeout overrides the plugin's registration timeout
+// (default DefaultRegistrationTimeout, 5s).
+func WithPluginRegistrationTimeout(d time.Duration) Option {
+	return func(s *stub) error {
+		s.registrationTimeout = d
+		return nil
+	}
+}
+
 // stub implements Stub.
 type stub struct {
 	sync.Mutex

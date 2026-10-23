@@ -17,12 +17,14 @@
 package multiplex_test
 
 import (
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"net"
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -296,6 +298,49 @@ func TestTransmittingData(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, len(msg), cnt)
 		require.Equal(t, []byte(msg), rcv)
+	})
+}
+
+func TestOversizedPayloadFrame(t *testing.T) {
+	// The maximum frame payload length on the wire, mirroring maxPayloadSize.
+	const maxPayloadSize = 10 + 4<<20
+
+	t.Run("a frame larger than maxPayloadSize tears down the mux", func(t *testing.T) {
+		lMux, pMux, err := connectMuxes()
+		require.NoError(t, err)
+		require.NotNil(t, lMux)
+		require.NotNil(t, pMux)
+		t.Cleanup(func() {
+			lMux.Close()
+			pMux.Close()
+		})
+
+		pConn, err := pMux.Open(mux.LowestConnID)
+		require.NoError(t, err)
+
+		// Feed a raw frame header to the peer's reader, claiming a payload
+		// one byte larger than the maximum. The reader must refuse to
+		// allocate a buffer of the claimed size and tear the mux down
+		// instead (frames up to maxPayloadSize, sent by the chunked
+		// transmission test above, must keep flowing).
+		hdr := make([]byte, 8)
+		binary.BigEndian.PutUint32(hdr[0:4], uint32(mux.LowestConnID))
+		binary.BigEndian.PutUint32(hdr[4:8], maxPayloadSize+1)
+		_, err = lMux.Trunk().Write(hdr)
+		require.NoError(t, err)
+
+		errC := make(chan error, 1)
+		go func() {
+			_, err := pConn.Read(make([]byte, 8))
+			errC <- err
+		}()
+
+		select {
+		case err := <-errC:
+			require.ErrorContains(t, err, "maximum is")
+		case <-time.After(10 * time.Second):
+			t.Fatal("timed out waiting for the mux to tear down after an oversized frame")
+		}
 	})
 }
 

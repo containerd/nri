@@ -492,7 +492,7 @@ and [best practices](https://kubernetes.io/docs/setup/best-practices/enforcing-p
 about Kubernetes security.
 
 To use the plugins in SELinux-enabled environments, either create a new policy
-or set the SELinux type to spc_t (Super Privileged Container) in the pod's security
+set the SELinux type label to spc_t (Super Privileged Container) in the pod's security
 context. For example:
 ```yaml
 spec:

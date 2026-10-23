@@ -491,7 +491,7 @@ access to these sockets and can act as NRI or Device Plugins. See the
 and [best practices](https://kubernetes.io/docs/setup/best-practices/enforcing-pod-security-standards/)
 about Kubernetes security.
 
-To use the plugins in SELinux-enabled environments, either create a new policy
+To use the plugins in SELinux-enabled environments, 
 set the SELinux type label to spc_t (Super Privileged Container) in the pod's security
 context. For example:
 ```yaml

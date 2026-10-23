@@ -199,16 +199,17 @@ func (v *DefaultValidator) validateNamespaces(req *api.ValidateContainerAdjustme
 		return nil
 	}
 
-	offenders := "plugin(s) "
+	var offenders strings.Builder
+	offenders.WriteString("plugin(s) ")
 	sep := ""
 
 	for ns, plugin := range owners {
-		offenders += sep + fmt.Sprintf("%q (namespace %q)", plugin, ns)
+		offenders.WriteString(sep + fmt.Sprintf("%q (namespace %q)", plugin, ns))
 		sep = ", "
 	}
 
 	return fmt.Errorf("%w: attempted restricted namespace adjustment by %s",
-		ErrValidation, offenders)
+		ErrValidation, offenders.String())
 }
 
 func (v *DefaultValidator) validateSysctl(req *api.ValidateContainerAdjustmentRequest) error {

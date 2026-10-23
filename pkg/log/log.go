@@ -28,10 +28,10 @@ var (
 
 // Logger is the interface NRI uses for logging.
 type Logger interface {
-	Debugf(ctx context.Context, format string, args ...interface{})
-	Infof(ctx context.Context, format string, args ...interface{})
-	Warnf(ctx context.Context, format string, args ...interface{})
-	Errorf(ctx context.Context, format string, args ...interface{})
+	Debugf(ctx context.Context, format string, args ...any)
+	Infof(ctx context.Context, format string, args ...any)
+	Warnf(ctx context.Context, format string, args ...any)
+	Errorf(ctx context.Context, format string, args ...any)
 }
 
 // Set the logger used by NRI.
@@ -45,43 +45,43 @@ func Get() Logger {
 }
 
 // Debugf logs a formatted debug message.
-func Debugf(ctx context.Context, format string, args ...interface{}) {
+func Debugf(ctx context.Context, format string, args ...any) {
 	log.Debugf(ctx, format, args...)
 }
 
 // Infof logs a formatted informational message.
-func Infof(ctx context.Context, format string, args ...interface{}) {
+func Infof(ctx context.Context, format string, args ...any) {
 	log.Infof(ctx, format, args...)
 }
 
 // Warnf logs a formatted warning message.
-func Warnf(ctx context.Context, format string, args ...interface{}) {
+func Warnf(ctx context.Context, format string, args ...any) {
 	log.Warnf(ctx, format, args...)
 }
 
 // Errorf logs a formatted error message.
-func Errorf(ctx context.Context, format string, args ...interface{}) {
+func Errorf(ctx context.Context, format string, args ...any) {
 	log.Errorf(ctx, format, args...)
 }
 
 type fallbackLogger struct{}
 
 // Debugf logs a formatted debug message.
-func (f *fallbackLogger) Debugf(ctx context.Context, format string, args ...interface{}) {
+func (f *fallbackLogger) Debugf(ctx context.Context, format string, args ...any) {
 	logrus.WithContext(ctx).Debugf(format, args...)
 }
 
 // Infof logs a formatted informational message.
-func (f *fallbackLogger) Infof(ctx context.Context, format string, args ...interface{}) {
+func (f *fallbackLogger) Infof(ctx context.Context, format string, args ...any) {
 	logrus.WithContext(ctx).Infof(format, args...)
 }
 
 // Warnf logs a formatted warning message.
-func (f *fallbackLogger) Warnf(ctx context.Context, format string, args ...interface{}) {
+func (f *fallbackLogger) Warnf(ctx context.Context, format string, args ...any) {
 	logrus.WithContext(ctx).Warnf(format, args...)
 }
 
 // Errorf logs a formatted error message.
-func (f *fallbackLogger) Errorf(ctx context.Context, format string, args ...interface{}) {
+func (f *fallbackLogger) Errorf(ctx context.Context, format string, args ...any) {
 	logrus.WithContext(ctx).Errorf(format, args...)
 }

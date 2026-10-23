@@ -41,7 +41,7 @@ import (
 // least one of these interfaces and this is verified during stub creation.
 // Trying to create a stub for a plugin violating this requirement will fail
 // with and error.
-type Plugin interface{}
+type Plugin any
 
 // ConfigureInterface handles Configure API request.
 type ConfigureInterface interface {
@@ -309,7 +309,7 @@ func WithFailurePolicy(policy *api.FailurePolicy) Option {
 // stub implements Stub.
 type stub struct {
 	sync.Mutex
-	plugin     interface{}
+	plugin     any
 	handlers   handlers
 	events     api.EventMask
 	name       string
@@ -361,7 +361,7 @@ type handlers struct {
 }
 
 // New creates a stub with the given plugin and options.
-func New(p interface{}, opts ...Option) (Stub, error) {
+func New(p any, opts ...Option) (Stub, error) {
 	stub := &stub{
 		plugin:     p,
 		name:       os.Getenv(api.PluginNameEnvVar),

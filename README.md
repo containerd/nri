@@ -181,9 +181,11 @@ each request it receives by the full timeout. `fail_request` applies to all
 subscribed events, including `StopContainer` and `RemoveContainer`. A plugin
 must subscribe only to the events it must process.
 
-The failure policy only applies to registered plugins. Use the required
-plugins check of the [default validator](#default-validation) to require
-that a plugin is present before containers are created.
+The failure policy only applies to connected plugins. A plugin that loses
+its connection, also between requests, does not receive the next requests
+and does not fail them. Use the required plugins check of the
+[default validator](#default-validation) to require that a plugin is
+present before containers are created.
 
 ### Pod Data and Available Lifecycle Events
 

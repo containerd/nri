@@ -42,13 +42,74 @@ import (
 //   - the adaptation does not call the remaining plugins for a failed
 //     request,
 //   - a plugin that is kept connected receives the next request,
-//   - a deadline set by the runtime does not count as a plugin failure.
+//   - a deadline set by the runtime does not count as a plugin failure,
+//   - a plugin whose connection is closed does not receive requests and
+//     does not fail them.
 //
 // The unit tests cover the full matrix of errors and policies.
 
 // requestTimeout is the plugin request timeout for these tests. It is short
 // to keep the tests fast. A plugin that must exceed it blocks until released.
 const requestTimeout = 100 * time.Millisecond
+
+// lifecycleRequests sends each pod and container request to the adaptation.
+// The event is the name that the mock plugin records for the request.
+var lifecycleRequests = []struct {
+	event string
+	send  func(context.Context, *nri.Adaptation, *api.PodSandbox, *api.Container) error
+}{
+	{RunPodSandbox, func(ctx context.Context, r *nri.Adaptation, pod *api.PodSandbox, _ *api.Container) error {
+		return r.RunPodSandbox(ctx, &api.RunPodSandboxRequest{Pod: pod})
+	}},
+	{UpdatePodSandbox, func(ctx context.Context, r *nri.Adaptation, pod *api.PodSandbox, _ *api.Container) error {
+		_, err := r.UpdatePodSandbox(ctx, &api.UpdatePodSandboxRequest{
+			Pod:                    pod,
+			OverheadLinuxResources: &api.LinuxResources{},
+			LinuxResources:         &api.LinuxResources{},
+		})
+		return err
+	}},
+	{PostUpdatePodSandbox, func(ctx context.Context, r *nri.Adaptation, pod *api.PodSandbox, _ *api.Container) error {
+		return r.PostUpdatePodSandbox(ctx, &api.PostUpdatePodSandboxRequest{Pod: pod})
+	}},
+	{StopPodSandbox, func(ctx context.Context, r *nri.Adaptation, pod *api.PodSandbox, _ *api.Container) error {
+		return r.StopPodSandbox(ctx, &api.StopPodSandboxRequest{Pod: pod})
+	}},
+	{RemovePodSandbox, func(ctx context.Context, r *nri.Adaptation, pod *api.PodSandbox, _ *api.Container) error {
+		return r.RemovePodSandbox(ctx, &api.RemovePodSandboxRequest{Pod: pod})
+	}},
+	{CreateContainer, func(ctx context.Context, r *nri.Adaptation, pod *api.PodSandbox, ctr *api.Container) error {
+		_, err := r.CreateContainer(ctx, &api.CreateContainerRequest{Pod: pod, Container: ctr})
+		return err
+	}},
+	{PostCreateContainer, func(ctx context.Context, r *nri.Adaptation, pod *api.PodSandbox, ctr *api.Container) error {
+		return r.PostCreateContainer(ctx, &api.PostCreateContainerRequest{Pod: pod, Container: ctr})
+	}},
+	{StartContainer, func(ctx context.Context, r *nri.Adaptation, pod *api.PodSandbox, ctr *api.Container) error {
+		return r.StartContainer(ctx, &api.StartContainerRequest{Pod: pod, Container: ctr})
+	}},
+	{PostStartContainer, func(ctx context.Context, r *nri.Adaptation, pod *api.PodSandbox, ctr *api.Container) error {
+		return r.PostStartContainer(ctx, &api.PostStartContainerRequest{Pod: pod, Container: ctr})
+	}},
+	{UpdateContainer, func(ctx context.Context, r *nri.Adaptation, pod *api.PodSandbox, ctr *api.Container) error {
+		_, err := r.UpdateContainer(ctx, &api.UpdateContainerRequest{
+			Pod:            pod,
+			Container:      ctr,
+			LinuxResources: &api.LinuxResources{},
+		})
+		return err
+	}},
+	{PostUpdateContainer, func(ctx context.Context, r *nri.Adaptation, pod *api.PodSandbox, ctr *api.Container) error {
+		return r.PostUpdateContainer(ctx, &api.PostUpdateContainerRequest{Pod: pod, Container: ctr})
+	}},
+	{StopContainer, func(ctx context.Context, r *nri.Adaptation, pod *api.PodSandbox, ctr *api.Container) error {
+		_, err := r.StopContainer(ctx, &api.StopContainerRequest{Pod: pod, Container: ctr})
+		return err
+	}},
+	{RemoveContainer, func(ctx context.Context, r *nri.Adaptation, pod *api.PodSandbox, ctr *api.Container) error {
+		return r.RemoveContainer(ctx, &api.RemoveContainerRequest{Pod: pod, Container: ctr})
+	}},
+}
 
 // blocker is a request handler that blocks until released.
 type blocker struct {
@@ -254,6 +315,110 @@ func TestPluginFailurePolicy(t *testing.T) {
 		require.ErrorContains(t, err, crash.FullName())
 		require.NoError(t, crash.Wait(PluginDisconnected, time.After(startupTimeout)))
 		require.False(t, next.EventQ().Has(PodSandboxEvent(pod0, RunPodSandbox)))
+	})
+
+	// The failure policy only applies to connected plugins. A plugin that
+	// disconnects while idle stays registered until the next request
+	// removes it. That request must not relay to it: with fail_request,
+	// the request would fail with ttrpc.ErrClosed for a plugin that is
+	// already gone. The request proceeds with the remaining plugins.
+	//
+	// Each request type checks the connection itself, and the first request
+	// after the disconnect removes the plugin. Each request type is tested
+	// as the first request after the disconnect.
+	t.Run("fail_request: a plugin that disconnects while idle does not fail the next request", func(t *testing.T) {
+		for _, tc := range lifecycleRequests {
+			t.Run(tc.event, func(t *testing.T) {
+				gone := newPlugin("00", "gone", keepAndFail)
+				next := newPlugin("10", "next", nil)
+				gone.mask = api.MustParseEventMask(tc.event)
+				next.mask = api.MustParseEventMask(tc.event)
+				setup(t, gone, next)
+				s.Startup()
+				rt := s.runtime.runtime
+
+				before := &Event{Type: EventType(tc.event), Pod: pod0, Ctr: ctr0}
+				require.NoError(t, tc.send(ctx, rt, pod0, ctr0))
+				require.NoError(t, gone.Wait(before, time.After(startupTimeout)))
+				require.NoError(t, next.Wait(before, time.After(startupTimeout)))
+
+				// The plugin disconnects between two requests. Wait until
+				// the adaptation has noticed the closed connection.
+				closed := rt.PluginClosed(gone.FullName())
+				gone.Stop()
+				require.Eventually(t, closed, startupTimeout, 5*time.Millisecond)
+
+				after := &Event{Type: EventType(tc.event), Pod: pod1, Ctr: ctr1}
+				require.NoError(t, tc.send(ctx, rt, pod1, ctr1))
+				require.NoError(t, next.Wait(after, time.After(startupTimeout)))
+			})
+		}
+	})
+
+	// Validators are called from their own list, so they check the
+	// connection separately. A validator that disconnects while idle does
+	// not fail the next CreateContainer. Before this check, exactly one
+	// request failed with ttrpc.ErrClosed and the same request removed the
+	// validator; the requests after it proceeded without it. No plugin can
+	// use that as a gate. A validator that must be present is declared in
+	// the required plugins of the default validator (see scenario E).
+	t.Run("a validator that disconnects while idle does not fail the next request", func(t *testing.T) {
+		validator := &mockPlugin{
+			idx:  "00",
+			name: "validator",
+			mask: api.MustParseEventMask("ValidateContainerAdjustment"),
+		}
+		validator.validateAdjustment = func(*mockPlugin, *api.ValidateContainerAdjustmentRequest) error {
+			return nil
+		}
+		setup(t, validator)
+		s.Startup()
+		rt := s.runtime.runtime
+
+		require.NoError(t, runPod(ctx, pod0))
+		_, err := s.runtime.CreateContainer(ctx, &api.CreateContainerRequest{Pod: pod0, Container: ctr0})
+		require.NoError(t, err)
+		require.NoError(t, validator.Wait(ContainerEvent(ctr0, ValidateContainerAdjustment), time.After(startupTimeout)))
+
+		closed := rt.PluginClosed(validator.FullName())
+		validator.Stop()
+		require.Eventually(t, closed, startupTimeout, 5*time.Millisecond)
+
+		_, err = s.runtime.CreateContainer(ctx, &api.CreateContainerRequest{Pod: pod0, Container: ctr1})
+		require.NoError(t, err)
+	})
+
+	// NRI checks the connection of each plugin when its turn comes. A
+	// plugin that disconnects during a request, while an earlier plugin
+	// handles it, is skipped like a plugin that disconnected before the
+	// request. The request proceeds without it.
+	t.Run("fail_request: a plugin that disconnects before its turn is skipped", func(t *testing.T) {
+		slow := newPlugin("00", "slow", nil)
+		gone := newPlugin("10", "gone", keepAndFail)
+		b := blockPlugin(t, slow)
+		// The default request timeout leaves the blocked plugin enough time.
+		s.Prepare(t, &mockRuntime{}, slow, gone)
+		s.Startup()
+		rt := s.runtime.runtime
+
+		// Look up the plugin before the request: the lookup takes the lock
+		// that the request holds.
+		closed := rt.PluginClosed(gone.FullName())
+		errC := make(chan error, 1)
+		go func() { errC <- runPod(ctx, pod0) }()
+		b.WaitArrived(t)
+
+		gone.Stop()
+		require.Eventually(t, closed, startupTimeout, 5*time.Millisecond)
+		b.Release()
+
+		select {
+		case err := <-errC:
+			require.NoError(t, err)
+		case <-time.After(startupTimeout):
+			t.Fatal("timed out waiting for the request to return")
+		}
+		require.False(t, gone.EventQ().Has(PodSandboxEvent(pod0, RunPodSandbox)))
 	})
 
 	// A deadline set by the runtime is not a plugin failure. The plugin is
@@ -492,5 +657,31 @@ func TestPluginFailureScenarios(t *testing.T) {
 		_, err := s.runtime.CreateContainer(ctx, &api.CreateContainerRequest{Pod: pod0, Container: ctr0})
 		require.NoError(t, err)
 		require.NoError(t, slow.Wait(PluginDisconnected, time.After(startupTimeout)))
+	})
+
+	// Scenario E: the required plugins check catches a plugin that
+	// disconnected while idle. NRI skips a closed plugin before it reports
+	// the plugin to the validators as consulted. The container is rejected
+	// instead of being created without the required plugin.
+	t.Run("E: the required plugins check catches a plugin that disconnected while idle", func(t *testing.T) {
+		gone := newPlugin("00", "gone", nil)
+		setup(t, &mockRuntime{
+			options: []nri.Option{
+				nri.WithDefaultValidator(&validator.DefaultValidatorConfig{
+					Enable:          true,
+					RequiredPlugins: []string{"gone"},
+				}),
+			},
+		}, gone)
+		s.Startup()
+
+		require.NoError(t, runPod(ctx, pod0))
+
+		closed := s.runtime.runtime.PluginClosed(gone.FullName())
+		gone.Stop()
+		require.Eventually(t, closed, startupTimeout, 5*time.Millisecond)
+
+		_, err := s.runtime.CreateContainer(ctx, &api.CreateContainerRequest{Pod: pod0, Container: ctr0})
+		require.ErrorContains(t, err, "required plugin")
 	})
 }

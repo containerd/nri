@@ -24,3 +24,20 @@ func WithTestNRIVersion(v string) Option {
 		return nil
 	}
 }
+
+// PluginClosed returns a function that reports whether the connection of
+// the named plugin is closed. The lookup takes the adaptation lock, so it
+// must be called while the plugin is registered and no request is in
+// progress. The returned function does not take the lock, so a test can
+// poll it while a request is in progress. Tests use it to wait until the
+// adaptation has noticed a closed connection.
+func (r *Adaptation) PluginClosed(name string) func() bool {
+	r.Lock()
+	defer r.Unlock()
+	for _, p := range r.plugins {
+		if p.name() == name {
+			return p.isClosed
+		}
+	}
+	return func() bool { return true }
+}

@@ -25,6 +25,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/containerd/nri/pkg/api"
@@ -306,6 +307,21 @@ func WithFailurePolicy(policy *api.FailurePolicy) Option {
 	}
 }
 
+// WithStopSignal sets the signal the runtime sends to the plugin process to
+// ask it to exit gracefully, when the plugin was launched by the runtime. If
+// the plugin has not exited within the runtime's stop timeout, it is killed.
+// The default stop signal is SIGTERM. A runtime with an NRI version without stop signal
+// support ignores this option and kills the plugin right away.
+func WithStopSignal(sig syscall.Signal) Option {
+	return func(s *stub) error {
+		if sig <= 0 {
+			return fmt.Errorf("invalid stop signal %d", int(sig))
+		}
+		s.stopSignal = sig
+		return nil
+	}
+}
+
 // stub implements Stub.
 type stub struct {
 	sync.Mutex
@@ -334,6 +350,7 @@ type stub struct {
 	registrationTimeout time.Duration
 	requestTimeout      time.Duration
 	failurePolicy       *api.FailurePolicy
+	stopSignal          syscall.Signal
 	runtimeNRIVersion   string
 	pluginNRIVersion    string
 	logger              nrilog.Logger
@@ -735,6 +752,7 @@ func (stub *stub) Configure(ctx context.Context, req *api.ConfigureRequest) (rpl
 	return &api.ConfigureResponse{
 		Events:        int32(events),
 		FailurePolicy: stub.failurePolicy,
+		StopSignal:    int32(stub.stopSignal),
 	}, nil
 }
 

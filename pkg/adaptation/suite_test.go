@@ -129,7 +129,6 @@ func (s *Suite) WaitForPluginsToSync(plugins ...*mockPlugin) {
 // Cleanup the test suite.
 func (s *Suite) Cleanup() {
 	s.runtime.Stop()
-	// TODO(klihub):
 	for _, plugin := range s.plugins {
 		plugin.Stop()
 	}

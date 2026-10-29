@@ -703,10 +703,6 @@ func nopFilter(m map[string]string) (map[string]string, error) {
 	return m, nil
 }
 
-//
-// TODO: these could be added to the stock Spec generator...
-//
-
 // AddCreateRuntimeHook adds a hooks new CreateRuntime hooks.
 func (g *Generator) AddCreateRuntimeHook(hook rspec.Hook) {
 	g.initConfigHooks()

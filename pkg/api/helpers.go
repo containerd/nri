@@ -16,6 +16,8 @@
 
 package api
 
+import "maps"
+
 // DupStringSlice creates a copy of a string slice.
 func DupStringSlice(in []string) []string {
 	if in == nil {
@@ -32,9 +34,7 @@ func DupStringMap(in map[string]string) map[string]string {
 		return nil
 	}
 	out := map[string]string{}
-	for k, v := range in {
-		out[k] = v
-	}
+	maps.Copy(out, in)
 	return out
 }
 

@@ -142,7 +142,7 @@ func (s *Suite) plugin(fullName string) *mockPlugin {
 
 // ------------------------------------
 
-func Log(format string, args ...interface{}) {
+func Log(format string, args ...any) {
 	logrus.Debugf(format, args...)
 }
 

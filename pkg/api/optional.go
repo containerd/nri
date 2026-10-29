@@ -38,7 +38,7 @@ import (
 //
 
 // String creates an Optional wrapper from its argument.
-func String(v interface{}) *OptionalString {
+func String(v any) *OptionalString {
 	var value string
 
 	switch o := v.(type) {
@@ -73,7 +73,7 @@ func (o *OptionalString) Get() *string {
 }
 
 // RepeatedString creates an Optional wrapper from its argument.
-func RepeatedString(v interface{}) *OptionalRepeatedString {
+func RepeatedString(v any) *OptionalRepeatedString {
 	var value []string
 
 	switch o := v.(type) {
@@ -108,7 +108,7 @@ func (o *OptionalRepeatedString) Get() *[]string {
 }
 
 // Int creates an Optional wrapper from its argument.
-func Int(v interface{}) *OptionalInt {
+func Int(v any) *OptionalInt {
 	var value int64
 
 	switch o := v.(type) {
@@ -143,7 +143,7 @@ func (o *OptionalInt) Get() *int {
 }
 
 // Int32 creates an Optional wrapper from its argument.
-func Int32(v interface{}) *OptionalInt32 {
+func Int32(v any) *OptionalInt32 {
 	var value int32
 
 	switch o := v.(type) {
@@ -178,7 +178,7 @@ func (o *OptionalInt32) Get() *int32 {
 }
 
 // UInt32 creates an Optional wrapper from its argument.
-func UInt32(v interface{}) *OptionalUInt32 {
+func UInt32(v any) *OptionalUInt32 {
 	var value uint32
 
 	switch o := v.(type) {
@@ -213,7 +213,7 @@ func (o *OptionalUInt32) Get() *uint32 {
 }
 
 // Int64 creates an Optional wrapper from its argument.
-func Int64(v interface{}) *OptionalInt64 {
+func Int64(v any) *OptionalInt64 {
 	var value int64
 
 	switch o := v.(type) {
@@ -259,7 +259,7 @@ func (o *OptionalInt64) Get() *int64 {
 }
 
 // UInt64 creates an Optional wrapper from its argument.
-func UInt64(v interface{}) *OptionalUInt64 {
+func UInt64(v any) *OptionalUInt64 {
 	var value uint64
 
 	switch o := v.(type) {
@@ -305,7 +305,7 @@ func (o *OptionalUInt64) Get() *uint64 {
 }
 
 // Bool creates an Optional wrapper from its argument.
-func Bool(v interface{}) *OptionalBool {
+func Bool(v any) *OptionalBool {
 	var value bool
 
 	switch o := v.(type) {
@@ -340,7 +340,7 @@ func (o *OptionalBool) Get() *bool {
 }
 
 // FileMode creates an Optional wrapper from its argument.
-func FileMode(v interface{}) *OptionalFileMode {
+func FileMode(v any) *OptionalFileMode {
 	var value os.FileMode
 
 	switch o := v.(type) {

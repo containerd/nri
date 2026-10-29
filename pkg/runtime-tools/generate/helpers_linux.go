@@ -21,6 +21,7 @@ package generate
 import (
 	"fmt"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/moby/sys/mountinfo"
@@ -48,7 +49,7 @@ func getPropagation(path string) (string, error) {
 		}
 	}
 
-	for _, opt := range strings.Split(mnt.Optional, " ") {
+	for opt := range strings.SplitSeq(mnt.Optional, " ") {
 		switch {
 		case strings.HasPrefix(opt, "shared:"):
 			return "rshared", nil
@@ -66,10 +67,8 @@ func ensurePropagation(path string, accepted ...string) error {
 		return err
 	}
 
-	for _, p := range accepted {
-		if p == prop {
-			return nil
-		}
+	if slices.Contains(accepted, prop) {
+		return nil
 	}
 
 	return fmt.Errorf("path %q mount propagation is %q, not %q",

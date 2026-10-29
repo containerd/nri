@@ -77,7 +77,7 @@ func TestPreconnectedReadWrite(t *testing.T) {
 	require.NoError(t, err, "Accept()")
 	require.NotNil(t, lconn, "Accept()")
 
-	for i := 0; i < 32; i++ {
+	for i := range 32 {
 		msg := fmt.Sprintf("message #%d\n", i)
 		_, err := lconn.Write([]byte(msg))
 		require.NoError(t, err, "Write()")

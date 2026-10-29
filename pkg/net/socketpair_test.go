@@ -86,7 +86,7 @@ func TestConnReadWrite(t *testing.T) {
 
 	go reader()
 
-	for i := 0; i < 32; i++ {
+	for i := range 32 {
 		msg := fmt.Sprintf("message #%d\n", i)
 		_, err := conn.Write([]byte(msg))
 		require.NoError(t, err, "Write()")
@@ -132,7 +132,7 @@ func TestFileReadWrite(t *testing.T) {
 
 	go reader()
 
-	for i := 0; i < 32; i++ {
+	for i := range 32 {
 		msg := fmt.Sprintf("message #%d\n", i)
 		_, err := f.Write([]byte(msg))
 		require.NoError(t, err, "Write()")

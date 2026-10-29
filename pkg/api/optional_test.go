@@ -26,7 +26,7 @@ func TestOptionalRepeatedString(t *testing.T) {
 	nilSlice := []string(nil)
 	tcs := []struct {
 		name          string
-		input         interface{}
+		input         any
 		expectNil     bool
 		expectedValue *[]string
 	}{

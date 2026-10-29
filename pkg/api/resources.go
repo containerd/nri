@@ -19,6 +19,8 @@
 package api
 
 import (
+	"maps"
+
 	rspec "github.com/opencontainers/runtime-spec/specs-go"
 )
 
@@ -79,9 +81,7 @@ func FromOCILinuxResources(o *rspec.LinuxResources, _ map[string]string) *LinuxR
 	}
 	if len(o.Unified) != 0 {
 		l.Unified = make(map[string]string)
-		for k, v := range o.Unified {
-			l.Unified[k] = v
-		}
+		maps.Copy(l.Unified, o.Unified)
 	}
 	return l
 }
@@ -126,9 +126,7 @@ func (r *LinuxResources) ToOCI() *rspec.LinuxResources {
 	}
 	if len(r.Unified) != 0 {
 		o.Unified = make(map[string]string)
-		for k, v := range r.Unified {
-			o.Unified[k] = v
-		}
+		maps.Copy(o.Unified, r.Unified)
 	}
 	for _, d := range r.Devices {
 		o.Devices = append(o.Devices, rspec.LinuxDeviceCgroup{
@@ -186,9 +184,7 @@ func (r *LinuxResources) Copy() *LinuxResources {
 	}
 	if len(r.Unified) != 0 {
 		o.Unified = make(map[string]string)
-		for k, v := range r.Unified {
-			o.Unified[k] = v
-		}
+		maps.Copy(o.Unified, r.Unified)
 	}
 	if r.Pids != nil {
 		o.Pids = &LinuxPids{

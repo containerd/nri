@@ -107,7 +107,7 @@ func generateFile(gen *protogen.Plugin, file *protogen.File) *protogen.Generated
 	filename := ownersGoFilename
 	g := gen.NewGeneratedFile(filename, file.GoImportPath)
 
-	for _, line := range strings.Split(licenseHeader, "\n") {
+	for line := range strings.SplitSeq(licenseHeader, "\n") {
 		g.P(line)
 	}
 	g.P()

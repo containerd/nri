@@ -457,6 +457,8 @@ func (g *Generator) AdjustSeccompPolicy(policy *nri.LinuxSeccomp) error {
 		return nil
 	}
 
+	g.initConfigLinux()
+
 	// Note: we explicitly do not use the SetDefaultSeccompAction() and
 	// SetSeccompArchitecture() helpers from generate here, because they
 	// expect a "humanized" version of the action (e.g. "allow" or "x86").
@@ -586,6 +588,12 @@ func (g *Generator) InjectCDIDevices(devices []*nri.CDIDevice) error {
 
 // AdjustRlimits adjusts the (Linux) POSIX resource limits in the OCI Spec.
 func (g *Generator) AdjustRlimits(rlimits []*nri.POSIXRlimit) error {
+	if len(rlimits) == 0 {
+		return nil
+	}
+
+	g.initConfigProcess()
+
 	for _, l := range rlimits {
 		if l == nil {
 			continue

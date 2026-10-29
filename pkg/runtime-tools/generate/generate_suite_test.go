@@ -309,6 +309,51 @@ func TestAdjustment(t *testing.T) {
 		require.NoError(t, xg.Adjust(adjust))
 		require.Nil(t, spec.Linux.IntelRdt)
 	})
+
+	t.Run("seccomp policy without Linux section", func(t *testing.T) {
+		spec := makeSpec()
+		spec.Linux = nil
+		seccomp := rspec.LinuxSeccomp{
+			DefaultAction: rspec.ActErrno,
+			Architectures: []rspec.Arch{},
+			Flags:         []rspec.LinuxSeccompFlag{},
+			Syscalls:      []rspec.LinuxSyscall{},
+		}
+		adjust := &api.ContainerAdjustment{
+			Linux: &api.LinuxContainerAdjustment{
+				SeccompPolicy: api.FromOCILinuxSeccomp(&seccomp),
+			},
+		}
+
+		xg := xgen.SpecGenerator(ocigen.New(spec))
+		require.NotNil(t, xg)
+		require.NoError(t, xg.Adjust(adjust))
+		require.NotNil(t, spec.Linux)
+		require.Equal(t, seccomp, *spec.Linux.Seccomp)
+	})
+
+	t.Run("rlimits without Process section", func(t *testing.T) {
+		spec := makeSpec()
+		spec.Process = nil
+		rlimits := []rspec.POSIXRlimit{{
+			Type: "nofile",
+			Hard: 456,
+			Soft: 123,
+		}}
+		adjust := &api.ContainerAdjustment{
+			Rlimits: []*api.POSIXRlimit{{
+				Type: "nofile",
+				Hard: 456,
+				Soft: 123,
+			}},
+		}
+
+		xg := xgen.SpecGenerator(ocigen.New(spec))
+		require.NotNil(t, xg)
+		require.NoError(t, xg.Adjust(adjust))
+		require.NotNil(t, spec.Process)
+		require.Equal(t, rlimits, spec.Process.Rlimits)
+	})
 }
 
 type specOption func(*rspec.Spec)

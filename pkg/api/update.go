@@ -26,79 +26,79 @@ func (u *ContainerUpdate) SetContainerId(id string) {
 // SetLinuxMemoryLimit records setting the memory limit for a container.
 func (u *ContainerUpdate) SetLinuxMemoryLimit(value int64) {
 	u.initLinuxResourcesMemory()
-	u.Linux.Resources.Memory.Limit = Int64(value)
+	u.Linux.Resources.Memory.Limit = NewInt64(value)
 }
 
 // SetLinuxMemoryReservation records setting the memory reservation for a container.
 func (u *ContainerUpdate) SetLinuxMemoryReservation(value int64) {
 	u.initLinuxResourcesMemory()
-	u.Linux.Resources.Memory.Reservation = Int64(value)
+	u.Linux.Resources.Memory.Reservation = NewInt64(value)
 }
 
 // SetLinuxMemorySwap records records setting the memory swap limit for a container.
 func (u *ContainerUpdate) SetLinuxMemorySwap(value int64) {
 	u.initLinuxResourcesMemory()
-	u.Linux.Resources.Memory.Swap = Int64(value)
+	u.Linux.Resources.Memory.Swap = NewInt64(value)
 }
 
 // SetLinuxMemoryKernel records setting the memory kernel limit for a container.
 func (u *ContainerUpdate) SetLinuxMemoryKernel(value int64) {
 	u.initLinuxResourcesMemory()
-	u.Linux.Resources.Memory.Kernel = Int64(value)
+	u.Linux.Resources.Memory.Kernel = NewInt64(value)
 }
 
 // SetLinuxMemoryKernelTCP records setting the memory kernel TCP limit for a container.
 func (u *ContainerUpdate) SetLinuxMemoryKernelTCP(value int64) {
 	u.initLinuxResourcesMemory()
-	u.Linux.Resources.Memory.KernelTcp = Int64(value)
+	u.Linux.Resources.Memory.KernelTcp = NewInt64(value)
 }
 
 // SetLinuxMemorySwappiness records setting the memory swappiness for a container.
 func (u *ContainerUpdate) SetLinuxMemorySwappiness(value uint64) {
 	u.initLinuxResourcesMemory()
-	u.Linux.Resources.Memory.Swappiness = UInt64(value)
+	u.Linux.Resources.Memory.Swappiness = NewUInt64(value)
 }
 
 // SetLinuxMemoryDisableOomKiller records disabling the OOM killer for a container.
 func (u *ContainerUpdate) SetLinuxMemoryDisableOomKiller() {
 	u.initLinuxResourcesMemory()
-	u.Linux.Resources.Memory.DisableOomKiller = Bool(true)
+	u.Linux.Resources.Memory.DisableOomKiller = NewBool(true)
 }
 
 // SetLinuxMemoryUseHierarchy records enabling hierarchical memory accounting for a container.
 func (u *ContainerUpdate) SetLinuxMemoryUseHierarchy() {
 	u.initLinuxResourcesMemory()
-	u.Linux.Resources.Memory.UseHierarchy = Bool(true)
+	u.Linux.Resources.Memory.UseHierarchy = NewBool(true)
 }
 
 // SetLinuxCPUShares records setting the scheduler's CPU shares for a container.
 func (u *ContainerUpdate) SetLinuxCPUShares(value uint64) {
 	u.initLinuxResourcesCPU()
-	u.Linux.Resources.Cpu.Shares = UInt64(value)
+	u.Linux.Resources.Cpu.Shares = NewUInt64(value)
 }
 
 // SetLinuxCPUQuota records setting the scheduler's CPU quota for a container.
 func (u *ContainerUpdate) SetLinuxCPUQuota(value int64) {
 	u.initLinuxResourcesCPU()
-	u.Linux.Resources.Cpu.Quota = Int64(value)
+	u.Linux.Resources.Cpu.Quota = NewInt64(value)
 }
 
 // SetLinuxCPUPeriod records setting the scheduler's CPU period for a container.
 func (u *ContainerUpdate) SetLinuxCPUPeriod(value int64) {
 	u.initLinuxResourcesCPU()
-	u.Linux.Resources.Cpu.Period = UInt64(value)
+	u.Linux.Resources.Cpu.Period = NewUInt64(uint64(value))
 }
 
 // SetLinuxCPURealtimeRuntime records setting the scheduler's realtime runtime for a container.
 func (u *ContainerUpdate) SetLinuxCPURealtimeRuntime(value int64) {
 	u.initLinuxResourcesCPU()
-	u.Linux.Resources.Cpu.RealtimeRuntime = Int64(value)
+	u.Linux.Resources.Cpu.RealtimeRuntime = NewInt64(value)
 }
 
 // SetLinuxCPURealtimePeriod records setting the scheduler's realtime period for a container.
 func (u *ContainerUpdate) SetLinuxCPURealtimePeriod(value uint64) {
 	u.initLinuxResourcesCPU()
-	u.Linux.Resources.Cpu.RealtimePeriod = UInt64(value)
+	u.Linux.Resources.Cpu.RealtimePeriod = NewUInt64(value)
 }
 
 // SetLinuxCPUSetCPUs records setting the cpuset CPUs for a container.
@@ -132,13 +132,13 @@ func (u *ContainerUpdate) AddLinuxHugepageLimit(pageSize string, value uint64) {
 // SetLinuxBlockIOClass records setting the Block I/O class for a container.
 func (u *ContainerUpdate) SetLinuxBlockIOClass(value string) {
 	u.initLinuxResources()
-	u.Linux.Resources.BlockioClass = String(value)
+	u.Linux.Resources.BlockioClass = NewString(value)
 }
 
 // SetLinuxRDTClass records setting the RDT class for a container.
 func (u *ContainerUpdate) SetLinuxRDTClass(value string) {
 	u.initLinuxResources()
-	u.Linux.Resources.RdtClass = String(value)
+	u.Linux.Resources.RdtClass = NewString(value)
 }
 
 // AddLinuxUnified sets a cgroupv2 unified resource.

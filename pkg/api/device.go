@@ -29,9 +29,9 @@ func FromOCILinuxDevices(o []rspec.LinuxDevice) []*LinuxDevice {
 			Type:     d.Type,
 			Major:    d.Major,
 			Minor:    d.Minor,
-			FileMode: FileMode(d.FileMode),
-			Uid:      UInt32(d.UID),
-			Gid:      UInt32(d.GID),
+			FileMode: FileModePtr(d.FileMode),
+			Uid:      UInt32Ptr(d.UID),
+			Gid:      UInt32Ptr(d.GID),
 		})
 	}
 	return devices

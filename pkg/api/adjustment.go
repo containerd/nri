@@ -191,79 +191,79 @@ func (a *ContainerAdjustment) SetLinuxMemoryPolicy(mode MpolMode, nodes string, 
 // SetLinuxMemoryLimit records setting the memory limit for a container.
 func (a *ContainerAdjustment) SetLinuxMemoryLimit(value int64) {
 	a.initLinuxResourcesMemory()
-	a.Linux.Resources.Memory.Limit = Int64(value)
+	a.Linux.Resources.Memory.Limit = NewInt64(value)
 }
 
 // SetLinuxMemoryReservation records setting the memory reservation for a container.
 func (a *ContainerAdjustment) SetLinuxMemoryReservation(value int64) {
 	a.initLinuxResourcesMemory()
-	a.Linux.Resources.Memory.Reservation = Int64(value)
+	a.Linux.Resources.Memory.Reservation = NewInt64(value)
 }
 
 // SetLinuxMemorySwap records records setting the memory swap limit for a container.
 func (a *ContainerAdjustment) SetLinuxMemorySwap(value int64) {
 	a.initLinuxResourcesMemory()
-	a.Linux.Resources.Memory.Swap = Int64(value)
+	a.Linux.Resources.Memory.Swap = NewInt64(value)
 }
 
 // SetLinuxMemoryKernel records setting the memory kernel limit for a container.
 func (a *ContainerAdjustment) SetLinuxMemoryKernel(value int64) {
 	a.initLinuxResourcesMemory()
-	a.Linux.Resources.Memory.Kernel = Int64(value)
+	a.Linux.Resources.Memory.Kernel = NewInt64(value)
 }
 
 // SetLinuxMemoryKernelTCP records setting the memory kernel TCP limit for a container.
 func (a *ContainerAdjustment) SetLinuxMemoryKernelTCP(value int64) {
 	a.initLinuxResourcesMemory()
-	a.Linux.Resources.Memory.KernelTcp = Int64(value)
+	a.Linux.Resources.Memory.KernelTcp = NewInt64(value)
 }
 
 // SetLinuxMemorySwappiness records setting the memory swappiness for a container.
 func (a *ContainerAdjustment) SetLinuxMemorySwappiness(value uint64) {
 	a.initLinuxResourcesMemory()
-	a.Linux.Resources.Memory.Swappiness = UInt64(value)
+	a.Linux.Resources.Memory.Swappiness = NewUInt64(value)
 }
 
 // SetLinuxMemoryDisableOomKiller records disabling the OOM killer for a container.
 func (a *ContainerAdjustment) SetLinuxMemoryDisableOomKiller() {
 	a.initLinuxResourcesMemory()
-	a.Linux.Resources.Memory.DisableOomKiller = Bool(true)
+	a.Linux.Resources.Memory.DisableOomKiller = NewBool(true)
 }
 
 // SetLinuxMemoryUseHierarchy records enabling hierarchical memory accounting for a container.
 func (a *ContainerAdjustment) SetLinuxMemoryUseHierarchy() {
 	a.initLinuxResourcesMemory()
-	a.Linux.Resources.Memory.UseHierarchy = Bool(true)
+	a.Linux.Resources.Memory.UseHierarchy = NewBool(true)
 }
 
 // SetLinuxCPUShares records setting the scheduler's CPU shares for a container.
 func (a *ContainerAdjustment) SetLinuxCPUShares(value uint64) {
 	a.initLinuxResourcesCPU()
-	a.Linux.Resources.Cpu.Shares = UInt64(value)
+	a.Linux.Resources.Cpu.Shares = NewUInt64(value)
 }
 
 // SetLinuxCPUQuota records setting the scheduler's CPU quota for a container.
 func (a *ContainerAdjustment) SetLinuxCPUQuota(value int64) {
 	a.initLinuxResourcesCPU()
-	a.Linux.Resources.Cpu.Quota = Int64(value)
+	a.Linux.Resources.Cpu.Quota = NewInt64(value)
 }
 
 // SetLinuxCPUPeriod records setting the scheduler's CPU period for a container.
 func (a *ContainerAdjustment) SetLinuxCPUPeriod(value int64) {
 	a.initLinuxResourcesCPU()
-	a.Linux.Resources.Cpu.Period = UInt64(value)
+	a.Linux.Resources.Cpu.Period = NewUInt64(uint64(value))
 }
 
 // SetLinuxCPURealtimeRuntime records setting the scheduler's realtime runtime for a container.
 func (a *ContainerAdjustment) SetLinuxCPURealtimeRuntime(value int64) {
 	a.initLinuxResourcesCPU()
-	a.Linux.Resources.Cpu.RealtimeRuntime = Int64(value)
+	a.Linux.Resources.Cpu.RealtimeRuntime = NewInt64(value)
 }
 
 // SetLinuxCPURealtimePeriod records setting the scheduler's realtime period for a container.
 func (a *ContainerAdjustment) SetLinuxCPURealtimePeriod(value uint64) {
 	a.initLinuxResourcesCPU()
-	a.Linux.Resources.Cpu.RealtimePeriod = UInt64(value)
+	a.Linux.Resources.Cpu.RealtimePeriod = NewUInt64(value)
 }
 
 // SetLinuxCPUSetCPUs records setting the cpuset CPUs for a container.
@@ -297,31 +297,31 @@ func (a *ContainerAdjustment) AddLinuxHugepageLimit(pageSize string, value uint6
 // SetLinuxBlockIOClass records setting the Block I/O class for a container.
 func (a *ContainerAdjustment) SetLinuxBlockIOClass(value string) {
 	a.initLinuxResources()
-	a.Linux.Resources.BlockioClass = String(value)
+	a.Linux.Resources.BlockioClass = NewString(value)
 }
 
 // SetLinuxRDTClass records setting the RDT class for a container.
 func (a *ContainerAdjustment) SetLinuxRDTClass(value string) {
 	a.initLinuxResources()
-	a.Linux.Resources.RdtClass = String(value)
+	a.Linux.Resources.RdtClass = NewString(value)
 }
 
 // SetLinuxRDTClosID records setting the RDT CLOS id for a container.
 func (a *ContainerAdjustment) SetLinuxRDTClosID(value string) {
 	a.initLinuxRdt()
-	a.Linux.Rdt.ClosId = String(value)
+	a.Linux.Rdt.ClosId = NewString(value)
 }
 
 // SetLinuxRDTSchemata records setting the RDT schemata for a container.
 func (a *ContainerAdjustment) SetLinuxRDTSchemata(value []string) {
 	a.initLinuxRdt()
-	a.Linux.Rdt.Schemata = RepeatedString(value)
+	a.Linux.Rdt.Schemata = NewRepeatedString(value)
 }
 
 // SetLinuxRDTEnableMonitoring records enabling RDT monitoring for a container.
 func (a *ContainerAdjustment) SetLinuxRDTEnableMonitoring(value bool) {
 	a.initLinuxRdt()
-	a.Linux.Rdt.EnableMonitoring = Bool(value)
+	a.Linux.Rdt.EnableMonitoring = NewBool(value)
 }
 
 // RemoveLinuxRDT records the removal of the RDT configuration.
@@ -345,7 +345,7 @@ func (a *ContainerAdjustment) SetLinuxCgroupsPath(value string) {
 // SetLinuxOomScoreAdj records setting the kernel's Out-Of-Memory (OOM) killer score for a container.
 func (a *ContainerAdjustment) SetLinuxOomScoreAdj(value *int) {
 	a.initLinux()
-	a.Linux.OomScoreAdj = Int(value) // using Int(value) from ./options.go to optionally allocate a pointer to normalized copy of value
+	a.Linux.OomScoreAdj = IntPtr(value)
 }
 
 // SetLinuxIOPriority records setting the I/O priority for a container.

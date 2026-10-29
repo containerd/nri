@@ -75,7 +75,7 @@ func TestAdjustment(t *testing.T) {
 				Linux: &api.LinuxContainerAdjustment{
 					Resources: &api.LinuxResources{
 						Memory: &api.LinuxMemory{
-							Limit: api.Int64(11111),
+							Limit: api.NewInt64(11111),
 						},
 					},
 				},
@@ -119,7 +119,7 @@ func TestAdjustment(t *testing.T) {
 			adjust: &api.ContainerAdjustment{
 				Linux: &api.LinuxContainerAdjustment{
 					Resources: &api.LinuxResources{
-						Cpu: &api.LinuxCPU{Shares: api.UInt64(11111)},
+						Cpu: &api.LinuxCPU{Shares: api.NewUInt64(11111)},
 					},
 				},
 			},
@@ -132,7 +132,7 @@ func TestAdjustment(t *testing.T) {
 			adjust: &api.ContainerAdjustment{
 				Linux: &api.LinuxContainerAdjustment{
 					Resources: &api.LinuxResources{
-						Cpu: &api.LinuxCPU{Quota: api.Int64(11111)},
+						Cpu: &api.LinuxCPU{Quota: api.NewInt64(11111)},
 					},
 				},
 			},
@@ -145,7 +145,7 @@ func TestAdjustment(t *testing.T) {
 			adjust: &api.ContainerAdjustment{
 				Linux: &api.LinuxContainerAdjustment{
 					Resources: &api.LinuxResources{
-						Cpu: &api.LinuxCPU{Period: api.UInt64(11111)},
+						Cpu: &api.LinuxCPU{Period: api.NewUInt64(11111)},
 					},
 				},
 			},
@@ -278,9 +278,9 @@ func TestAdjustment(t *testing.T) {
 		adjust := &api.ContainerAdjustment{
 			Linux: &api.LinuxContainerAdjustment{
 				Rdt: &api.LinuxRdt{
-					ClosId:           api.String("foo"),
-					Schemata:         api.RepeatedString([]string{"L2:0=ff", "L3:0=f"}),
-					EnableMonitoring: api.Bool(true),
+					ClosId:           api.NewString("foo"),
+					Schemata:         api.NewRepeatedString([]string{"L2:0=ff", "L3:0=f"}),
+					EnableMonitoring: api.NewBool(true),
 				},
 			},
 		}

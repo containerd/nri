@@ -531,21 +531,21 @@ func (r *result) adjustRdt(rdt *LinuxRdt, plugin string) error {
 		if err := r.owners.ClaimRdtClosID(id, plugin); err != nil {
 			return err
 		}
-		r.reply.adjust.Linux.Rdt.ClosId = String(v.GetValue())
+		r.reply.adjust.Linux.Rdt.ClosId = api.NewString(v.GetValue())
 		r.reply.adjust.Linux.Rdt.Remove = false
 	}
 	if v := rdt.GetSchemata(); v != nil {
 		if err := r.owners.ClaimRdtSchemata(id, plugin); err != nil {
 			return err
 		}
-		r.reply.adjust.Linux.Rdt.Schemata = RepeatedString(v.GetValue())
+		r.reply.adjust.Linux.Rdt.Schemata = api.NewRepeatedString(v.GetValue())
 		r.reply.adjust.Linux.Rdt.Remove = false
 	}
 	if v := rdt.GetEnableMonitoring(); v != nil {
 		if err := r.owners.ClaimRdtEnableMonitoring(id, plugin); err != nil {
 			return err
 		}
-		r.reply.adjust.Linux.Rdt.EnableMonitoring = Bool(v.GetValue())
+		r.reply.adjust.Linux.Rdt.EnableMonitoring = api.NewBool(v.GetValue())
 		r.reply.adjust.Linux.Rdt.Remove = false
 	}
 
@@ -732,72 +732,72 @@ func (r *result) adjustMemoryResource(mem, targetContainer, targetReply *LinuxMe
 		if err := r.owners.ClaimMemLimit(id, plugin); err != nil {
 			return err
 		}
-		targetContainer.Limit = Int64(v.GetValue())
+		targetContainer.Limit = api.NewInt64(v.GetValue())
 		if targetReply != nil {
-			targetReply.Limit = Int64(v.GetValue())
+			targetReply.Limit = api.NewInt64(v.GetValue())
 		}
 	}
 	if v := mem.GetReservation(); v != nil {
 		if err := r.owners.ClaimMemReservation(id, plugin); err != nil {
 			return err
 		}
-		targetContainer.Reservation = Int64(v.GetValue())
+		targetContainer.Reservation = api.NewInt64(v.GetValue())
 		if targetReply != nil {
-			targetReply.Reservation = Int64(v.GetValue())
+			targetReply.Reservation = api.NewInt64(v.GetValue())
 		}
 	}
 	if v := mem.GetSwap(); v != nil {
 		if err := r.owners.ClaimMemSwapLimit(id, plugin); err != nil {
 			return err
 		}
-		targetContainer.Swap = Int64(v.GetValue())
+		targetContainer.Swap = api.NewInt64(v.GetValue())
 		if targetReply != nil {
-			targetReply.Swap = Int64(v.GetValue())
+			targetReply.Swap = api.NewInt64(v.GetValue())
 		}
 	}
 	if v := mem.GetKernel(); v != nil {
 		if err := r.owners.ClaimMemKernelLimit(id, plugin); err != nil {
 			return err
 		}
-		targetContainer.Kernel = Int64(v.GetValue())
+		targetContainer.Kernel = api.NewInt64(v.GetValue())
 		if targetReply != nil {
-			targetReply.Kernel = Int64(v.GetValue())
+			targetReply.Kernel = api.NewInt64(v.GetValue())
 		}
 	}
 	if v := mem.GetKernelTcp(); v != nil {
 		if err := r.owners.ClaimMemTCPLimit(id, plugin); err != nil {
 			return err
 		}
-		targetContainer.KernelTcp = Int64(v.GetValue())
+		targetContainer.KernelTcp = api.NewInt64(v.GetValue())
 		if targetReply != nil {
-			targetReply.KernelTcp = Int64(v.GetValue())
+			targetReply.KernelTcp = api.NewInt64(v.GetValue())
 		}
 	}
 	if v := mem.GetSwappiness(); v != nil {
 		if err := r.owners.ClaimMemSwappiness(id, plugin); err != nil {
 			return err
 		}
-		targetContainer.Swappiness = UInt64(v.GetValue())
+		targetContainer.Swappiness = api.NewUInt64(v.GetValue())
 		if targetReply != nil {
-			targetReply.Swappiness = UInt64(v.GetValue())
+			targetReply.Swappiness = api.NewUInt64(v.GetValue())
 		}
 	}
 	if v := mem.GetDisableOomKiller(); v != nil {
 		if err := r.owners.ClaimMemDisableOomKiller(id, plugin); err != nil {
 			return err
 		}
-		targetContainer.DisableOomKiller = Bool(v.GetValue())
+		targetContainer.DisableOomKiller = api.NewBool(v.GetValue())
 		if targetReply != nil {
-			targetReply.DisableOomKiller = Bool(v.GetValue())
+			targetReply.DisableOomKiller = api.NewBool(v.GetValue())
 		}
 	}
 	if v := mem.GetUseHierarchy(); v != nil {
 		if err := r.owners.ClaimMemUseHierarchy(id, plugin); err != nil {
 			return err
 		}
-		targetContainer.UseHierarchy = Bool(v.GetValue())
+		targetContainer.UseHierarchy = api.NewBool(v.GetValue())
 		if targetReply != nil {
-			targetReply.UseHierarchy = Bool(v.GetValue())
+			targetReply.UseHierarchy = api.NewBool(v.GetValue())
 		}
 	}
 
@@ -813,45 +813,45 @@ func (r *result) adjustCPUResource(cpu, targetContainer, targetReply *LinuxCPU, 
 		if err := r.owners.ClaimCPUShares(id, plugin); err != nil {
 			return err
 		}
-		targetContainer.Shares = UInt64(v.GetValue())
+		targetContainer.Shares = api.NewUInt64(v.GetValue())
 		if targetReply != nil {
-			targetReply.Shares = UInt64(v.GetValue())
+			targetReply.Shares = api.NewUInt64(v.GetValue())
 		}
 	}
 	if v := cpu.GetQuota(); v != nil {
 		if err := r.owners.ClaimCPUQuota(id, plugin); err != nil {
 			return err
 		}
-		targetContainer.Quota = Int64(v.GetValue())
+		targetContainer.Quota = api.NewInt64(v.GetValue())
 		if targetReply != nil {
-			targetReply.Quota = Int64(v.GetValue())
+			targetReply.Quota = api.NewInt64(v.GetValue())
 		}
 	}
 	if v := cpu.GetPeriod(); v != nil {
 		if err := r.owners.ClaimCPUPeriod(id, plugin); err != nil {
 			return err
 		}
-		targetContainer.Period = UInt64(v.GetValue())
+		targetContainer.Period = api.NewUInt64(v.GetValue())
 		if targetReply != nil {
-			targetReply.Period = UInt64(v.GetValue())
+			targetReply.Period = api.NewUInt64(v.GetValue())
 		}
 	}
 	if v := cpu.GetRealtimeRuntime(); v != nil {
 		if err := r.owners.ClaimCPURealtimeRuntime(id, plugin); err != nil {
 			return err
 		}
-		targetContainer.RealtimeRuntime = Int64(v.GetValue())
+		targetContainer.RealtimeRuntime = api.NewInt64(v.GetValue())
 		if targetReply != nil {
-			targetReply.RealtimeRuntime = Int64(v.GetValue())
+			targetReply.RealtimeRuntime = api.NewInt64(v.GetValue())
 		}
 	}
 	if v := cpu.GetRealtimePeriod(); v != nil {
 		if err := r.owners.ClaimCPURealtimePeriod(id, plugin); err != nil {
 			return err
 		}
-		targetContainer.RealtimePeriod = UInt64(v.GetValue())
+		targetContainer.RealtimePeriod = api.NewUInt64(v.GetValue())
 		if targetReply != nil {
-			targetReply.RealtimePeriod = UInt64(v.GetValue())
+			targetReply.RealtimePeriod = api.NewUInt64(v.GetValue())
 		}
 	}
 	if v := cpu.GetCpus(); v != "" {
@@ -920,15 +920,15 @@ func (r *result) adjustResources(resources *LinuxResources, plugin string) error
 		if err := r.owners.ClaimBlockioClass(id, plugin); err != nil {
 			return err
 		}
-		container.BlockioClass = String(v.GetValue())
-		reply.BlockioClass = String(v.GetValue())
+		container.BlockioClass = api.NewString(v.GetValue())
+		reply.BlockioClass = api.NewString(v.GetValue())
 	}
 	if v := resources.GetRdtClass(); v != nil {
 		if err := r.owners.ClaimRdtClass(id, plugin); err != nil {
 			return err
 		}
-		container.RdtClass = String(v.GetValue())
-		reply.RdtClass = String(v.GetValue())
+		container.RdtClass = api.NewString(v.GetValue())
+		reply.RdtClass = api.NewString(v.GetValue())
 	}
 	if v := resources.GetPids(); v != nil {
 		if err := r.owners.ClaimPidsLimit(id, plugin); err != nil {
@@ -1137,13 +1137,13 @@ func (r *result) updateResources(reply, u *ContainerUpdate, plugin string) error
 		if err := r.owners.ClaimBlockioClass(id, plugin); err != nil {
 			return err
 		}
-		resources.BlockioClass = String(v.GetValue())
+		resources.BlockioClass = api.NewString(v.GetValue())
 	}
 	if v := u.Linux.Resources.GetRdtClass(); v != nil {
 		if err := r.owners.ClaimRdtClass(id, plugin); err != nil {
 			return err
 		}
-		resources.RdtClass = String(v.GetValue())
+		resources.RdtClass = api.NewString(v.GetValue())
 	}
 	if v := u.Linux.Resources.GetPids(); v != nil {
 		if err := r.owners.ClaimPidsLimit(id, plugin); err != nil {

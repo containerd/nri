@@ -17,11 +17,11 @@
 package generate
 
 import (
+	"cmp"
 	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
-	"sort"
 	"strings"
 
 	rspec "github.com/opencontainers/runtime-spec/specs-go"
@@ -650,53 +650,35 @@ func (g *Generator) AdjustMounts(mounts []*nri.Mount) error {
 	return nil
 }
 
-// sortMounts sorts the mounts in the generated OCI Spec.
-func (g *Generator) sortMounts() {
-	mounts := g.Mounts()
-	g.ClearMounts()
-	sort.Sort(orderedMounts(mounts))
-
-	// TODO(klihub): This is now a bit ugly maybe we should introduce a
-	// SetMounts([]rspec.Mount) to runtime-tools/generate.Generator. That
-	// could also take care of properly sorting the mount slice.
-
-	g.Config.Mounts = mounts
-}
-
-// orderedMounts defines how to sort an OCI Spec Mount slice.
-// This is the almost the same implementation sa used by CRI-O and Docker,
-// with a minor tweak for stable sorting order (easier to test):
+// sortMounts sorts mounts by destination depth so that parent mounts are
+// applied before mounts beneath them. Mounts at the same depth are sorted
+// by destination to produce a deterministic order.
 //
-//	https://github.com/moby/moby/blob/17.05.x/daemon/volumes.go#L26
-type orderedMounts []rspec.Mount
-
-// Len returns the number of mounts. Used in sorting.
-func (m orderedMounts) Len() int {
-	return len(m)
-}
-
-// Less returns true if the number of parts (a/b/c would be 3 parts) in the
-// mount indexed by parameter 1 is less than that of the mount indexed by
-// parameter 2. Used in sorting.
-func (m orderedMounts) Less(i, j int) bool {
-	ip, jp := m.parts(i), m.parts(j)
-	if ip < jp {
-		return true
+// For example, /etc must be mounted before /etc/resolv.conf.
+//
+// Based on moby's implementation:
+// https://github.com/moby/moby/blob/docker-v29.9.2/daemon/container/mounts.go#L11-L34
+func (g *Generator) sortMounts() {
+	if g.Config == nil {
+		return
 	}
-	if jp < ip {
-		return false
+	slices.SortStableFunc(g.Config.Mounts, func(a, b rspec.Mount) int {
+		return compareMountPaths(a.Destination, b.Destination)
+	})
+}
+
+// compareMountPaths compares mount paths by depth so that parent paths sort
+// before paths beneath them.
+func compareMountPaths(a, b string) int {
+	a = filepath.Clean(a)
+	b = filepath.Clean(b)
+
+	aParts := strings.Count(a, string(os.PathSeparator))
+	bParts := strings.Count(b, string(os.PathSeparator))
+	if c := cmp.Compare(aParts, bParts); c != 0 {
+		return c
 	}
-	return m[i].Destination < m[j].Destination
-}
-
-// Swap swaps two items in an array of mounts. Used in sorting
-func (m orderedMounts) Swap(i, j int) {
-	m[i], m[j] = m[j], m[i]
-}
-
-// parts returns the number of parts in the destination of a mount. Used in sorting.
-func (m orderedMounts) parts(i int) int {
-	return strings.Count(filepath.Clean(m[i].Destination), string(os.PathSeparator))
+	return cmp.Compare(a, b)
 }
 
 func nopFilter(m map[string]string) (map[string]string, error) {

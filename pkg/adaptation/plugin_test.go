@@ -31,8 +31,8 @@ import (
 	"github.com/containerd/nri/pkg/adaptation/builtin"
 )
 
-// The four possible failure policies. The zero value is the old NRI
-// behavior: drop the plugin and let the request proceed without it.
+// The four possible failure policies. The zero value drops the plugin
+// and lets the request proceed without it.
 var (
 	dropAndProceed = &FailurePolicy{}
 	dropAndFail    = &FailurePolicy{FailRequest: true}
@@ -51,7 +51,7 @@ func policyName(policy *FailurePolicy) string {
 }
 
 // testPlugin returns a builtin plugin with the given failure policy. A
-// builtin plugin has no connection, so close() is safe to call.
+// builtin plugin does not have a connection. Calling close() is safe.
 func testPlugin(policy *FailurePolicy) *plugin {
 	return &plugin{
 		idx:    "00",
@@ -61,8 +61,8 @@ func testPlugin(policy *FailurePolicy) *plugin {
 	}
 }
 
-// expiredContext returns a context with an expired deadline. This is what
-// the runtime context looks like when the runtime timed out, not NRI.
+// expiredContext returns a context with an expired deadline, simulating
+// an expired runtime context.
 func expiredContext(t *testing.T) context.Context {
 	t.Helper()
 	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(-time.Second))
@@ -76,8 +76,8 @@ var (
 	errWrappedTimeout = fmt.Errorf("call failed: %w", context.DeadlineExceeded)
 	errProtocol       = fmt.Errorf("unexpected message: %w", ttrpc.ErrProtocol)
 	errPlugin         = errors.New("plugin rejected the request")
-	// A plugin that returns context.DeadlineExceeded. ttrpc delivers it
-	// as a status error, so it does not match the context error.
+	// A plugin returning context.DeadlineExceeded. ttrpc delivers it
+	// as a status error that does not match the context error.
 	errPluginTimeout = status.Error(codes.DeadlineExceeded, "too slow")
 )
 
@@ -172,10 +172,9 @@ func TestHandleRequestError(t *testing.T) {
 		})
 	}
 
-	// Errors that are not plugin failures are returned unchanged. They
-	// never affect the plugin, whatever the policy. This covers errors
-	// returned by the plugin, cancelled requests, and any error after the
-	// runtime context is done.
+	// Non-fatal errors are returned unchanged and do not affect the
+	// plugin, regardless of policy. This covers errors returned by the
+	// plugin, cancelled requests, and expired runtime contexts.
 	for _, policy := range allPolicies {
 		for _, tc := range []struct {
 			name string

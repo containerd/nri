@@ -1064,10 +1064,9 @@ type ConfigureResponse struct {
 	// Events to subscribe the plugin for. Each bit set corresponds to an
 	// enumerated Event.
 	Events int32 `protobuf:"varint,2,opt,name=events,proto3" json:"events,omitempty"`
-	// How the runtime handles a failure of the plugin to receive and respond
-	// to a request within a timeout period. If unset, all fields have their
-	// default value. The defaults match the behavior of NRI before this field
-	// existed.
+	// How the runtime handles a failure of the plugin to process a request.
+	// When unset, the runtime disconnects the plugin and lets the request
+	// proceed without it.
 	FailurePolicy *FailurePolicy `protobuf:"bytes,3,opt,name=failure_policy,json=failurePolicy,proto3" json:"failure_policy,omitempty"`
 }
 
@@ -1117,36 +1116,32 @@ func (x *ConfigureResponse) GetFailurePolicy() *FailurePolicy {
 	return nil
 }
 
-// FailurePolicy tells the runtime what to do when a plugin fails to receive
-// and respond to a request within a timeout period.
-// Failure types covered by the FailurePolicy include request timeout, lost
-// connection, and protocol error. Non-transport/timeout errors, such as a
-// plugin returning a rejection to the request, are not covered by the
-// FailurePolicy.
+// FailurePolicy specifies how the runtime handles a plugin failure during
+// request processing. Failures include request timeouts, lost connections,
+// and protocol errors. Errors returned by the plugin always fail the
+// request and are not governed by this policy.
 //
-// The runtime takes two independent decisions for each failure: one about
+// The runtime makes two independent decisions for each failure: one about
 // the request and one about the plugin. Each field controls one decision.
-// The default of each field is the behavior of NRI before this field
-// existed. A plugin that does not set a policy is treated as before: the
-// runtime disconnects it and the request proceeds without it.
+// When unset, the runtime disconnects the plugin and lets the request
+// proceed without it.
 type FailurePolicy struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// When fail_request is set to true, fail the request is the policy. The
-	// error names the plugin and the request, like an error returned by the
-	// plugin. The remaining plugins do not receive the request. The
-	// fail_request policy defaults to false when unset. False results in the
-	// request proceeding on to the remaining plugins, as if the plugin were
-	// not subscribed to it.
+	// Fail the request if the plugin fails. The error names the plugin and
+	// the request, like an error returned by the plugin. The remaining
+	// plugins do not receive the request. Default: false; the request
+	// proceeds with the remaining plugins, as if the failed plugin were not
+	// subscribed to it.
 	FailRequest bool `protobuf:"varint,1,opt,name=fail_request,json=failRequest,proto3" json:"fail_request,omitempty"`
 	// Keep the plugin registered when it exceeds the request timeout. The
 	// plugin continues receiving requests. A plugin that stays unresponsive
-	// delays each request it receives by the full timeout. Default: the
-	// runtime disconnects and unregisters the plugin. This field only applies
-	// to timeouts. A plugin that loses its connection or causes a protocol
-	// error is always disconnected.
+	// delays each request it receives by the full timeout. Default: false;
+	// the runtime disconnects and unregisters the plugin. This field only
+	// applies to timeouts. A plugin that loses its connection or causes a
+	// protocol error is always disconnected.
 	KeepConnected bool `protobuf:"varint,2,opt,name=keep_connected,json=keepConnected,proto3" json:"keep_connected,omitempty"`
 }
 

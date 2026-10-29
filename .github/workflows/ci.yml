@@ -21,24 +21,14 @@ jobs:
     timeout-minutes: 5
 
     steps:
-      - name: Set env
-        shell: bash
-        # TODO(thaJeztah): remove working-directory, path, and GOPATH once project-checks stops needing them; see https://github.com/containerd/nri/pull/53/commits/872fb0ce3dce136f3ae67c068ce78607565194ef#r1324366346
-        run: |
-          echo "GOPATH=${{ github.workspace }}" >> $GITHUB_ENV
-          echo "${{ github.workspace }}/bin" >> $GITHUB_PATH
-
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          path: src/github.com/containerd/nri
           fetch-depth: 25
           persist-credentials: false
 
       - uses: $/.github/actions/install-go
 
-      - uses: containerd/project-checks@d7751f3c375b8fe4a84c02a068184ee4c1f59bc4 # v1.2.2
-        with:
-          working-directory: src/github.com/containerd/nri
+      - uses: containerd/project-checks@9d887fad80ae4e40d6f10a68529082e7fc06a9af # v1.2.3
 
   test-build:
     name: Check buildability

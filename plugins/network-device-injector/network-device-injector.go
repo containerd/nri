@@ -105,7 +105,7 @@ type plugin struct {
 }
 
 func (p *plugin) RunPodSandbox(_ context.Context, pod *api.PodSandbox) error {
-	log.WithField("namespace", pod.GetNamespace()).WithField("name", pod.GetName).Debug("Started pod...")
+	log.WithField("namespace", pod.GetNamespace()).WithField("name", pod.GetName()).Debug("Started pod...")
 	if verbose {
 		dump("RunPodSandbox", "pod", pod)
 	}
@@ -121,18 +121,10 @@ func (p *plugin) RunPodSandbox(_ context.Context, pod *api.PodSandbox) error {
 		return nil
 	}
 
-	// get the pod network namespace
-	var ns string
-	for _, namespace := range pod.Linux.GetNamespaces() {
-		if namespace.Type == "network" {
-			ns = namespace.Path
-			break
-		}
-	}
-
+	ns := getNetworkNamespace(pod)
 	// Pods running on the host network namespace has this value empty
 	if ns == "" {
-		log.WithField("namespace", pod.GetNamespace()).WithField("name", pod.GetName).Info("Pod using host namespace, skipping ...")
+		log.WithField("namespace", pod.GetNamespace()).WithField("name", pod.GetName()).Info("Pod using host namespace, skipping ...")
 		return fmt.Errorf("trying to inject network device on host network Pod")
 	}
 
@@ -147,7 +139,7 @@ func (p *plugin) RunPodSandbox(_ context.Context, pod *api.PodSandbox) error {
 }
 
 func (p *plugin) StopPodSandbox(_ context.Context, pod *api.PodSandbox) error {
-	log.WithField("namespace", pod.GetNamespace()).WithField("name", pod.GetName).Debug("Stopped pod...")
+	log.WithField("namespace", pod.GetNamespace()).WithField("name", pod.GetName()).Debug("Stopped pod...")
 	if verbose {
 		dump("StopPodSandbox", "pod", pod)
 	}
@@ -161,16 +153,10 @@ func (p *plugin) StopPodSandbox(_ context.Context, pod *api.PodSandbox) error {
 		return nil
 	}
 
-	// get the pod network namespace
-	var ns string
-	for _, namespace := range pod.Linux.GetNamespaces() {
-		if namespace.Type == "network" {
-			ns = namespace.Path
-			break
-		}
-	}
-	// TODO check host network namespace
+	// Host network pods do not have an isolated network namespace and cannot have injected devices.
+	ns := getNetworkNamespace(pod)
 	if ns == "" {
+		log.WithField("namespace", pod.GetNamespace()).WithField("name", pod.GetName()).Debug("Pod using host namespace, skipping device release...")
 		return nil
 	}
 
@@ -178,11 +164,21 @@ func (p *plugin) StopPodSandbox(_ context.Context, pod *api.PodSandbox) error {
 	for _, n := range netdevices {
 		err = n.release(ns)
 		if err != nil {
+			log.WithError(err).WithField("device", n.Name).Error("Failed to release network device")
 			return nil
 		}
 	}
 
 	return nil
+}
+
+func getNetworkNamespace(pod *api.PodSandbox) string {
+	for _, namespace := range pod.GetLinux().GetNamespaces() {
+		if namespace.Type == "network" {
+			return namespace.Path
+		}
+	}
+	return ""
 }
 
 func parseNetdevices(annotations map[string]string) ([]netdevice, error) {

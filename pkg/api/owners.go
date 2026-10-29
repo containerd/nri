@@ -14,9 +14,6 @@
    limitations under the License.
 */
 
-// TODO: Add comments to exported methods and functions.
-//
-//nolint:revive // exported symbols should have comment
 package api
 
 import (
@@ -34,6 +31,7 @@ import (
 //   requested by plugins, and to detect conflicting requests.
 //
 
+// NewOwningPlugins creates and returns an empty OwningPlugins instance.
 func NewOwningPlugins() *OwningPlugins {
 	return &OwningPlugins{
 		Owners: make(map[string]*FieldOwners),
@@ -44,18 +42,22 @@ func NewOwningPlugins() *OwningPlugins {
 // functions as they did not match the pattern used to generate the rest of the
 // functions.
 
+// ClaimHooks records plugin as the owner of OCI hooks for the container id.
 func (o *OwningPlugins) ClaimHooks(id, plugin string) error {
 	return o.mustOwnersFor(id).ClaimHooks(plugin)
 }
 
+// HooksOwner returns the plugin that owns OCI hooks for the container id.
 func (o *OwningPlugins) HooksOwner(id string) (string, bool) {
 	return o.ownersFor(id).simpleOwner(Field_OciHooks.Key())
 }
 
+// ClearHooks marks the OCI hooks for container id as cleared by plugin.
 func (o *OwningPlugins) ClearHooks(id, plugin string) {
 	o.mustOwnersFor(id).ClearHooks(plugin)
 }
 
+// ClearRdt marks all RDT-related fields for container id as cleared by plugin.
 func (o *OwningPlugins) ClearRdt(id, plugin string) {
 	o.mustOwnersFor(id).ClearRdt(plugin)
 }
@@ -77,6 +79,7 @@ func (o *OwningPlugins) ownersFor(id string) *FieldOwners {
 	return f
 }
 
+// NewFieldOwners creates and returns an empty FieldOwners instance.
 func NewFieldOwners() *FieldOwners {
 	return &FieldOwners{
 		Simple:   make(map[int32]string),
@@ -84,6 +87,8 @@ func NewFieldOwners() *FieldOwners {
 	}
 }
 
+// IsCompoundConflict checks whether plugin conflicts with an existing owner of
+// the compound field entry identified by field and key.
 func (f *FieldOwners) IsCompoundConflict(field int32, key, plugin string) error {
 	m, ok := f.Compound[field]
 	if !ok {
@@ -107,6 +112,8 @@ func (f *FieldOwners) IsCompoundConflict(field int32, key, plugin string) error 
 	return f.Conflict(field, plugin, other, key)
 }
 
+// IsSimpleConflict checks whether plugin conflicts with an existing owner of
+// the simple (scalar) field identified by field.
 func (f *FieldOwners) IsSimpleConflict(field int32, plugin string) error {
 	other, claimed := f.Simple[field]
 	if !claimed {
@@ -142,15 +149,18 @@ func (f *FieldOwners) claimSimple(field int32, plugin string) error {
 	return nil
 }
 
+// ClaimHooks records plugin as an accumulating owner of OCI hooks.
 func (f *FieldOwners) ClaimHooks(plugin string) error {
 	f.accumulateSimple(Field_OciHooks.Key(), plugin)
 	return nil
 }
 
+// HooksOwner returns the accumulated owner(s) of OCI hooks.
 func (f *FieldOwners) HooksOwner() (string, bool) {
 	return f.simpleOwner(Field_OciHooks.Key())
 }
 
+// ClearHooks marks OCI hooks as cleared by plugin.
 func (f *FieldOwners) ClearHooks(plugin string) {
 	f.clearSimple(Field_OciHooks.Key(), plugin)
 }
@@ -168,6 +178,7 @@ func (f *FieldOwners) clearSimple(field int32, plugin string) {
 	f.Simple[field] = MarkForRemoval(plugin)
 }
 
+// ClearRdt marks all RDT-related fields (ClosID, Schemata, EnableMonitoring) as cleared by plugin.
 func (f *FieldOwners) ClearRdt(plugin string) {
 	f.clearSimple(int32(Field_RdtClosID), plugin)
 	f.clearSimple(int32(Field_RdtSchemata), plugin)
@@ -182,6 +193,8 @@ func (f *FieldOwners) accumulateSimple(field int32, plugin string) {
 	f.Simple[field] = plugin
 }
 
+// Conflict returns an error describing the ownership conflict between plugin
+// and other over field, with optional key qualifiers.
 func (f *FieldOwners) Conflict(field int32, plugin, other string, qualifiers ...string) error {
 	return fmt.Errorf("plugins %q and %q both tried to set %s",
 		plugin, other, qualify(field, qualifiers...))
@@ -223,6 +236,7 @@ func (f *FieldOwners) simpleOwner(field int32) (string, bool) {
 	return plugin, ok
 }
 
+// NamespaceOwners returns a map from namespace type to owning plugin for container id.
 func (o *OwningPlugins) NamespaceOwners(id string) (map[string]string, bool) {
 	return o.ownersFor(id).compoundOwnerMap(Field_Namespace.Key())
 }
@@ -231,12 +245,14 @@ func qualify(field int32, qualifiers ...string) string {
 	return Field(field).String() + " " + strings.Join(append([]string{}, qualifiers...), " ")
 }
 
+// NewCompoundFieldOwners creates and returns an empty CompoundFieldOwners instance.
 func NewCompoundFieldOwners() *CompoundFieldOwners {
 	return &CompoundFieldOwners{
 		Owners: make(map[string]string),
 	}
 }
 
+// Key returns the int32 representation of the Field value.
 func (f Field) Key() int32 {
 	return int32(f)
 }

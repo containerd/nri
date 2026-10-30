@@ -17,8 +17,10 @@
 package generate_test
 
 import (
+	"strings"
 	"testing"
 
+	"github.com/moby/sys/mountinfo"
 	rspec "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/stretchr/testify/require"
 
@@ -228,6 +230,28 @@ func TestAdjustment(t *testing.T) {
 			{Destination: "/a/b/c", Source: "/host/c"},
 			{Destination: "/a/b/c/d/e", Source: "/host/e"},
 		})), spec)
+	})
+
+	t.Run("rslave mount without Linux section", func(t *testing.T) {
+		src := sharedOrSlaveMount()
+		if src == "" {
+			t.Skip("no mount with rshared or rslave propagation found")
+		}
+		spec := makeSpec()
+		spec.Linux = nil
+		adjust := &api.ContainerAdjustment{
+			Mounts: []*api.Mount{
+				{Destination: "/data", Source: src, Options: []string{"rslave"}},
+			},
+		}
+		xg := xgen.SpecGenerator(ocigen.New(spec))
+		require.NotNil(t, xg)
+		require.NoError(t, xg.Adjust(adjust))
+		require.NotNil(t, spec.Linux)
+		require.Equal(t, "rslave", spec.Linux.RootfsPropagation)
+		require.Equal(t, []rspec.Mount{
+			{Destination: "/data", Source: src, Options: []string{"rslave"}},
+		}, spec.Mounts)
 	})
 
 	t.Run("seccomp policy", func(t *testing.T) {
@@ -497,4 +521,23 @@ func makeSpec(options ...specOption) *rspec.Spec {
 
 func ptr[T any](v T) *T {
 	return &v
+}
+
+// sharedOrSlaveMount returns the mountpoint of the first mount with rshared
+// or rslave propagation, for use as a mount Source in propagation tests. It
+// returns an empty string if there is no such mount (the corresponding test
+// is then skipped).
+func sharedOrSlaveMount() string {
+	mounts, err := mountinfo.GetMounts(nil)
+	if err != nil {
+		return ""
+	}
+	for _, m := range mounts {
+		for opt := range strings.SplitSeq(m.Optional, " ") {
+			if strings.HasPrefix(opt, "shared:") || strings.HasPrefix(opt, "master:") {
+				return m.Mountpoint
+			}
+		}
+	}
+	return ""
 }

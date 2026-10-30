@@ -636,6 +636,7 @@ func (g *Generator) AdjustMounts(mounts []*nri.Mount) error {
 			if err := ensurePropagation(mnt.Source, "rshared", "rslave"); err != nil {
 				return fmt.Errorf("failed to adjust mounts in OCI Spec: %w", err)
 			}
+			g.initConfigLinux()
 			rootProp := g.Config.Linux.RootfsPropagation
 			if rootProp != "rshared" && rootProp != "rslave" {
 				if err := g.SetLinuxRootPropagation("rslave"); err != nil {

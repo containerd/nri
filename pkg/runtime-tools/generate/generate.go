@@ -598,11 +598,27 @@ func (g *Generator) AdjustRlimits(rlimits []*nri.POSIXRlimit) error {
 		if l == nil {
 			continue
 		}
-		g.Config.Process.Rlimits = append(g.Config.Process.Rlimits, rspec.POSIXRlimit{
+		rl := rspec.POSIXRlimit{
 			Type: l.Type,
 			Hard: l.Hard,
 			Soft: l.Soft,
-		})
+		}
+		// The OCI spec allows at most one rlimit per type, so update an
+		// existing entry of that type instead of appending a duplicate.
+		// Types are compared through their normalized form, so "nofile"
+		// and "RLIMIT_NOFILE" are the same type.
+		key := nri.NormalizeRlimitType(rl.Type)
+		updated := false
+		for i := range g.Config.Process.Rlimits {
+			if nri.NormalizeRlimitType(g.Config.Process.Rlimits[i].Type) == key {
+				g.Config.Process.Rlimits[i] = rl
+				updated = true
+				break
+			}
+		}
+		if !updated {
+			g.Config.Process.Rlimits = append(g.Config.Process.Rlimits, rl)
+		}
 	}
 	return nil
 }

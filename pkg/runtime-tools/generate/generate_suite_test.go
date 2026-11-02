@@ -354,6 +354,41 @@ func TestAdjustment(t *testing.T) {
 		require.NotNil(t, spec.Process)
 		require.Equal(t, rlimits, spec.Process.Rlimits)
 	})
+
+	t.Run("rlimits with duplicate types", func(t *testing.T) {
+		spec := makeSpec(withRlimit("nofile", 123, 456))
+		adjust := &api.ContainerAdjustment{
+			Rlimits: []*api.POSIXRlimit{
+				{Type: "nofile", Hard: 456, Soft: 123},
+				{Type: "nofile", Hard: 789, Soft: 321},
+				{Type: "nproc", Hard: 100, Soft: 50},
+			},
+		}
+
+		xg := xgen.SpecGenerator(ocigen.New(spec))
+		require.NotNil(t, xg)
+		require.NoError(t, xg.Adjust(adjust))
+		require.Equal(t, []rspec.POSIXRlimit{
+			{Type: "nofile", Hard: 789, Soft: 321},
+			{Type: "nproc", Hard: 100, Soft: 50},
+		}, spec.Process.Rlimits)
+	})
+
+	t.Run("rlimits with equivalent types in different forms", func(t *testing.T) {
+		spec := makeSpec(withRlimit("RLIMIT_NOFILE", 123, 456))
+		adjust := &api.ContainerAdjustment{
+			Rlimits: []*api.POSIXRlimit{
+				{Type: "nofile", Hard: 789, Soft: 321},
+			},
+		}
+
+		xg := xgen.SpecGenerator(ocigen.New(spec))
+		require.NotNil(t, xg)
+		require.NoError(t, xg.Adjust(adjust))
+		require.Equal(t, []rspec.POSIXRlimit{
+			{Type: "nofile", Hard: 789, Soft: 321},
+		}, spec.Process.Rlimits)
+	})
 }
 
 type specOption func(*rspec.Spec)

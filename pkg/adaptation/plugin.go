@@ -338,6 +338,8 @@ func (p *plugin) start(name, version string) (err error) {
 		select {
 		case err = <-p.regC:
 			if err != nil {
+				p.close()
+				p.stop()
 				return fmt.Errorf("failed to register plugin: %w", err)
 			}
 		case <-p.closeC:

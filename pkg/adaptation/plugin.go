@@ -26,6 +26,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/containerd/nri/pkg/adaptation/builtin"
@@ -43,11 +44,15 @@ const (
 	DefaultPluginRegistrationTimeout = api.DefaultPluginRegistrationTimeout
 	// DefaultPluginRequestTimeout is the default timeout for plugins to handle a request.
 	DefaultPluginRequestTimeout = api.DefaultPluginRequestTimeout
+	// DefaultPluginStopTimeout is the default time a launched plugin is given
+	// to exit after being signaled, before it is killed.
+	DefaultPluginStopTimeout = api.DefaultPluginStopTimeout
 )
 
 var (
 	pluginRegistrationTimeout = DefaultPluginRegistrationTimeout
 	pluginRequestTimeout      = DefaultPluginRequestTimeout
+	pluginStopTimeout         = DefaultPluginStopTimeout
 	timeoutCfgLock            sync.RWMutex
 )
 
@@ -64,11 +69,14 @@ type plugin struct {
 	rpcs   *ttrpc.Server
 	events EventMask
 	policy *FailurePolicy
-	closed bool
-	regC   chan error
-	closeC chan struct{}
-	r      *Adaptation
-	impl   *pluginType
+	// stopSignal is the signal used to ask a launched plugin to exit
+	// gracefully. Zero means the default, SIGTERM.
+	stopSignal syscall.Signal
+	closed     bool
+	regC       chan error
+	closeC     chan struct{}
+	r          *Adaptation
+	impl       *pluginType
 }
 
 // SetPluginRegistrationTimeout sets the timeout for plugin registration.
@@ -95,6 +103,20 @@ func getPluginRequestTimeout() time.Duration {
 	timeoutCfgLock.RLock()
 	defer timeoutCfgLock.RUnlock()
 	return pluginRequestTimeout
+}
+
+// SetPluginStopTimeout sets how long a plugin launched by NRI is given to
+// exit, after it has been sent its stop signal, before it is killed.
+func SetPluginStopTimeout(t time.Duration) {
+	timeoutCfgLock.Lock()
+	defer timeoutCfgLock.Unlock()
+	pluginStopTimeout = t
+}
+
+func getPluginStopTimeout() time.Duration {
+	timeoutCfgLock.RLock()
+	defer timeoutCfgLock.RUnlock()
+	return pluginStopTimeout
 }
 
 // newLaunchedPlugin launches a pre-installed plugin with a pre-connected socketpair.
@@ -340,10 +362,11 @@ func (p *plugin) start(name, version string) (err error) {
 				return fmt.Errorf("failed to register plugin: %w", err)
 			}
 		case <-p.closeC:
+			p.kill()
 			return fmt.Errorf("failed to register plugin, connection closed")
 		case <-time.After(timeout):
 			p.close()
-			p.stop()
+			p.kill()
 			return errors.New("plugin registration timed out")
 		}
 	}
@@ -351,7 +374,7 @@ func (p *plugin) start(name, version string) (err error) {
 	err = p.configure(context.Background(), name, version, p.cfg)
 	if err != nil {
 		p.close()
-		p.stop()
+		p.kill()
 		return err
 	}
 
@@ -384,23 +407,66 @@ func (p *plugin) isClosed() bool {
 	return p.closed
 }
 
-// stop a plugin (if it was launched by us)
+// isLaunched returns true if the plugin is a process launched by us.
+func (p *plugin) isLaunched() bool {
+	return !p.isExternal() && p.cmd.Process != nil && !p.impl.isWasm() && !p.impl.isBuiltin()
+}
+
+// stop a plugin (if it was launched by us). The plugin is first asked to exit
+// by sending it its stop signal (SIGTERM unless the plugin configured another
+// one). If it has not exited within the stop timeout, it is killed.
 func (p *plugin) stop() error {
-	if p.isExternal() || p.cmd.Process == nil || p.impl.isWasm() || p.impl.isBuiltin() {
+	if !p.isLaunched() {
 		return nil
 	}
 
-	// TODO(klihub):
-	//   We should attempt a graceful shutdown of the process here...
-	//     - send it SIGINT
-	//     - give the it some slack waiting with a timeout
-	//     - butcher it with SIGKILL after the timeout
+	sig := p.stopSignal
+	if sig == 0 {
+		sig = syscall.SIGTERM
+	}
 
-	p.cmd.Process.Kill()
-	p.cmd.Process.Wait()
-	p.cmd.Process.Release()
+	exited := p.reap()
+
+	if err := p.cmd.Process.Signal(sig); err != nil {
+		log.Debugf(noCtx, "failed to send signal %q to plugin %q: %v", sig, p.name(), err)
+		p.cmd.Process.Kill()
+		<-exited
+		return nil
+	}
+
+	select {
+	case <-exited:
+	case <-time.After(getPluginStopTimeout()):
+		log.Warnf(noCtx, "plugin %q did not exit within the stop timeout after %q, killing it",
+			p.name(), sig)
+		p.cmd.Process.Kill()
+		<-exited
+	}
 
 	return nil
+}
+
+// kill a plugin (if it was launched by us) without giving it a chance to exit.
+func (p *plugin) kill() {
+	if !p.isLaunched() {
+		return
+	}
+
+	exited := p.reap()
+	p.cmd.Process.Kill()
+	<-exited
+}
+
+// reap the plugin process in the background, returning a channel which is
+// closed once the process has exited and been released.
+func (p *plugin) reap() <-chan struct{} {
+	exited := make(chan struct{})
+	go func() {
+		defer close(exited)
+		p.cmd.Process.Wait()
+		p.cmd.Process.Release()
+	}()
+	return exited
 }
 
 // Name returns a string indentication for the plugin.
@@ -500,6 +566,11 @@ func (p *plugin) configure(ctx context.Context, name, version, config string) (e
 
 	// A nil policy means all defaults. The proto getters accept a nil receiver.
 	p.policy = rpl.FailurePolicy
+
+	if rpl.StopSignal < 0 {
+		return fmt.Errorf("invalid plugin stop signal %d", rpl.StopSignal)
+	}
+	p.stopSignal = syscall.Signal(rpl.StopSignal)
 
 	return nil
 }

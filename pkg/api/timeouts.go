@@ -25,4 +25,7 @@ const (
 	DefaultPluginRegistrationTimeout = 5 * time.Second
 	// DefaultPluginRequestTimeout is the default timeout for plugins to handle a request.
 	DefaultPluginRequestTimeout = 2 * time.Second
+	// DefaultPluginStopTimeout is the default time a runtime-launched plugin
+	// is given to exit after being signaled, before it is killed.
+	DefaultPluginStopTimeout = 5 * time.Second
 )

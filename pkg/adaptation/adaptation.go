@@ -571,9 +571,7 @@ func (r *Adaptation) startPlugins() (retErr error) {
 
 	defer func() {
 		if retErr != nil {
-			for _, p := range plugins {
-				p.stop()
-			}
+			stopPlugins(plugins)
 		}
 	}()
 
@@ -641,10 +639,22 @@ func (r *Adaptation) startPlugins() (retErr error) {
 func (r *Adaptation) stopPlugins() {
 	log.Infof(noCtx, "stopping plugins...")
 
-	for _, p := range r.plugins {
-		p.stop()
-	}
+	stopPlugins(r.plugins)
 	r.plugins = nil
+}
+
+// stopPlugins stops the given plugins in parallel, so that plugins which are
+// slow to exit do not add up to the total time it takes to stop them all.
+func stopPlugins(plugins []*plugin) {
+	var wg sync.WaitGroup
+	for _, p := range plugins {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			p.stop()
+		}()
+	}
+	wg.Wait()
 }
 
 // removeClosedPlugins removes closed plugins from the registry. The caller
@@ -667,11 +677,7 @@ func (r *Adaptation) removeClosedPlugins() {
 	}
 
 	if len(closed) != 0 {
-		go func() {
-			for _, plugin := range closed {
-				plugin.stop()
-			}
-		}()
+		go stopPlugins(closed)
 	}
 
 	r.plugins = active

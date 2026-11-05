@@ -104,6 +104,96 @@ Note that transparent fallback is only possible for external binary plugins usin
 ttRPC. Old WASM plugins compiled against an old version of NRI will fail to load
 with new versions of NRI.
 
+### Plugin Discovery and Launch
+
+There are two ways for a plugin to get started and connected to NRI. Once
+the connection is established, both kinds of plugins are handled in the same
+way.
+
+  - **Pre-installed plugins** are launched by the runtime. When NRI starts up
+    it scans a well-known plugin directory, `/opt/nri/plugins` by default,
+    and launches the plugins it finds there. Each plugin is started with a
+    socket which is already connected to NRI.
+  - **External plugins** are started by other means, for instance by systemd
+    or as a container. They connect to a well-known NRI socket,
+    `/var/run/nri/nri.sock` by default, and register themselves there.
+
+A runtime can change both paths and can disable external connections. In
+that case the socket is not created at all. See the `WithPluginPath()`,
+`WithSocketPath()` and `WithDisabledExternalConnections()` options of the
+[runtime adaptation](pkg/adaptation). For how containerd exposes these, see
+the [NRI documentation of containerd](https://github.com/containerd/containerd/blob/main/docs/NRI.md).
+Two NRI-enabled runtimes on one node can't both use the default socket path.
+Either disable NRI in one of them or change its socket path.
+
+#### Pre-installed Plugins
+
+To pre-install a plugin, place the plugin executable, or a symbolic link to
+it, in the plugin directory. NRI treats every file in the directory which has
+an executable permission bit set as a plugin. It skips subdirectories and
+files without one. Pre-installed plugins are launched once, when NRI starts.
+NRI does not restart a plugin that exits later. A plugin that is not running
+anymore is removed from the list of active plugins, and the runtime has to be
+restarted to launch it again.
+
+The file name carries the identity of the plugin. It has the form
+`<idx>-<name>`, where `idx` is two decimal digits and `name` is the plugin
+name. For instance `/opt/nri/plugins/10-device-injector` is the plugin
+`device-injector` with index `10`. The index determines the order in which
+plugins are called. NRI fails to start up if an executable file in the
+directory doesn't follow this naming scheme. If NRI fails to launch,
+register or synchronize one particular plugin, it logs a warning and carries
+on with the other plugins.
+
+NRI launches a plugin with a minimal environment. It does not pass on the
+environment of the runtime. NRI sets the following variables for the plugin
+and no others:
+
+| variable           | value                                                        |
+|--------------------|--------------------------------------------------------------|
+| `NRI_PLUGIN_NAME`  | the name of the plugin, without the index                    |
+| `NRI_PLUGIN_IDX`   | the index of the plugin                                      |
+| `NRI_PLUGIN_SOCKET`| the file descriptor of the socket connected to NRI, always 3 |
+
+The plugin inherits the working directory of the runtime. Its standard input,
+output and error are not connected to anything (they are `/dev/null`), and NRI
+does not capture them. A plugin should therefore log through a mechanism of
+its own, for example to a file or to the system log, if its output is needed.
+
+The stub library picks up these variables automatically. A plugin built on the
+stub doesn't need any code to use the pre-connected socket or to find out its
+own name and index. If the name and index are not set, the stub falls back to
+parsing them from the name of the plugin executable, which therefore should
+follow the `<idx>-<name>` scheme too. The plugin can override the values with
+the `WithPluginName()` and `WithPluginIdx()` options.
+
+Plugin-specific configuration for a pre-installed plugin is read from a
+drop-in directory, `/etc/nri/conf.d` by default. NRI looks for the files
+`<idx>-<name>.conf` and then `<name>.conf` in this directory. It uses the
+contents of the first one it finds, and passes them verbatim to the plugin in
+the `config` field of the Configure request. The runtime can change the
+directory with `WithPluginConfigPath()`. External plugins don't receive
+configuration data from NRI.
+
+WebAssembly plugins are also discovered in the plugin directory. NRI
+recognizes them by their content and loads them into the runtime instead of
+launching a process. See [WebAssembly support](#webassembly-support). Stop
+signals and timeouts, described in
+[Stopping Plugins](#stopping-plugins-stop-signal-and-stop-timeout), only apply
+to plugins which run in a process launched by NRI.
+
+#### External Plugins
+
+An external plugin connects to the NRI socket and registers with the name and
+index it provides. Both are validated by NRI and an invalid name or index
+makes the registration fail. A stub without a pre-connected socket connects to
+the default socket path. A plugin can use another path with the stub's
+`WithSocketPath()` option. This allows a plugin to be started, stopped and
+restarted at any time, independently of the runtime. It also makes
+it convenient to run a plugin in a container. Access to the NRI socket gives
+access to the full functionality of NRI. See
+[Security Considerations](#security-considerations).
+
 ### Plugin Registration
 
 Before a plugin can start receiving and processing container events, it needs
@@ -186,6 +276,80 @@ its connection, also between requests, does not receive the next requests
 and does not fail them. Use the required plugins check of the
 [default validator](#default-validation) to require that a plugin is
 present before containers are created.
+
+### Stopping Plugins, Stop Signal and Stop Timeout
+
+When the runtime stops a plugin that it launched itself, it first asks the
+plugin to exit and gives it time to do so. If the plugin is still running
+after that, the runtime kills it. The runtime does this when it shuts down
+NRI, when it drops a plugin whose connection was closed or which failed to
+synchronize, and when it cleans up after a failed startup. The sequence is
+
+  1. the runtime sends the plugin process its stop signal
+  2. the runtime waits for the process to exit, for up to the stop timeout
+  3. if the process is still running, the runtime kills it with `SIGKILL`
+
+The stop signal is `SIGTERM` by default. The stop timeout is configured in
+the runtime and applies to all plugins. It is 5 seconds by default. A
+runtime sets it with `adaptation.SetPluginStopTimeout()`.
+
+The runtime never signals plugins that were started by other means, such
+as plugins running in a container. It also does not wait for a plugin that
+fails to register or to configure itself. It kills such a plugin right
+away. A runtime with an NRI version without stop signal support kills
+plugins right away in all cases.
+
+Go programs terminate immediately on `SIGTERM` and `SIGINT` unless they
+catch the signal. A plugin that needs to clean up before exiting must
+therefore catch its stop signal, finish its cleanup within the stop timeout
+and then exit. With the stub library, one way to do this is to cancel the
+context passed to `Run()`:
+
+```go
+ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM)
+defer stop()
+
+p, err := stub.New(&plugin{}, stub.WithPluginName("myplugin"), stub.WithPluginIdx("10"))
+if err != nil {
+    log.Fatalf("failed to create plugin stub: %v", err)
+}
+
+// Run() stops the stub and returns when ctx is canceled by the signal.
+if err := p.Run(ctx); err != nil && !errors.Is(err, context.Canceled) {
+    log.Fatalf("plugin exited with error: %v", err)
+}
+
+// The connection to the runtime is closed. Do any other cleanup here and
+// return from main() before the stop timeout expires.
+cleanup()
+```
+
+A plugin can choose a different stop signal, for instance because it already
+uses `SIGTERM` for something else. It declares the signal when the stub is
+created, and the stub sends it to the runtime when the plugin is configured.
+The plugin must then catch that signal instead of `SIGTERM`:
+
+```go
+p, err := stub.New(&plugin{}, stub.WithStopSignal(syscall.SIGUSR1))
+...
+ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGUSR1)
+```
+
+Some points to keep in mind:
+
+  - Finish the cleanup well within the stop timeout. A plugin that is
+    still running when the timeout expires is killed with `SIGKILL`, which
+    cannot be caught, and any unfinished cleanup is lost. The timeout is
+    configured in the runtime, so the plugin can't change it.
+  - The signal is sent as a signal number, as defined by the operating
+    system the runtime and the plugin run on. Use the constants from the
+    `syscall` package rather than hard-coded numbers.
+  - Do not rely on the stop signal as the only way to clean up. A plugin
+    can still be killed without warning, for example after the stop
+    timeout, by an OOM kill, or by a runtime that doesn't support stop
+    signals. Make the cleanup idempotent and also run it when the plugin
+    starts, for instance by removing state that doesn't match the pods and
+    containers received in `Synchronize`.
 
 ### Pod Data and Available Lifecycle Events
 

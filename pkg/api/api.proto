@@ -188,6 +188,13 @@ message ConfigureResponse {
   // default value. The defaults match the behavior of NRI before this field
   // existed.
   FailurePolicy failure_policy = 3;
+  // Signal the runtime sends to the plugin process to ask it to shut down
+  // gracefully, if the plugin was launched by the runtime. This is the
+  // numeric value of the signal, as defined by the operating system the
+  // runtime and the plugin run on. If unset (0), the runtime uses SIGTERM.
+  // After the signal is sent, the runtime waits for the plugin to exit for
+  // the stop timeout and then kills the plugin with SIGKILL.
+  int32 stop_signal = 4;
 }
 
 // FailurePolicy tells the runtime what to do when a plugin fails to receive

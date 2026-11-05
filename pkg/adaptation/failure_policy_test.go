@@ -32,24 +32,17 @@ import (
 	validator "github.com/containerd/nri/plugins/default-validator/builtin"
 )
 
-// These tests run the failure policy through the full stack: stub, ttrpc
-// and adaptation. They check the facts that the unit tests in plugin_test.go
-// cannot check:
+// These tests run the failure policy through the stub, ttrpc, and adaptation:
 //
 //   - the stub sends the policy and the adaptation applies it,
-//   - a real request timeout and a real lost connection produce the errors
-//     that the adaptation expects,
-//   - the adaptation does not call the remaining plugins for a failed
-//     request,
-//   - a plugin that is kept connected receives the next request,
-//   - a deadline set by the runtime does not count as a plugin failure,
-//   - a plugin whose connection is closed does not receive requests and
-//     does not fail them.
-//
-// The unit tests cover the full matrix of errors and policies.
+//   - request timeouts and lost connections produce the expected errors,
+//   - the adaptation skips remaining plugins when a request fails,
+//   - a plugin kept connected receives subsequent requests,
+//   - a deadline set by the runtime does not count as a plugin failure, and
+//   - the adaptation skips closed plugins.
 
-// requestTimeout is the plugin request timeout for these tests. It is short
-// to keep the tests fast. A plugin that must exceed it blocks until released.
+// requestTimeout is the plugin request timeout for these tests. A plugin
+// that must exceed it blocks until released.
 const requestTimeout = 100 * time.Millisecond
 
 // lifecycleRequests sends each pod and container request to the adaptation.
@@ -220,9 +213,8 @@ func TestPluginFailurePolicy(t *testing.T) {
 		}
 	)
 
-	// A plugin without a policy keeps the old behavior. On a timeout, the
-	// adaptation drops the plugin and the request proceeds. The runtime
-	// does not see the timeout (#316).
+	// For a plugin without a policy, a timeout drops the plugin and the
+	// request proceeds. The runtime does not see the timeout (#316).
 	t.Run("no policy: a timed out plugin is dropped and the request proceeds", func(t *testing.T) {
 		slow := newPlugin("00", "slow", nil)
 		next := newPlugin("10", "next", nil)
@@ -295,8 +287,8 @@ func TestPluginFailurePolicy(t *testing.T) {
 		var conn stdnet.Conn
 		crash := newPlugin("00", "crash", dropAndFail)
 		next := newPlugin("10", "next", nil)
-		// Keep the plugin connection so that the handler can close it. This
-		// emulates a plugin that dies during a request.
+		// Retain the connection so the handler can close it, simulating
+		// a plugin dying during a request.
 		crash.options = append(crash.options,
 			stub.WithDialer(func(path string) (stdnet.Conn, error) {
 				c, err := stdnet.Dial("unix", path)
@@ -534,16 +526,15 @@ func TestPluginFailureScenarios(t *testing.T) {
 		require.False(t, slow10.EventQ().Has(PluginDisconnected))
 	})
 
-	// Scenario B: a plugin that never answers. There is no health check and
-	// no counter of failures.
+	// Scenario B: a plugin that never answers. NRI does not perform health
+	// checks or count failures.
 	//
-	// Today, without a policy: each request drops the plugin. The plugin
-	// reconnects, is still hung, and the next request times out and drops
+	// Without a policy, each request drops the plugin. When the plugin
+	// reconnects while still hung, the next request times out and drops
 	// it again. Each request waits the full timeout.
 	//
-	// With keep_connected: the same, without the reconnect. Each request
-	// waits the full timeout and the plugin stays registered. With
-	// fail_request too, each request fails.
+	// With keep_connected, each request waits the full timeout and the
+	// plugin stays registered. With fail_request, each request also fails.
 	t.Run("B: a plugin that never answers delays each request by the full timeout", func(t *testing.T) {
 		t.Run("no policy: dropped, reconnects, dropped again", func(t *testing.T) {
 			hung := newPlugin("00", "hung", nil)
@@ -557,7 +548,7 @@ func TestPluginFailureScenarios(t *testing.T) {
 			require.NoError(t, hung.Wait(PluginDisconnected, time.After(startupTimeout)))
 
 			// The plugin restarts. A new instance of the same plugin
-			// registers, and it is still hung.
+			// registers and remains hung.
 			restarted := newPlugin("00", "hung", nil)
 			blockPlugin(t, restarted)
 			s.StartPlugins(restarted)
@@ -587,12 +578,12 @@ func TestPluginFailureScenarios(t *testing.T) {
 	})
 
 	// Scenario C: plugin 10 depends on the adjustments of plugin 00. Plugin
-	// 00 has no policy and times out in CreateContainer.
+	// 00 does not have a policy and times out in CreateContainer.
 	//
-	// Today: NRI drops plugin 00 and calls plugin 10 with a container that
-	// lacks the adjustments of plugin 00. Nothing in the request tells
-	// plugin 10 that plugin 00 did not run. The container is created
-	// without the adjustments.
+	// NRI drops plugin 00 and calls plugin 10 with a container that lacks
+	// the adjustments of plugin 00. Nothing in the request tells plugin 10
+	// that plugin 00 did not run. The container is created without the
+	// adjustments.
 	t.Run("C: a plugin runs after a dropped plugin without knowing it", func(t *testing.T) {
 		var (
 			b       = newBlocker(t)
@@ -600,7 +591,7 @@ func TestPluginFailureScenarios(t *testing.T) {
 			slow    = newPlugin("00", "slow", nil)
 			next    = newPlugin("10", "next", nil)
 		)
-		// Plugin 00 would add an environment variable, but it blocks.
+		// Plugin 00 blocks in CreateContainer before returning an adjustment.
 		slow.createContainer = func(*mockPlugin, *api.PodSandbox, *api.Container) (*api.ContainerAdjustment, []*api.ContainerUpdate, error) {
 			if err := b.handle(); err != nil {
 				return nil, nil, err
@@ -629,14 +620,13 @@ func TestPluginFailureScenarios(t *testing.T) {
 		require.Empty(t, rpl.GetAdjust().GetEnv())
 	})
 
-	// Scenario D: the required plugins check of the default validator is
-	// the existing guard for plugins that must be present.
+	// Scenario D: the required plugins check of the default validator
+	// guards plugins that must be present.
 	//
-	// Today: the check uses the list of plugins consulted for the
-	// container. NRI adds a plugin to the list before it relays the
-	// request. A plugin that times out and is dropped is still in the
-	// list. The check does not catch it, and the container is created
-	// without the required plugin being present.
+	// The check uses the list of plugins consulted for the container. NRI
+	// adds a plugin to the list before relaying the request. A plugin that
+	// times out and is dropped remains in the list. The check does not
+	// catch it. The container is created without the required plugin.
 	t.Run("D: the required plugins check does not catch a dropped plugin", func(t *testing.T) {
 		b := newBlocker(t)
 		slow := newPlugin("00", "slow", nil)

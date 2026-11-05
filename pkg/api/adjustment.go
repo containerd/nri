@@ -16,7 +16,10 @@
 
 package api
 
-import "slices"
+import (
+	"slices"
+	"strings"
+)
 
 //
 // Notes:
@@ -124,6 +127,15 @@ func (a *ContainerAdjustment) AddRlimit(typ string, hard, soft uint64) {
 		Hard: hard,
 		Soft: soft,
 	})
+}
+
+// NormalizeRlimitType returns a key for comparing rlimit types. The OCI
+// spec spells rlimit types in the RLIMIT_* form of getrlimit(2), but the
+// NRI APIs, tests and plugins also use the plain lowercase name ("nofile").
+// Comparing types through this key makes the two spellings of the same
+// type match. The stored type is left as given, it is not normalized.
+func NormalizeRlimitType(typ string) string {
+	return strings.TrimPrefix(strings.ToUpper(typ), "RLIMIT_")
 }
 
 // AddDevice records the addition of the given device to a container.

@@ -1046,14 +1046,34 @@ func (r *result) adjustMemoryPolicy(memoryPolicy *LinuxMemoryPolicy, plugin stri
 func (r *result) adjustRlimits(rlimits []*POSIXRlimit, plugin string) error {
 	create, id, adjust := r.request.create, r.request.create.Container.Id, r.reply.adjust
 	for _, l := range rlimits {
-		if err := r.owners.ClaimRlimit(id, l.Type, plugin); err != nil {
+		typ := api.NormalizeRlimitType(l.Type)
+		// Re-adjusting a type that is already owned is a conflict, also
+		// when the owner is the adjusting plugin itself: a plugin is
+		// expected to resolve its own adjustments internally and send a
+		// single final entry per type.
+		if err := r.owners.ClaimRlimit(id, typ, plugin); err != nil {
 			return err
 		}
 
-		create.Container.Rlimits = append(create.Container.Rlimits, l)
-		adjust.Rlimits = append(adjust.Rlimits, l)
+		// The OCI spec allows at most one rlimit entry per type, so
+		// update an existing entry of that type instead of appending
+		// a duplicate one. Types are compared through their normalized
+		// form, so "nofile" and "RLIMIT_NOFILE" are the same type.
+		create.Container.Rlimits = mergeRlimit(create.Container.Rlimits, l)
+		adjust.Rlimits = mergeRlimit(adjust.Rlimits, l)
 	}
 	return nil
+}
+
+func mergeRlimit(rlimits []*POSIXRlimit, l *POSIXRlimit) []*POSIXRlimit {
+	key := api.NormalizeRlimitType(l.Type)
+	for i, existing := range rlimits {
+		if api.NormalizeRlimitType(existing.Type) == key {
+			rlimits[i] = l
+			return rlimits
+		}
+	}
+	return append(rlimits, l)
 }
 
 func (r *result) adjustLinuxNetDevices(devices map[string]*LinuxNetDevice, plugin string) error {

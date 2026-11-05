@@ -140,7 +140,7 @@ func (p *plugin) RunPodSandbox(_ context.Context, pod *api.PodSandbox) error {
 	for _, n := range netdevices {
 		err = n.inject(ns)
 		if err != nil {
-			return nil
+			return fmt.Errorf("failed to inject netdevice %q: %w", n.Name, err)
 		}
 	}
 	return nil
@@ -174,11 +174,13 @@ func (p *plugin) StopPodSandbox(_ context.Context, pod *api.PodSandbox) error {
 		return nil
 	}
 
-	// release the network devices from the pod namespace
+	// release the network devices from the pod namespace.
+	// A release failure must not block the pod deletion: the kernel removes
+	// the devices together with the network namespace, so log the failure
+	// and keep releasing the remaining devices.
 	for _, n := range netdevices {
-		err = n.release(ns)
-		if err != nil {
-			return nil
+		if err := n.release(ns); err != nil {
+			log.Errorf("failed to release netdevice %q: %v", n.NewName, err)
 		}
 	}
 

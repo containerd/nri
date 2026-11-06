@@ -21,46 +21,25 @@ import (
 	"slices"
 )
 
-//
-// XXX FIXME:
-//
-// The optional interface constructor should be updated/split up
-// to avoid having to take an interface{} argument. Instead The
-// optional types should have a
-//   - constructor taking the underlying native type
-//   - a Copy() function for copying them
-//   - a FromPointer constructor to create them from an optionally nil
-//     pointer to the underlying native type (to help constructing from
-//     structures that use a pointer to the native underlying type to
-//     denote optionality (OCI Spec mostly))
-// Creating from any other type should use one of these with any explicit
-// cast for the argument as necessary.
-//
+// NewString creates an OptionalString from the given string value.
+func NewString(v string) *OptionalString {
+	return &OptionalString{Value: v}
+}
 
-// String creates an Optional wrapper from its argument.
-func String(v any) *OptionalString {
-	var value string
-
-	switch o := v.(type) {
-	case string:
-		value = o
-	case *string:
-		if o == nil {
-			return nil
-		}
-		value = *o
-	case *OptionalString:
-		if o == nil {
-			return nil
-		}
-		value = o.Value
-	default:
+// StringPtr creates an OptionalString from a pointer, returning nil if the pointer is nil.
+func StringPtr(v *string) *OptionalString {
+	if v == nil {
 		return nil
 	}
+	return &OptionalString{Value: *v}
+}
 
-	return &OptionalString{
-		Value: value,
+// Copy returns a copy of the OptionalString, or nil if it is nil.
+func (o *OptionalString) Copy() *OptionalString {
+	if o == nil {
+		return nil
 	}
+	return &OptionalString{Value: o.Value}
 }
 
 // Get returns nil if its value is unset or a pointer to the value itself.
@@ -72,30 +51,26 @@ func (o *OptionalString) Get() *string {
 	return &v
 }
 
-// RepeatedString creates an Optional wrapper from its argument.
-func RepeatedString(v any) *OptionalRepeatedString {
-	var value []string
+// NewRepeatedString creates an OptionalRepeatedString from the given string slice.
+func NewRepeatedString(v []string) *OptionalRepeatedString {
+	return &OptionalRepeatedString{Value: slices.Clone(v)}
+}
 
-	switch o := v.(type) {
-	case []string:
-		value = o
-	case *[]string:
-		if o == nil {
-			return nil
-		}
-		value = *o
-	case *OptionalRepeatedString:
-		if o == nil {
-			return nil
-		}
-		value = o.Value
-	default:
+// RepeatedStringPtr creates an OptionalRepeatedString from a pointer to a slice,
+// returning nil if the pointer is nil.
+func RepeatedStringPtr(v *[]string) *OptionalRepeatedString {
+	if v == nil {
 		return nil
 	}
+	return &OptionalRepeatedString{Value: slices.Clone(*v)}
+}
 
-	return &OptionalRepeatedString{
-		Value: slices.Clone(value),
+// Copy returns a copy of the OptionalRepeatedString, or nil if it is nil.
+func (o *OptionalRepeatedString) Copy() *OptionalRepeatedString {
+	if o == nil {
+		return nil
 	}
+	return &OptionalRepeatedString{Value: slices.Clone(o.Value)}
 }
 
 // Get returns nil if its value is unset or a pointer to a copy of the value.
@@ -107,30 +82,25 @@ func (o *OptionalRepeatedString) Get() *[]string {
 	return &v
 }
 
-// Int creates an Optional wrapper from its argument.
-func Int(v any) *OptionalInt {
-	var value int64
+// NewInt creates an OptionalInt from the given int value.
+func NewInt(v int) *OptionalInt {
+	return &OptionalInt{Value: int64(v)}
+}
 
-	switch o := v.(type) {
-	case int:
-		value = int64(o)
-	case *int:
-		if o == nil {
-			return nil
-		}
-		value = int64(*o)
-	case *OptionalInt:
-		if o == nil {
-			return nil
-		}
-		value = o.Value
-	default:
+// IntPtr creates an OptionalInt from a pointer, returning nil if the pointer is nil.
+func IntPtr(v *int) *OptionalInt {
+	if v == nil {
 		return nil
 	}
+	return &OptionalInt{Value: int64(*v)}
+}
 
-	return &OptionalInt{
-		Value: value,
+// Copy returns a copy of the OptionalInt, or nil if it is nil.
+func (o *OptionalInt) Copy() *OptionalInt {
+	if o == nil {
+		return nil
 	}
+	return &OptionalInt{Value: o.Value}
 }
 
 // Get returns nil if its value is unset or a pointer to the value itself.
@@ -142,30 +112,25 @@ func (o *OptionalInt) Get() *int {
 	return &v
 }
 
-// Int32 creates an Optional wrapper from its argument.
-func Int32(v any) *OptionalInt32 {
-	var value int32
+// NewInt32 creates an OptionalInt32 from the given int32 value.
+func NewInt32(v int32) *OptionalInt32 {
+	return &OptionalInt32{Value: v}
+}
 
-	switch o := v.(type) {
-	case int32:
-		value = o
-	case *int32:
-		if o == nil {
-			return nil
-		}
-		value = *o
-	case *OptionalInt32:
-		if o == nil {
-			return nil
-		}
-		value = o.Value
-	default:
+// Int32Ptr creates an OptionalInt32 from a pointer, returning nil if the pointer is nil.
+func Int32Ptr(v *int32) *OptionalInt32 {
+	if v == nil {
 		return nil
 	}
+	return &OptionalInt32{Value: *v}
+}
 
-	return &OptionalInt32{
-		Value: value,
+// Copy returns a copy of the OptionalInt32, or nil if it is nil.
+func (o *OptionalInt32) Copy() *OptionalInt32 {
+	if o == nil {
+		return nil
 	}
+	return &OptionalInt32{Value: o.Value}
 }
 
 // Get returns nil if its value is unset or a pointer to the value itself.
@@ -177,30 +142,25 @@ func (o *OptionalInt32) Get() *int32 {
 	return &v
 }
 
-// UInt32 creates an Optional wrapper from its argument.
-func UInt32(v any) *OptionalUInt32 {
-	var value uint32
+// NewUInt32 creates an OptionalUInt32 from the given uint32 value.
+func NewUInt32(v uint32) *OptionalUInt32 {
+	return &OptionalUInt32{Value: v}
+}
 
-	switch o := v.(type) {
-	case uint32:
-		value = o
-	case *uint32:
-		if o == nil {
-			return nil
-		}
-		value = *o
-	case *OptionalUInt32:
-		if o == nil {
-			return nil
-		}
-		value = o.Value
-	default:
+// UInt32Ptr creates an OptionalUInt32 from a pointer, returning nil if the pointer is nil.
+func UInt32Ptr(v *uint32) *OptionalUInt32 {
+	if v == nil {
 		return nil
 	}
+	return &OptionalUInt32{Value: *v}
+}
 
-	return &OptionalUInt32{
-		Value: value,
+// Copy returns a copy of the OptionalUInt32, or nil if it is nil.
+func (o *OptionalUInt32) Copy() *OptionalUInt32 {
+	if o == nil {
+		return nil
 	}
+	return &OptionalUInt32{Value: o.Value}
 }
 
 // Get returns nil if its value is unset or a pointer to the value itself.
@@ -212,41 +172,25 @@ func (o *OptionalUInt32) Get() *uint32 {
 	return &v
 }
 
-// Int64 creates an Optional wrapper from its argument.
-func Int64(v any) *OptionalInt64 {
-	var value int64
+// NewInt64 creates an OptionalInt64 from the given int64 value.
+func NewInt64(v int64) *OptionalInt64 {
+	return &OptionalInt64{Value: v}
+}
 
-	switch o := v.(type) {
-	case int:
-		value = int64(o)
-	case uint:
-		value = int64(o)
-	case uint64:
-		value = int64(o)
-	case int64:
-		value = o
-	case *int64:
-		if o == nil {
-			return nil
-		}
-		value = *o
-	case *uint64:
-		if o == nil {
-			return nil
-		}
-		value = int64(*o)
-	case *OptionalInt64:
-		if o == nil {
-			return nil
-		}
-		value = o.Value
-	default:
+// Int64Ptr creates an OptionalInt64 from a pointer, returning nil if the pointer is nil.
+func Int64Ptr(v *int64) *OptionalInt64 {
+	if v == nil {
 		return nil
 	}
+	return &OptionalInt64{Value: *v}
+}
 
-	return &OptionalInt64{
-		Value: value,
+// Copy returns a copy of the OptionalInt64, or nil if it is nil.
+func (o *OptionalInt64) Copy() *OptionalInt64 {
+	if o == nil {
+		return nil
 	}
+	return &OptionalInt64{Value: o.Value}
 }
 
 // Get returns nil if its value is unset or a pointer to the value itself.
@@ -258,41 +202,25 @@ func (o *OptionalInt64) Get() *int64 {
 	return &v
 }
 
-// UInt64 creates an Optional wrapper from its argument.
-func UInt64(v any) *OptionalUInt64 {
-	var value uint64
+// NewUInt64 creates an OptionalUInt64 from the given uint64 value.
+func NewUInt64(v uint64) *OptionalUInt64 {
+	return &OptionalUInt64{Value: v}
+}
 
-	switch o := v.(type) {
-	case int:
-		value = uint64(o)
-	case uint:
-		value = uint64(o)
-	case int64:
-		value = uint64(o)
-	case uint64:
-		value = o
-	case *int64:
-		if o == nil {
-			return nil
-		}
-		value = uint64(*o)
-	case *uint64:
-		if o == nil {
-			return nil
-		}
-		value = *o
-	case *OptionalUInt64:
-		if o == nil {
-			return nil
-		}
-		value = o.Value
-	default:
+// UInt64Ptr creates an OptionalUInt64 from a pointer, returning nil if the pointer is nil.
+func UInt64Ptr(v *uint64) *OptionalUInt64 {
+	if v == nil {
 		return nil
 	}
+	return &OptionalUInt64{Value: *v}
+}
 
-	return &OptionalUInt64{
-		Value: value,
+// Copy returns a copy of the OptionalUInt64, or nil if it is nil.
+func (o *OptionalUInt64) Copy() *OptionalUInt64 {
+	if o == nil {
+		return nil
 	}
+	return &OptionalUInt64{Value: o.Value}
 }
 
 // Get returns nil if its value is unset or a pointer to the value itself.
@@ -304,30 +232,25 @@ func (o *OptionalUInt64) Get() *uint64 {
 	return &v
 }
 
-// Bool creates an Optional wrapper from its argument.
-func Bool(v any) *OptionalBool {
-	var value bool
+// NewBool creates an OptionalBool from the given bool value.
+func NewBool(v bool) *OptionalBool {
+	return &OptionalBool{Value: v}
+}
 
-	switch o := v.(type) {
-	case bool:
-		value = o
-	case *bool:
-		if o == nil {
-			return nil
-		}
-		value = *o
-	case *OptionalBool:
-		if o == nil {
-			return nil
-		}
-		value = o.Value
-	default:
+// BoolPtr creates an OptionalBool from a pointer, returning nil if the pointer is nil.
+func BoolPtr(v *bool) *OptionalBool {
+	if v == nil {
 		return nil
 	}
+	return &OptionalBool{Value: *v}
+}
 
-	return &OptionalBool{
-		Value: value,
+// Copy returns a copy of the OptionalBool, or nil if it is nil.
+func (o *OptionalBool) Copy() *OptionalBool {
+	if o == nil {
+		return nil
 	}
+	return &OptionalBool{Value: o.Value}
 }
 
 // Get returns nil if its value is unset or a pointer to the value itself.
@@ -339,32 +262,25 @@ func (o *OptionalBool) Get() *bool {
 	return &v
 }
 
-// FileMode creates an Optional wrapper from its argument.
-func FileMode(v any) *OptionalFileMode {
-	var value os.FileMode
+// NewFileMode creates an OptionalFileMode from the given os.FileMode value.
+func NewFileMode(v os.FileMode) *OptionalFileMode {
+	return &OptionalFileMode{Value: uint32(v)}
+}
 
-	switch o := v.(type) {
-	case *os.FileMode:
-		if o == nil {
-			return nil
-		}
-		value = *o
-	case os.FileMode:
-		value = o
-	case *OptionalFileMode:
-		if o == nil {
-			return nil
-		}
-		value = os.FileMode(o.Value)
-	case uint32:
-		value = os.FileMode(o)
-	default:
+// FileModePtr creates an OptionalFileMode from a pointer, returning nil if the pointer is nil.
+func FileModePtr(v *os.FileMode) *OptionalFileMode {
+	if v == nil {
 		return nil
 	}
+	return &OptionalFileMode{Value: uint32(*v)}
+}
 
-	return &OptionalFileMode{
-		Value: uint32(value),
+// Copy returns a copy of the OptionalFileMode, or nil if it is nil.
+func (o *OptionalFileMode) Copy() *OptionalFileMode {
+	if o == nil {
+		return nil
 	}
+	return &OptionalFileMode{Value: o.Value}
 }
 
 // Get returns nil if its value is unset or a pointer to the value itself.

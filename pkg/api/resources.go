@@ -37,23 +37,23 @@ func FromOCILinuxResources(o *rspec.LinuxResources, _ map[string]string) *LinuxR
 	l := &LinuxResources{}
 	if m := o.Memory; m != nil {
 		l.Memory = &LinuxMemory{
-			Limit:            Int64(m.Limit),
-			Reservation:      Int64(m.Reservation),
-			Swap:             Int64(m.Swap),
-			Kernel:           Int64(m.Kernel), //nolint:staticcheck // ignore SA1019: m.Kernel is deprecated
-			KernelTcp:        Int64(m.KernelTCP),
-			Swappiness:       UInt64(m.Swappiness),
-			DisableOomKiller: Bool(m.DisableOOMKiller),
-			UseHierarchy:     Bool(m.UseHierarchy),
+			Limit:            Int64Ptr(m.Limit),
+			Reservation:      Int64Ptr(m.Reservation),
+			Swap:             Int64Ptr(m.Swap),
+			Kernel:           Int64Ptr(m.Kernel), //nolint:staticcheck // ignore SA1019: m.Kernel is deprecated
+			KernelTcp:        Int64Ptr(m.KernelTCP),
+			Swappiness:       UInt64Ptr(m.Swappiness),
+			DisableOomKiller: BoolPtr(m.DisableOOMKiller),
+			UseHierarchy:     BoolPtr(m.UseHierarchy),
 		}
 	}
 	if c := o.CPU; c != nil {
 		l.Cpu = &LinuxCPU{
-			Shares:          UInt64(c.Shares),
-			Quota:           Int64(c.Quota),
-			Period:          UInt64(c.Period),
-			RealtimeRuntime: Int64(c.RealtimeRuntime),
-			RealtimePeriod:  UInt64(c.RealtimePeriod),
+			Shares:          UInt64Ptr(c.Shares),
+			Quota:           Int64Ptr(c.Quota),
+			Period:          UInt64Ptr(c.Period),
+			RealtimeRuntime: Int64Ptr(c.RealtimeRuntime),
+			RealtimePeriod:  UInt64Ptr(c.RealtimePeriod),
 			Cpus:            c.Cpus,
 			Mems:            c.Mems,
 		}
@@ -68,8 +68,8 @@ func FromOCILinuxResources(o *rspec.LinuxResources, _ map[string]string) *LinuxR
 		l.Devices = append(l.Devices, &LinuxDeviceCgroup{
 			Allow:  d.Allow,
 			Type:   d.Type,
-			Major:  Int64(d.Major),
-			Minor:  Int64(d.Minor),
+			Major:  Int64Ptr(d.Major),
+			Minor:  Int64Ptr(d.Minor),
 			Access: d.Access,
 		})
 	}
@@ -155,23 +155,23 @@ func (r *LinuxResources) Copy() *LinuxResources {
 	o := &LinuxResources{}
 	if r.Memory != nil {
 		o.Memory = &LinuxMemory{
-			Limit:            Int64(r.Memory.GetLimit()),
-			Reservation:      Int64(r.Memory.GetReservation()),
-			Swap:             Int64(r.Memory.GetSwap()),
-			Kernel:           Int64(r.Memory.GetKernel()),
-			KernelTcp:        Int64(r.Memory.GetKernelTcp()),
-			Swappiness:       UInt64(r.Memory.GetSwappiness()),
-			DisableOomKiller: Bool(r.Memory.GetDisableOomKiller()),
-			UseHierarchy:     Bool(r.Memory.GetUseHierarchy()),
+			Limit:            r.Memory.GetLimit().Copy(),
+			Reservation:      r.Memory.GetReservation().Copy(),
+			Swap:             r.Memory.GetSwap().Copy(),
+			Kernel:           r.Memory.GetKernel().Copy(),
+			KernelTcp:        r.Memory.GetKernelTcp().Copy(),
+			Swappiness:       r.Memory.GetSwappiness().Copy(),
+			DisableOomKiller: r.Memory.GetDisableOomKiller().Copy(),
+			UseHierarchy:     r.Memory.GetUseHierarchy().Copy(),
 		}
 	}
 	if r.Cpu != nil {
 		o.Cpu = &LinuxCPU{
-			Shares:          UInt64(r.Cpu.GetShares()),
-			Quota:           Int64(r.Cpu.GetQuota()),
-			Period:          UInt64(r.Cpu.GetPeriod()),
-			RealtimeRuntime: Int64(r.Cpu.GetRealtimeRuntime()),
-			RealtimePeriod:  UInt64(r.Cpu.GetRealtimePeriod()),
+			Shares:          r.Cpu.GetShares().Copy(),
+			Quota:           r.Cpu.GetQuota().Copy(),
+			Period:          r.Cpu.GetPeriod().Copy(),
+			RealtimeRuntime: r.Cpu.GetRealtimeRuntime().Copy(),
+			RealtimePeriod:  r.Cpu.GetRealtimePeriod().Copy(),
 			Cpus:            r.Cpu.GetCpus(),
 			Mems:            r.Cpu.GetMems(),
 		}
@@ -191,16 +191,16 @@ func (r *LinuxResources) Copy() *LinuxResources {
 			Limit: r.Pids.Limit,
 		}
 	}
-	o.BlockioClass = String(r.BlockioClass)
-	o.RdtClass = String(r.RdtClass)
+	o.BlockioClass = r.BlockioClass.Copy()
+	o.RdtClass = r.RdtClass.Copy()
 
 	for _, d := range r.Devices {
 		o.Devices = append(o.Devices, &LinuxDeviceCgroup{
 			Allow:  d.Allow,
 			Type:   d.Type,
 			Access: d.Access,
-			Major:  Int64(d.Major),
-			Minor:  Int64(d.Minor),
+			Major:  d.Major.Copy(),
+			Minor:  d.Minor.Copy(),
 		})
 	}
 
@@ -213,8 +213,8 @@ func (r *LinuxRdt) Copy() *LinuxRdt {
 		return nil
 	}
 	return &LinuxRdt{
-		ClosId:           String(r.ClosId),
-		Schemata:         RepeatedString(r.Schemata),
-		EnableMonitoring: Bool(r.EnableMonitoring),
+		ClosId:           r.ClosId.Copy(),
+		Schemata:         r.Schemata.Copy(),
+		EnableMonitoring: r.EnableMonitoring.Copy(),
 	}
 }

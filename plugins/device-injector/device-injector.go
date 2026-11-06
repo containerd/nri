@@ -534,13 +534,13 @@ func (d *device) toNRI() *api.LinuxDevice {
 		Minor: d.Minor,
 	}
 	if d.FileMode != 0 {
-		apiDev.FileMode = api.FileMode(d.FileMode)
+		apiDev.FileMode = api.NewFileMode(os.FileMode(d.FileMode))
 	}
 	if d.UID != 0 {
-		apiDev.Uid = api.UInt32(d.UID)
+		apiDev.Uid = api.NewUInt32(d.UID)
 	}
 	if d.GID != 0 {
-		apiDev.Gid = api.UInt32(d.GID)
+		apiDev.Gid = api.NewUInt32(d.GID)
 	}
 	return apiDev
 }

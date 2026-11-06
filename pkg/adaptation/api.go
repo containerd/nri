@@ -164,15 +164,24 @@ type (
 
 // Aliased functions for api/optional.go.
 var (
-	String         = api.String
-	RepeatedString = api.RepeatedString
-	Int            = api.Int
-	Int32          = api.Int32
-	UInt32         = api.UInt32
-	Int64          = api.Int64
-	UInt64         = api.UInt64
-	Bool           = api.Bool
-	FileMode       = api.FileMode
+	NewString         = api.NewString
+	StringPtr         = api.StringPtr
+	NewRepeatedString = api.NewRepeatedString
+	RepeatedStringPtr = api.RepeatedStringPtr
+	NewInt            = api.NewInt
+	IntPtr            = api.IntPtr
+	NewInt32          = api.NewInt32
+	Int32Ptr          = api.Int32Ptr
+	NewUInt32         = api.NewUInt32
+	UInt32Ptr         = api.UInt32Ptr
+	NewInt64          = api.NewInt64
+	Int64Ptr          = api.Int64Ptr
+	NewUInt64         = api.NewUInt64
+	UInt64Ptr         = api.UInt64Ptr
+	NewBool           = api.NewBool
+	BoolPtr           = api.BoolPtr
+	NewFileMode       = api.NewFileMode
+	FileModePtr       = api.FileModePtr
 )
 
 // Aliased functions for api/types.go.

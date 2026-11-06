@@ -22,68 +22,54 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestOptionalRepeatedString(t *testing.T) {
+func TestNewRepeatedString(t *testing.T) {
 	nilSlice := []string(nil)
-	tcs := []struct {
-		name          string
-		input         any
-		expectNil     bool
-		expectedValue *[]string
-	}{
-		{
-			name:          "nil input",
-			input:         nil,
-			expectNil:     true,
-			expectedValue: nil,
-		},
-		{
-			name:          "nil slice",
-			input:         []string(nil),
-			expectNil:     false,
-			expectedValue: &nilSlice,
-		},
-		{
-			name:          "empty slice",
-			input:         []string{},
-			expectNil:     false,
-			expectedValue: &[]string{},
-		},
-		{
-			name:          "non-empty slice",
-			input:         []string{"value1", "value2"},
-			expectNil:     false,
-			expectedValue: &[]string{"value1", "value2"},
-		},
-		{
-			name:          "pointer to slice",
-			input:         &[]string{"value1", "value2"},
-			expectNil:     false,
-			expectedValue: &[]string{"value1", "value2"},
-		},
-		{
-			name:          "non-slice type",
-			input:         "not a slice",
-			expectNil:     true,
-			expectedValue: nil,
-		},
-		{
-			name:          "pointer to nil",
-			input:         (*[]string)(nil),
-			expectNil:     true,
-			expectedValue: nil,
-		},
-	}
 
-	for _, tc := range tcs {
-		t.Run(tc.name, func(t *testing.T) {
-			result := RepeatedString(tc.input)
-			if tc.expectNil {
-				assert.Nil(t, result)
-			} else {
-				assert.NotNil(t, result)
-			}
+	t.Run("nil slice", func(t *testing.T) {
+		result := NewRepeatedString(nil)
+		assert.NotNil(t, result)
+		assert.Equal(t, &nilSlice, result.Get())
+	})
 
-			assert.Equal(t, tc.expectedValue, result.Get())
-		})
-	}
+	t.Run("empty slice", func(t *testing.T) {
+		result := NewRepeatedString([]string{})
+		assert.NotNil(t, result)
+		assert.Equal(t, &[]string{}, result.Get())
+	})
+
+	t.Run("non-empty slice", func(t *testing.T) {
+		result := NewRepeatedString([]string{"value1", "value2"})
+		assert.NotNil(t, result)
+		assert.Equal(t, &[]string{"value1", "value2"}, result.Get())
+	})
+}
+
+func TestRepeatedStringPtr(t *testing.T) {
+	t.Run("nil pointer", func(t *testing.T) {
+		result := RepeatedStringPtr(nil)
+		assert.Nil(t, result)
+	})
+
+	t.Run("pointer to slice", func(t *testing.T) {
+		s := []string{"value1", "value2"}
+		result := RepeatedStringPtr(&s)
+		assert.NotNil(t, result)
+		assert.Equal(t, &[]string{"value1", "value2"}, result.Get())
+	})
+}
+
+func TestOptionalRepeatedStringCopy(t *testing.T) {
+	t.Run("nil receiver", func(t *testing.T) {
+		var o *OptionalRepeatedString
+		assert.Nil(t, o.Copy())
+	})
+
+	t.Run("non-nil", func(t *testing.T) {
+		o := NewRepeatedString([]string{"a", "b"})
+		c := o.Copy()
+		assert.Equal(t, o.Value, c.Value)
+		// mutation of copy does not affect original
+		c.Value[0] = "z"
+		assert.Equal(t, "a", o.Value[0])
+	})
 }

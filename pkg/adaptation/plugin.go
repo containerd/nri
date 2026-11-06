@@ -18,6 +18,7 @@ package adaptation
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
 	"fmt"
 	stdnet "net"
@@ -30,6 +31,8 @@ import (
 
 	"github.com/containerd/nri/pkg/adaptation/builtin"
 	"github.com/containerd/nri/pkg/api"
+	auth "github.com/containerd/nri/pkg/auth"
+	"github.com/containerd/nri/pkg/auth/ecdh"
 	"github.com/containerd/nri/pkg/log"
 	"github.com/containerd/nri/pkg/net"
 	"github.com/containerd/nri/pkg/net/multiplex"
@@ -43,6 +46,8 @@ const (
 	DefaultPluginRegistrationTimeout = api.DefaultPluginRegistrationTimeout
 	// DefaultPluginRequestTimeout is the default timeout for plugins to handle a request.
 	DefaultPluginRequestTimeout = api.DefaultPluginRequestTimeout
+	// DefaultAuthentication is the name of the default authentication algorithm.
+	DefaultAuthentication = ecdh.Name
 )
 
 var (
@@ -51,24 +56,40 @@ var (
 	timeoutCfgLock            sync.RWMutex
 )
 
+type authInfo struct {
+	key  []byte
+	algo auth.Authentication
+	role *auth.Role
+	done bool
+}
+
+func (i *authInfo) GetRole() *auth.Role {
+	if i == nil || !i.done {
+		return nil
+	}
+	return i.role
+}
+
 type plugin struct {
 	sync.Mutex
-	idx    string
-	base   string
-	cfg    string
-	pid    int
-	cmd    *exec.Cmd
-	mux    multiplex.Mux
-	rpcc   *ttrpc.Client
-	rpcl   stdnet.Listener
-	rpcs   *ttrpc.Server
-	events EventMask
-	policy *FailurePolicy
-	closed bool
-	regC   chan error
-	closeC chan struct{}
-	r      *Adaptation
-	impl   *pluginType
+	idx        string
+	base       string
+	cfg        string
+	pid        int
+	cmd        *exec.Cmd
+	mux        multiplex.Mux
+	rpcc       *ttrpc.Client
+	rpcl       stdnet.Listener
+	rpcs       *ttrpc.Server
+	auth       *authInfo
+	events     EventMask
+	policy     *FailurePolicy
+	registered bool
+	closed     bool
+	regC       chan error
+	closeC     chan struct{}
+	r          *Adaptation
+	impl       *pluginType
 }
 
 // SetPluginRegistrationTimeout sets the timeout for plugin registration.
@@ -324,6 +345,10 @@ func (p *plugin) start(name, version string) (err error) {
 			timeout = getPluginRegistrationTimeout()
 		)
 
+		if p.r.auth != nil {
+			auth.RegisterAuthenticationService(p.rpcs, p)
+		}
+
 		go func() {
 			err := p.rpcs.Serve(context.Background(), p.rpcl)
 			if err != ttrpc.ErrServerClosed {
@@ -337,6 +362,8 @@ func (p *plugin) start(name, version string) (err error) {
 		select {
 		case err = <-p.regC:
 			if err != nil {
+				p.close()
+				p.stop()
 				return fmt.Errorf("failed to register plugin: %w", err)
 			}
 		case <-p.closeC:
@@ -433,29 +460,191 @@ func (p *plugin) qualifiedName() string {
 	return kind + ":" + idx + "-" + base + pid
 }
 
-// RegisterPlugin handles the plugin's registration request.
-func (p *plugin) RegisterPlugin(ctx context.Context, req *RegisterPluginRequest) (*RegisterPluginResponse, error) {
+func (p *plugin) authInit(ctx context.Context, req *auth.RequestChallengeRequest) ([]byte, []byte, error) {
+	p.Lock()
+	defer p.Unlock()
+
+	if p.auth != nil {
+		if p.auth.done && p.auth.algo == nil {
+			log.Errorf(ctx, "rejecting client: authentication after registration")
+			return nil, nil, errors.New("authentication failed")
+		}
+		log.Errorf(ctx, "rejecting client: multiple authentication requests")
+		return nil, nil, errors.New("authentication failed")
+	}
+
+	impl, err := auth.Get(req.GetAlgorithm())
+	if err != nil {
+		log.Errorf(ctx, "rejecting client: failed to start authentication: %v", err)
+		return nil, nil, errors.New("authentication failed")
+	}
+
+	algo, err := impl.NewWithEphemeralKeys()
+	if err != nil {
+		log.Errorf(ctx, "rejecting client: failed to start authentication: %v", err)
+		return nil, nil, errors.New("authentication failed")
+	}
+
+	seed := make([]byte, 32)
+	if _, err := rand.Read(seed); err != nil {
+		log.Errorf(ctx, "rejecting client: failed to generate seed: %v", err)
+		return nil, nil, errors.New("authentication failed")
+	}
+
+	chal, key, err := algo.Challenge(seed, req.PublicKey)
+	if err != nil {
+		log.Errorf(ctx, "rejecting client: failed to generate challenge: %v", err)
+		return nil, nil, errors.New("authentication failed")
+	}
+
+	p.auth = &authInfo{
+		key:  req.PublicKey,
+		algo: algo,
+	}
+
+	return []byte(key), chal, nil
+}
+
+func (p *plugin) authFinish(ctx context.Context, req *auth.RespondChallengeRequest) error {
+	p.Lock()
+	defer p.Unlock()
+
+	if p.auth == nil || p.auth.algo == nil {
+		log.Errorf(ctx, "rejecting client: response to nonexistent challenge")
+		return errors.New("authentication failed")
+	}
+
+	if p.auth.done {
+		log.Errorf(ctx, "rejecting client: multiple challenge responses")
+		return errors.New("authentication failed")
+	}
+
+	if err := p.auth.algo.Verify(req.Response); err != nil {
+		log.Errorf(ctx, "rejecting client: failed challenge response: %v", err)
+		return errors.New("authentication failed")
+	}
+
+	role, err := p.r.auth.GetRoleForKey(p.auth.key)
+	if err != nil {
+		log.Errorf(ctx, "rejecting authenticated client: no role")
+		return errors.New("authentication failed: no assigned role")
+	}
+
+	p.auth.role = role
+	p.auth.done = true
+
+	return nil
+}
+
+// notifyRegistrationStatus delivers a registration status back to start().
+func (p *plugin) notifyRegistrationStatus(err error) {
+	// Notes:
+	//   The non-blocking send is currently just a precaution. We shouldn't
+	//   hit the default branch, as we only deliver one status for now.
+	//
+	//   Also, delivering a status wakes up start(). For a non-nil status
+	//   start() closes the connection. Delivering an error returned from
+	//   RegisterPlugin races with that, and only gets to the plugin if it
+	//   wins the race. The runtime log will always contain the real reason
+	//   for registration failure.
+	select {
+	case p.regC <- err:
+	default:
+	}
+}
+
+func (p *plugin) admitRegistration(ctx context.Context, req *RegisterPluginRequest) error {
+	p.Lock()
+	defer p.Unlock()
+
+	if p.registered {
+		log.Errorf(ctx, "plugin %q attempted to register multiple times", p.name())
+		return errors.New("plugin already registered")
+	}
+
 	if p.isExternal() {
 		if err := api.CheckPluginName(req.PluginName); err != nil {
-			p.regC <- fmt.Errorf("plugin registered with an invalid name: %w", err)
-			return &RegisterPluginResponse{}, fmt.Errorf("invalid plugin name: %w", err)
+			log.Errorf(ctx, "plugin %q attempted to register with an invalid name: %v",
+				p.qualifiedName(), err)
+			return p.refuseRegistration(err)
 		}
 		if err := api.CheckPluginIndex(req.PluginIdx); err != nil {
-			p.regC <- fmt.Errorf("plugin %q registered with an invalid index: %w", req.PluginName, err)
-			return &RegisterPluginResponse{}, fmt.Errorf("invalid plugin index: %w", err)
+			log.Errorf(ctx, "plugin %q attempted to register with an invalid index: %v",
+				p.qualifiedName(), err)
+			return p.refuseRegistration(err)
 		}
-		p.base = req.PluginName
-		p.idx = req.PluginIdx
+
+		p.idx, p.base = req.PluginIdx, req.PluginName
+	}
+
+	if p.auth != nil {
+		if !p.auth.done {
+			log.Errorf(ctx, "plugin %q initiated but did not finish authentication", p.name())
+			return p.refuseRegistration(errors.New("aborted authentication"))
+		}
+	} else {
+		// block authentication after registration
+		p.auth = &authInfo{
+			done: true,
+		}
+	}
+
+	p.registered = true
+
+	return nil
+}
+
+func (p *plugin) refuseRegistration(err error) error {
+	p.notifyRegistrationStatus(err)
+	return err
+}
+
+// RequestChallenge initiates authentication for the plugin.
+func (p *plugin) RequestChallenge(ctx context.Context, req *auth.RequestChallengeRequest) (*auth.RequestChallengeResponse, error) {
+	key, chal, err := p.authInit(ctx, req)
+	if err != nil {
+		p.close()
+		return nil, err
+	}
+
+	log.Infof(ctx, "authenticating client...")
+
+	return &auth.RequestChallengeResponse{
+		PublicKey: key,
+		Challenge: chal,
+	}, nil
+}
+
+// RespondChallenge verifies the challenge response from the plugin.
+func (p *plugin) RespondChallenge(ctx context.Context, req *auth.RespondChallengeRequest) (*auth.RespondChallengeResponse, error) {
+	err := p.authFinish(ctx, req)
+	if err != nil {
+		p.close()
+		return nil, err
+	}
+
+	log.Infof(ctx, "client authenticated to role %q (tags %v)",
+		p.auth.GetRole().GetRole(), p.auth.GetRole().GetTags())
+
+	return &auth.RespondChallengeResponse{
+		Role: p.auth.GetRole().GetRole(),
+		Tags: p.auth.GetRole().GetTags(),
+	}, nil
+}
+
+// RegisterPlugin handles the plugin's registration request.
+func (p *plugin) RegisterPlugin(ctx context.Context, req *RegisterPluginRequest) (*RegisterPluginResponse, error) {
+	if err := p.admitRegistration(ctx, req); err != nil {
+		return nil, err
 	}
 
 	nriVersion := "unknown"
 	if req.NRIVersion != "" {
 		nriVersion = req.NRIVersion
 	}
-	log.Infof(ctx, "plugin %q registered as %q (with NRI version %s)",
-		p.qualifiedName(), p.name(), nriVersion)
+	log.Infof(ctx, "plugin %q registered as %q (with NRI version %s)", p.qualifiedName(), p.name(), nriVersion)
 
-	p.regC <- nil
+	p.notifyRegistrationStatus(nil)
 	return &RegisterPluginResponse{}, nil
 }
 

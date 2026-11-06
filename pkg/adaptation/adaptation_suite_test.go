@@ -24,6 +24,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -38,6 +39,7 @@ import (
 	nri "github.com/containerd/nri/pkg/adaptation"
 	"github.com/containerd/nri/pkg/api"
 	nriplugin "github.com/containerd/nri/pkg/plugin"
+	"github.com/containerd/nri/pkg/stub"
 	validator "github.com/containerd/nri/plugins/default-validator/builtin"
 )
 
@@ -89,6 +91,192 @@ func TestConfiguration(t *testing.T) {
 			)
 			require.NoError(t, runtime.Start(s.dir))
 			require.Error(t, plugin.Start(s.dir))
+		})
+	})
+
+	t.Run("the connection is lost while Start() is waiting for Configure()", func(t *testing.T) {
+		var (
+			inConfigure      chan struct{}
+			releaseConfigure chan struct{}
+		)
+
+		setup := func(t *testing.T) {
+			t.Helper()
+
+			inConfigure = make(chan struct{})
+			releaseConfigure = make(chan struct{})
+
+			// Short request timeout so the runtime gives up on the blocked
+			// Configure RPC quickly and closes the connection.
+			nri.SetPluginRequestTimeout(200 * time.Millisecond)
+			s.Prepare(t,
+				&mockRuntime{},
+				&mockPlugin{
+					idx:  "00",
+					name: "test",
+					configure: func(_ *mockPlugin, _ context.Context, _, _, _ string) (stub.EventMask, error) {
+						close(inConfigure)
+						<-releaseConfigure
+						return 0, fmt.Errorf("test: configure released")
+					},
+				},
+			)
+
+			t.Cleanup(func() {
+				close(releaseConfigure)
+				nri.SetPluginRequestTimeout(nri.DefaultPluginRequestTimeout)
+			})
+		}
+
+		t.Run("should cause plugin Start() to fail instead of deadlocking", func(t *testing.T) {
+			setup(t)
+
+			var (
+				runtime = s.runtime
+				plugin  = s.plugins[0]
+				errCh   = make(chan error, 1)
+			)
+
+			require.NoError(t, runtime.Start(s.dir))
+
+			go func() {
+				errCh <- plugin.Start(s.dir)
+			}()
+
+			// Once the plugin's Configure handler is running we know register()
+			// has succeeded and stub.Start() is blocked on cfgErrC holding the
+			// stub lock.
+			select {
+			case <-inConfigure:
+			case <-time.After(2 * time.Second):
+				t.Fatal("plugin Configure() handler was never called")
+			}
+
+			// The runtime's Configure RPC now times out and closes the
+			// connection, firing the plugin's ttrpc OnClose -> connClosed().
+			select {
+			case err := <-errCh:
+				require.Error(t, err)
+			case <-time.After(3 * time.Second):
+				t.Fatal("plugin Start() did not return: stub deadlocked waiting for Configure()")
+			}
+		})
+	})
+
+	t.Run("the connection is lost during plugin registration", func(t *testing.T) {
+		setup := func(t *testing.T) {
+			t.Helper()
+
+			// Make the runtime give up on registration essentially at accept
+			// time so the connection is torn down while the plugin's Start()
+			// is still setting up.
+			nri.SetPluginRegistrationTimeout(1 * time.Nanosecond)
+			s.Prepare(t, &mockRuntime{}, &mockPlugin{idx: "00", name: "test"})
+
+			t.Cleanup(func() {
+				nri.SetPluginRegistrationTimeout(nri.DefaultPluginRegistrationTimeout)
+			})
+		}
+
+		t.Run("should cause plugin Start() to fail instead of hanging", func(t *testing.T) {
+			setup(t)
+
+			var (
+				runtime = s.runtime
+				plugin  = s.plugins[0]
+				errCh   = make(chan error, 1)
+			)
+
+			require.NoError(t, runtime.Start(s.dir))
+
+			go func() {
+				errCh <- plugin.Start(s.dir)
+			}()
+
+			select {
+			case err := <-errCh:
+				require.Error(t, err)
+			case <-time.After(3 * time.Second):
+				t.Fatal("plugin Start() did not return within 3s")
+			}
+		})
+	})
+
+	t.Run("Start() is retried after the connection was lost waiting for Configure()", func(t *testing.T) {
+		var (
+			inConfigure      chan struct{}
+			releaseConfigure chan struct{}
+		)
+
+		setup := func(t *testing.T) {
+			t.Helper()
+
+			inConfigure = make(chan struct{})
+			releaseConfigure = make(chan struct{})
+
+			var calls atomic.Int32
+
+			nri.SetPluginRequestTimeout(200 * time.Millisecond)
+			s.Prepare(t,
+				&mockRuntime{},
+				&mockPlugin{
+					idx:  "00",
+					name: "test",
+					// Block only the first Configure() so the first Start()
+					// fails and the retry can succeed.
+					configure: func(m *mockPlugin, _ context.Context, _, _, _ string) (stub.EventMask, error) {
+						if calls.Add(1) == 1 {
+							close(inConfigure)
+							<-releaseConfigure
+							return 0, fmt.Errorf("test: configure released")
+						}
+						m.q.Add(PluginConfigured)
+						events := m.mask
+						events.Clear(api.Event_VALIDATE_CONTAINER_ADJUSTMENT)
+						return events, nil
+					},
+				},
+			)
+
+			t.Cleanup(func() {
+				close(releaseConfigure)
+				nri.SetPluginRequestTimeout(nri.DefaultPluginRequestTimeout)
+			})
+		}
+
+		t.Run("should let the retried Start() on the same stub succeed", func(t *testing.T) {
+			setup(t)
+
+			var (
+				runtime = s.runtime
+				plugin  = s.plugins[0]
+				errCh   = make(chan error, 1)
+			)
+
+			require.NoError(t, runtime.Start(s.dir))
+
+			go func() {
+				errCh <- plugin.Start(s.dir)
+			}()
+
+			select {
+			case <-inConfigure:
+			case <-time.After(2 * time.Second):
+				t.Fatal("plugin Configure() handler was never called")
+			}
+
+			select {
+			case err := <-errCh:
+				require.Error(t, err)
+			case <-time.After(3 * time.Second):
+				t.Fatal("plugin Start() did not return: stub deadlocked waiting for Configure()")
+			}
+
+			// Retry once the failed attempt's OnClose has run, as a plugin's
+			// reconnect loop would.
+			require.NoError(t, plugin.Wait(PluginDisconnected, time.After(3*time.Second)))
+			require.NoError(t, plugin.Start(s.dir))
+			require.NoError(t, plugin.Wait(PluginConfigured, time.After(3*time.Second)))
 		})
 	})
 }

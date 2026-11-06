@@ -37,11 +37,12 @@ request and provide a response, both as JSON data.
 
 Plugins in NRI are daemon-like entities. A single instance of a plugin is
 now responsible for handling the full stream of NRI events and requests. A
-unix-domain socket is used as the transport for communication. Instead of
-JSON requests and responses NRI is defined as a formal, protobuf-based
-'NRI plugin protocol' which is compiled into ttRPC bindings. This should
-result in improved communication efficiency with lower per-message overhead,
-and enable straightforward implementation of stateful NRI plugins.
+unix-domain socket (by default `/var/run/nri/nri.sock`) is used as the transport
+for communication. Instead of JSON requests and responses NRI is defined as a
+formal, protobuf-based 'NRI plugin protocol' which is compiled into ttRPC
+bindings. This should result in improved communication efficiency with lower
+per-message overhead, and enable straightforward implementation of stateful
+NRI plugins.
 
 ## Components
 
@@ -588,6 +589,25 @@ access to these sockets and can act as NRI or Device Plugins. See the
 [related documentation](https://kubernetes.io/docs/concepts/security/)
 and [best practices](https://kubernetes.io/docs/setup/best-practices/enforcing-pod-security-standards/)
 about Kubernetes security.
+
+In SELinux-enabled environments, containerized plugins may require an
+appropriate SELinux type configured in the pod's security context to access
+the host socket. Kubernetes and the host operating system's SELinux
+implementation determine the style used for SELinux options. As an example
+on distributions using Fedora/RHEL-style policies, `spc_t` (Super Privileged
+Container) can be used to allow host socket access:
+```yaml
+spec:
+  template:
+    spec:
+      containers:
+        - name: plugin
+          ...
+          securityContext:
+            ...
+            seLinuxOptions:
+              type: spc_t
+```
 
 ## API Stability
 

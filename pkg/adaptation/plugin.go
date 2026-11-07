@@ -514,14 +514,16 @@ func (p *plugin) synchronize(ctx context.Context, pods []*PodSandbox, containers
 	var (
 		podsToSend = pods
 		ctrsToSend = containers
-		podsPerMsg = len(pods)
-		ctrsPerMsg = len(containers)
-
-		rpl *SynchronizeResponse
-		err error
+		objsPerMsg = len(pods) + len(containers)
 	)
 
 	for {
+		// Fill the message with pods first and let containers take the room
+		// left. Both counts come from the state left to send, so they never
+		// exceed it.
+		podsPerMsg := min(len(podsToSend), objsPerMsg)
+		ctrsPerMsg := min(len(ctrsToSend), objsPerMsg-podsPerMsg)
+
 		req := &SynchronizeRequest{
 			Pods:       podsToSend[:podsPerMsg],
 			Containers: ctrsToSend[:ctrsPerMsg],
@@ -532,83 +534,91 @@ func (p *plugin) synchronize(ctx context.Context, pods []*PodSandbox, containers
 			len(req.Pods), len(podsToSend), len(req.Containers), len(ctrsToSend), req.More)
 
 		start := time.Now()
-		rpl, err = p.impl.Synchronize(ctx, req)
+		rpl, err := p.impl.Synchronize(ctx, req)
 		p.recordInvocation("Synchronize", start, err)
-		if err == nil {
-			if rpl != nil {
-				p.recordAdjustments("Synchronize", nil, len(rpl.Update), 0)
-			}
-			if !req.More {
-				break
-			}
 
-			if len(rpl.Update) > 0 || rpl.More != req.More {
-				p.close()
-				return nil, fmt.Errorf("plugin does not handle split sync requests")
-			}
-
-			podsToSend = podsToSend[podsPerMsg:]
-			ctrsToSend = ctrsToSend[ctrsPerMsg:]
-
-			if podsPerMsg > len(podsToSend) {
-				podsPerMsg = len(podsToSend)
-			}
-			if ctrsPerMsg > len(ctrsToSend) {
-				ctrsPerMsg = len(ctrsToSend)
-			}
-		} else {
-			podsPerMsg, ctrsPerMsg, err = recalcObjsPerSyncMsg(podsPerMsg, ctrsPerMsg, err)
+		if err != nil {
+			objsPerMsg, err = recalcObjsPerSyncMsg(podsPerMsg+ctrsPerMsg, err)
 			if err != nil {
 				p.close()
 				return nil, err
 			}
 
 			log.Debugf(ctx, "oversized message, retrying in smaller chunks")
+			continue
 		}
-	}
 
-	return rpl.Update, nil
+		if rpl != nil {
+			p.recordAdjustments("Synchronize", nil, len(rpl.Update), 0)
+		}
+		if !req.More {
+			return rpl.Update, nil
+		}
+
+		if len(rpl.Update) > 0 || rpl.More != req.More {
+			p.close()
+			return nil, fmt.Errorf("plugin does not handle split sync requests")
+		}
+
+		podsToSend = podsToSend[podsPerMsg:]
+		ctrsToSend = ctrsToSend[ctrsPerMsg:]
+	}
 }
 
-func recalcObjsPerSyncMsg(pods, ctrs int, err error) (int, int, error) {
+// recalcObjsPerSyncMsg returns a lower number of objects to put in a sync
+// message, after a message with objs objects in it was rejected with err.
+// It returns an error if err is not a rejection for exceeding the maximum
+// message size, or if the rejected message carried a single object, which
+// cannot be split any further.
+func recalcObjsPerSyncMsg(objs int, err error) (int, error) {
 	const (
 		minObjsPerMsg = 8
 	)
 
 	if status.Code(err) != codes.ResourceExhausted {
-		return pods, ctrs, err
+		return objs, err
 	}
 
-	if pods+ctrs <= minObjsPerMsg {
-		return pods, ctrs, fmt.Errorf("failed to synchronize plugin with split messages")
+	splitFailed := fmt.Errorf("failed to synchronize plugin with split messages: %w", err)
+
+	// A message with a single object in it cannot be split any further.
+	if objs <= 1 {
+		return objs, splitFailed
 	}
 
 	var e *ttrpc.OversizedMessageErr
 	if !errors.As(err, &e) {
-		return pods, ctrs, fmt.Errorf("failed to synchronize plugin with split messages")
+		return objs, splitFailed
 	}
 
 	maxLen := e.MaximumLength()
 	msgLen := e.RejectedLength()
 
 	if msgLen == 0 || maxLen == 0 || msgLen <= maxLen {
-		return pods, ctrs, fmt.Errorf("failed to synchronize plugin with split messages")
+		return objs, splitFailed
 	}
 
+	// Scale the count down by the fraction of the message that fits the
+	// maximum length, but cap the factor so that a message which barely
+	// exceeded the maximum still shrinks.
 	factor := float64(maxLen) / float64(msgLen)
 	if factor > 0.9 {
 		factor = 0.9
 	}
 
-	pods = int(float64(pods) * factor)
-	ctrs = int(float64(ctrs) * factor)
+	recalced := int(float64(objs) * factor)
 
-	if pods+ctrs < minObjsPerMsg {
-		pods = minObjsPerMsg / 2
-		ctrs = minObjsPerMsg / 2
+	// Avoid very small messages, which take many round trips to send a
+	// large state in.
+	recalced = max(recalced, minObjsPerMsg)
+
+	// The minimum must not raise the count back to the rejected one, which
+	// would get rejected again, so halve the rejected count instead.
+	if recalced >= objs {
+		recalced = objs / 2
 	}
 
-	return pods, ctrs, nil
+	return recalced, nil
 }
 
 // Relay RunPodSandbox request to plugin.

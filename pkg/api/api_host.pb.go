@@ -58,28 +58,36 @@ func (h _hostFunctions) Instantiate(ctx context.Context, r wazero.Runtime) error
 
 // Log displays a log message
 
+// panicAt panics with context about the failed host function step.
+// The wazero engine recovers panics from host functions and aborts the
+// in-flight guest invocation with a sys.ExitError wrapping the panic
+// value, so this does not take down the host process. The recovered
+// error reaches the runtime through the plugin's failure handling
+// instead of a raw, context-free panic.
+func (h _hostFunctions) panicAt(op string, err error) {
+	panic(fmt.Sprintf("host function %q: %s: %v", "log", op, err))
+}
+
 func (h _hostFunctions) _Log(ctx context.Context, m api.Module, stack []uint64) {
 	offset, size := uint32(stack[0]), uint32(stack[1])
 	buf, err := wasm.ReadMemory(m.Memory(), offset, size)
 	if err != nil {
-		panic(err)
+		h.panicAt("read memory", err)
 	}
 	request := new(LogRequest)
-	err = request.UnmarshalVT(buf)
-	if err != nil {
-		panic(err)
+	if err = request.UnmarshalVT(buf); err != nil {
+		h.panicAt("unmarshal request", err)
 	}
 	resp, err := h.Log(ctx, request)
 	if err != nil {
-		panic(err)
+		h.panicAt("host implementation", err)
 	}
-	buf, err = resp.MarshalVT()
-	if err != nil {
-		panic(err)
+	if buf, err = resp.MarshalVT(); err != nil {
+		h.panicAt("marshal response", err)
 	}
 	ptr, err := wasm.WriteMemory(ctx, m, buf)
 	if err != nil {
-		panic(err)
+		h.panicAt("write memory", err)
 	}
 	ptrLen := (ptr << uint64(32)) | uint64(len(buf))
 	stack[0] = ptrLen

@@ -419,7 +419,11 @@ func main() {
 	prevIndex := -1
 
 	for _, idxStr := range strings.Split(cfg.Indices, ",") {
-		idx, _ := strconv.Atoi(idxStr)
+		idx, err := strconv.Atoi(idxStr)
+		if err != nil {
+			log.Fatalf("Invalid plugin index %q: %v", idxStr, err)
+			return
+		}
 
 		entry := indices[idx]
 		entry.prevIndex = prevIndex

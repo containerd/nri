@@ -392,6 +392,7 @@ func (p *plugin) startCertificateWatcher(pod *api.PodSandbox, ctr *api.Container
 				if !svidPrimed {
 					svidReady <- fmt.Errorf("%s: initial SVID write failed: %w", containerName(pod, ctr), err)
 				}
+				// TODO distinguish disk/filesystem I/O errors from content errors here (see TODO above writeCerts).
 				// this error is a fatal error which should stop further execution/processing
 				return
 			}
@@ -458,6 +459,7 @@ func (p *plugin) startCertificateWatcher(pod *api.PodSandbox, ctr *api.Container
 				if !bundlePrimed {
 					bundleReady <- fmt.Errorf("%s: initial bundle write failed: %w", containerName(pod, ctr), err)
 				}
+				// TODO distinguish disk/filesystem I/O errors from parse errors here (see TODO above writeCerts).
 				return
 			}
 
@@ -662,6 +664,16 @@ func writeX509Content(hostDir string, config *identityConfig, certs []*x509.Cert
 	return nil
 }
 
+// TODO handle disk/filesystem I/O errors from writeCerts() and writePrivateKey() separately from content errors.
+// Context: os.WriteFile can fail with e.g. ENOSPC, a read-only/remounted filesystem, a missing hostDir or
+// changed permissions. The callers in startCertificateWatcher (SVID and bundle watchers) currently treat any
+// error from processSvidUpdate/processBundleUpdate as fatal, so the watcher exits and the workload is left
+// with expiring credentials. I/O errors can be transient and should be retried (e.g. wrap them in a
+// dedicated error type, then have the watcher break out of the Recv loop and re-subscribe with bounded
+// backoff so SPIRE resends the current state), while content/config errors (bad trust domain, SPIFFE ID
+// mismatch, unparsable cert/key) can stay fatal or be retried only slowly.
+// A failed write can also leave a truncated file or a cert/key mismatch until the next successful write.
+//
 // TODO implement following Github Copilot Suggestion for writeCerts() method:
 // Certificate/bundle files are written non-atomically (os.WriteFile directly to the target path).
 // Workloads can observe partial/truncated PEM content during rotation if they read while a write is in progress.
@@ -681,6 +693,8 @@ func writeCerts(file string, certs []*x509.Certificate) error {
 	return os.WriteFile(file, pemData, 0644)
 }
 
+// TODO handle disk/filesystem I/O errors from os.WriteFile here too (see TODO above writeCerts()).
+// Same non-atomic write concern applies: a failure can leave a truncated key file or a cert/key mismatch.
 func writePrivateKey(file string, privateKey []byte) error {
 	b := &pem.Block{
 		Type:  "PRIVATE KEY",

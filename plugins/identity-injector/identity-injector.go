@@ -340,6 +340,9 @@ func (p *plugin) startCertificateWatcher(pod *api.PodSandbox, ctr *api.Container
 	// Start the SVID watcher goroutine
 	go func() {
 		defer wg.Done()
+		// TODO once Recv errors are retried, do not cancel the shared watcherCtx on a normal/retryable exit,
+		// otherwise a retrying SVID watcher still kills the bundle watcher (and vice versa). Keep explicit
+		// cancel via containerWatcher.cancel (StopContainer/Shutdown) and the setupErr path.
 		defer cancel() // Cancel context on exit to stop the other goroutine
 		defer log.Infof("%s: SVID watcher stopped", containerName(pod, ctr))
 
@@ -376,6 +379,25 @@ func (p *plugin) startCertificateWatcher(pod *api.PodSandbox, ctr *api.Container
 				return
 			}
 
+			// TODO classify gRPC errors from Recv() and re-subscribe with bounded backoff instead of returning.
+			// Context: review comment says a transient Recv failure (agent restart, socket interruption)
+			// permanently ends this watcher; the deferred cancel() also kills the bundle watcher, the map
+			// entry is then deleted and nothing restarts it, so the workload keeps expiring credentials.
+			// A stream cannot be resumed, so call SubscribeToX509SVIDs again (SPIRE sends the full current
+			// state first; confirm processSvidUpdate is idempotent). Use status.Code(err) from
+			// google.golang.org/grpc/status, and errors.Is(err, io.EOF) for io.EOF:
+			//   - exit quietly: watcherCtx.Err() != nil, codes.Canceled (StopContainer/Shutdown/setup failure)
+			//   - retry with backoff: io.EOF, Unavailable, DeadlineExceeded, Internal, Unknown,
+			//     ResourceExhausted (longer backoff); Aborted/Unauthenticated are uncertain, treat as retryable
+			//   - probably terminal or low-cap retry, log loudly: InvalidArgument, NotFound (may be a transient
+			//     registration race right after container start), PermissionDenied, FailedPrecondition,
+			//     Unimplemented
+			// The code-to-category mapping is inferred from standard gRPC semantics; verify against the SPIRE
+			// delegatedidentity service source/docs. Safest fallback: retry everything except Canceled.
+			// Backoff: exponential ~1s..30s with jitter, reset after a successful Recv (not after a successful
+			// subscribe), sleep via select on timer and watcherCtx.Done(), make durations overridable for tests.
+			// Keep the fail-fast svidReady error before svidPrimed; only retry after priming.
+			// Suggested shape: an isRetryable(err) helper with unit tests, then a retry loop in both watchers.
 			resp, err := stream.Recv()
 			if err != nil {
 				log.Errorf("%s: SVID stream error: %v", containerName(pod, ctr), err)
@@ -408,6 +430,7 @@ func (p *plugin) startCertificateWatcher(pod *api.PodSandbox, ctr *api.Container
 	// Start the bundle watcher goroutine
 	go func() {
 		defer wg.Done()
+		// TODO same as the SVID watcher: do not cancel the shared watcherCtx on a retryable exit.
 		defer cancel() // Cancel context on exit to stop the other goroutine
 		defer log.Infof("%s: bundle watcher stopped", containerName(pod, ctr))
 
@@ -443,6 +466,8 @@ func (p *plugin) startCertificateWatcher(pod *api.PodSandbox, ctr *api.Container
 				return
 			}
 
+			// TODO classify gRPC errors and re-subscribe with bounded backoff, same as the SVID watcher
+			// (see the TODO above stream.Recv() there for the full context and error code classification).
 			resp, err := stream.Recv()
 			if err != nil {
 				log.Errorf("%s: bundle stream error: %v", containerName(pod, ctr), err)

@@ -105,7 +105,7 @@ type plugin struct {
 }
 
 func (p *plugin) RunPodSandbox(_ context.Context, pod *api.PodSandbox) error {
-	log.WithField("namespace", pod.GetNamespace()).WithField("name", pod.GetName).Debug("Started pod...")
+	log.WithField("namespace", pod.GetNamespace()).WithField("name", pod.GetName()).Debug("Started pod...")
 	if verbose {
 		dump("RunPodSandbox", "pod", pod)
 	}
@@ -147,7 +147,7 @@ func (p *plugin) RunPodSandbox(_ context.Context, pod *api.PodSandbox) error {
 }
 
 func (p *plugin) StopPodSandbox(_ context.Context, pod *api.PodSandbox) error {
-	log.WithField("namespace", pod.GetNamespace()).WithField("name", pod.GetName).Debug("Stopped pod...")
+	log.WithField("namespace", pod.GetNamespace()).WithField("name", pod.GetName()).Debug("Stopped pod...")
 	if verbose {
 		dump("StopPodSandbox", "pod", pod)
 	}

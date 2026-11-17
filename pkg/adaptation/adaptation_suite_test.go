@@ -485,6 +485,9 @@ func TestPluginContainerCreationAdjustments(t *testing.T) {
 			}
 			a.AddEnv("key", plugin)
 
+		case "remove environment":
+			a.RemoveEnv("test")
+
 		case "arguments":
 			if !overwrite {
 				a.SetArgs([]string{"echo", "updated", "argument", "list"})
@@ -522,6 +525,9 @@ func TestPluginContainerCreationAdjustments(t *testing.T) {
 				Path: "/var/run/cgroupns/replaced",
 			}
 			a.AddOrReplaceNamespace(ns)
+
+		case "remove device":
+			a.RemoveDevice("/dev/test")
 
 		case "rlimit":
 			a.AddRlimit("nofile", 456, 123)
@@ -657,6 +663,9 @@ func TestPluginContainerCreationAdjustments(t *testing.T) {
 								Destination: "/remove/test/destination",
 							},
 						},
+						Env: []string{
+							"test=some-value",
+						},
 						Args: []string{
 							"echo",
 							"original",
@@ -664,6 +673,14 @@ func TestPluginContainerCreationAdjustments(t *testing.T) {
 							"list",
 						},
 						Linux: &api.LinuxContainer{
+							Devices: []*api.LinuxDevice{
+								{
+									Path:  "/dev/test",
+									Type:  "c",
+									Major: 1,
+									Minor: 3,
+								},
+							},
 							Resources: &api.LinuxResources{
 								Cpu: &api.LinuxCPU{
 									Shares:          api.UInt64(111),
@@ -728,6 +745,22 @@ func TestPluginContainerCreationAdjustments(t *testing.T) {
 				Mounts: []*api.Mount{
 					{
 						Destination: api.MarkForRemoval("/remove/test/destination"),
+					},
+				},
+			}))
+			t.Run("remove an environment variable", runTable("remove environment", &api.ContainerAdjustment{
+				Env: []*api.KeyValue{
+					{
+						Key: api.MarkForRemoval("test"),
+					},
+				},
+			}))
+			t.Run("remove a device", runTable("remove device", &api.ContainerAdjustment{
+				Linux: &api.LinuxContainerAdjustment{
+					Devices: []*api.LinuxDevice{
+						{
+							Path: api.MarkForRemoval("/dev/test"),
+						},
 					},
 				},
 			}))

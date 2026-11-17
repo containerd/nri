@@ -436,6 +436,13 @@ func (r *result) adjustDevices(devices []*LinuxDevice, plugin string) error {
 		r.reply.adjust.Linux.Devices = append(r.reply.adjust.Linux.Devices, d)
 	}
 
+	// next, apply deletions with no corresponding additions
+	for path, d := range del {
+		if _, ok := mod[path]; !ok {
+			r.reply.adjust.Linux.Devices = append(r.reply.adjust.Linux.Devices, d)
+		}
+	}
+
 	// finally, apply additions/modifications to plugin container creation request
 	create.Container.Linux.Devices = append(create.Container.Linux.Devices, add...)
 
@@ -633,6 +640,15 @@ func (r *result) adjustEnv(env []*KeyValue, plugin string) error {
 			return err
 		}
 		r.reply.adjust.Env = append(r.reply.adjust.Env, e)
+	}
+
+	// next, apply deletions with no corresponding additions
+	for key := range del {
+		if _, ok := mod[key]; !ok {
+			r.reply.adjust.Env = append(r.reply.adjust.Env, &KeyValue{
+				Key: MarkForRemoval(key),
+			})
+		}
 	}
 
 	// finally, apply additions/modifications to plugin container creation request

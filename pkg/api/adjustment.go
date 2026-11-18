@@ -261,7 +261,14 @@ func (a *ContainerAdjustment) SetLinuxCPUQuota(value int64) {
 }
 
 // SetLinuxCPUPeriod records setting the scheduler's CPU period for a container.
+// The CPU period is semantically unsigned (the kernel accepts periods in the
+// range [1000, 1000000]). Negative values are ignored instead of being
+// silently converted to a huge unsigned value, which would fail container
+// creation with an error that gives no hint about the plugin-side cause.
 func (a *ContainerAdjustment) SetLinuxCPUPeriod(value int64) {
+	if value < 0 {
+		return
+	}
 	a.initLinuxResourcesCPU()
 	a.Linux.Resources.Cpu.Period = UInt64(value)
 }

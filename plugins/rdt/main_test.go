@@ -46,9 +46,9 @@ func TestAdjustRdt(t *testing.T) {
 				"enablemonitoring.rdt.noderesource.dev/container." + containerName: "true",
 			},
 			expected: &api.LinuxRdt{
-				ClosId:           api.String("foo"),
-				Schemata:         api.RepeatedString([]string{"L3:0=f", "MB:0=50"}),
-				EnableMonitoring: api.Bool(true),
+				ClosId:           api.NewString("foo"),
+				Schemata:         api.NewRepeatedString([]string{"L3:0=f", "MB:0=50"}),
+				EnableMonitoring: api.NewBool(true),
 			},
 		},
 		{
@@ -65,7 +65,7 @@ func TestAdjustRdt(t *testing.T) {
 				"unknown.rdt.noderesource.dev/container." + containerName: "foo",
 			},
 			expected: &api.LinuxRdt{
-				ClosId: api.String("clos-1"),
+				ClosId: api.NewString("clos-1"),
 			},
 		},
 		{
@@ -75,7 +75,7 @@ func TestAdjustRdt(t *testing.T) {
 				"schemata.rdt.noderesource.dev/container." + containerName: "L3:0=ff,MB:0=100",
 			},
 			expected: &api.LinuxRdt{
-				Schemata: api.RepeatedString([]string{"L3:0=ff", "MB:0=100"}),
+				Schemata: api.NewRepeatedString([]string{"L3:0=ff", "MB:0=100"}),
 			},
 		},
 		{

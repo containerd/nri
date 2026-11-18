@@ -96,7 +96,7 @@ func FromOCIHookSlice(o []rspec.Hook) []*Hook {
 			Path:    h.Path,
 			Args:    DupStringSlice(h.Args),
 			Env:     DupStringSlice(h.Env),
-			Timeout: Int(h.Timeout),
+			Timeout: IntPtr(h.Timeout),
 		})
 	}
 	return hooks

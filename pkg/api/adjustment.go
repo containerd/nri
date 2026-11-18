@@ -54,7 +54,7 @@ func (a *ContainerAdjustment) RemoveAnnotation(key string) {
 
 // AddMount records the addition of a mount to a container.
 func (a *ContainerAdjustment) AddMount(m *Mount) {
-	a.Mounts = append(a.Mounts, m) // TODO: should we dup m here ?
+	a.Mounts = append(a.Mounts, m)
 }
 
 // RemoveMount records the removal of a mount from a container.
@@ -141,7 +141,7 @@ func NormalizeRlimitType(typ string) string {
 // AddDevice records the addition of the given device to a container.
 func (a *ContainerAdjustment) AddDevice(d *LinuxDevice) {
 	a.initLinux()
-	a.Linux.Devices = append(a.Linux.Devices, d) // TODO: should we dup d here ?
+	a.Linux.Devices = append(a.Linux.Devices, d)
 }
 
 // RemoveDevice records the removal of a device from a container.
@@ -157,13 +157,13 @@ func (a *ContainerAdjustment) RemoveDevice(path string) {
 
 // AddCDIDevice records the addition of the given CDI device to a container.
 func (a *ContainerAdjustment) AddCDIDevice(d *CDIDevice) {
-	a.CDIDevices = append(a.CDIDevices, d) // TODO: should we dup d here ?
+	a.CDIDevices = append(a.CDIDevices, d)
 }
 
 // AddOrReplaceNamespace records the addition or replacement of the given namespace to a container.
 func (a *ContainerAdjustment) AddOrReplaceNamespace(n *LinuxNamespace) {
 	a.initLinuxNamespaces()
-	a.Linux.Namespaces = append(a.Linux.Namespaces, n) // TODO: should we dup n here ?
+	a.Linux.Namespaces = append(a.Linux.Namespaces, n)
 }
 
 // RemoveNamespace records the removal of the given namespace from a container.

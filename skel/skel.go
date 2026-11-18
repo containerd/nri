@@ -35,6 +35,9 @@ type Plugin interface {
 
 // Run the plugin from a main() function
 func Run(ctx context.Context, plugin Plugin) error {
+	if len(os.Args) < 2 {
+		return fmt.Errorf("missing plugin command, usage: %s <command>", os.Args[0])
+	}
 	enc := json.NewEncoder(os.Stdout)
 	var request types.Request //nolint:staticcheck
 	if err := json.NewDecoder(os.Stdin).Decode(&request); err != nil {

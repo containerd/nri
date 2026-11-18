@@ -211,12 +211,15 @@ func TestAdjustment(t *testing.T) {
 	}
 
 	t.Run("mounts", func(t *testing.T) {
-		spec := makeSpec()
+		spec := makeSpec(withMounts([]rspec.Mount{
+			{Destination: "/a/c", Source: "/host/c"},
+		}))
 		adjust := &api.ContainerAdjustment{
 			Mounts: []*api.Mount{
 				{Destination: "/a/b/c/d/e", Source: "/host/e"},
 				{Destination: "/a/b/c", Source: "/host/c"},
 				{Destination: "/a/b", Source: "/host/b"},
+				{Destination: "/a/a", Source: "/host/a_a"},
 				{Destination: "/a", Source: "/host/a"},
 			},
 		}
@@ -226,7 +229,9 @@ func TestAdjustment(t *testing.T) {
 		require.NoError(t, xg.Adjust(adjust))
 		require.Equal(t, makeSpec(withMounts([]rspec.Mount{
 			{Destination: "/a", Source: "/host/a"},
+			{Destination: "/a/a", Source: "/host/a_a"},
 			{Destination: "/a/b", Source: "/host/b"},
+			{Destination: "/a/c", Source: "/host/c"},
 			{Destination: "/a/b/c", Source: "/host/c"},
 			{Destination: "/a/b/c/d/e", Source: "/host/e"},
 		})), spec)

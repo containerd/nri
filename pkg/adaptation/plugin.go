@@ -34,8 +34,6 @@ import (
 	"github.com/containerd/nri/pkg/net"
 	"github.com/containerd/nri/pkg/net/multiplex"
 	"github.com/containerd/ttrpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 const (
@@ -511,17 +509,12 @@ func (p *plugin) synchronize(ctx context.Context, pods []*PodSandbox, containers
 	ctx, cancel := context.WithTimeout(ctx, getPluginRequestTimeout())
 	defer cancel()
 
-	var (
-		podsToSend = pods
-		ctrsToSend = containers
-		podsPerMsg = len(pods)
-		ctrsPerMsg = len(containers)
-
-		rpl *SynchronizeResponse
-		err error
-	)
+	podsToSend, ctrsToSend := pods, containers
+	objectsPerMsg := len(podsToSend) + len(ctrsToSend)
 
 	for {
+		podsPerMsg := min(len(podsToSend), objectsPerMsg)
+		ctrsPerMsg := min(len(ctrsToSend), objectsPerMsg-podsPerMsg)
 		req := &SynchronizeRequest{
 			Pods:       podsToSend[:podsPerMsg],
 			Containers: ctrsToSend[:ctrsPerMsg],
@@ -532,83 +525,36 @@ func (p *plugin) synchronize(ctx context.Context, pods []*PodSandbox, containers
 			len(req.Pods), len(podsToSend), len(req.Containers), len(ctrsToSend), req.More)
 
 		start := time.Now()
-		rpl, err = p.impl.Synchronize(ctx, req)
+		rpl, err := p.impl.Synchronize(ctx, req)
 		p.recordInvocation("Synchronize", start, err)
-		if err == nil {
-			if rpl != nil {
-				p.recordAdjustments("Synchronize", nil, len(rpl.Update), 0)
-			}
-			if !req.More {
-				break
-			}
-
-			if len(rpl.Update) > 0 || rpl.More != req.More {
-				p.close()
-				return nil, fmt.Errorf("plugin does not handle split sync requests")
+		if err != nil {
+			var oversized *ttrpc.OversizedMessageErr
+			attempted := podsPerMsg + ctrsPerMsg
+			// ttRPC rejects oversized requests before sending them to the plugin.
+			if attempted > 1 && p.impl.isTtrpc() && errors.As(err, &oversized) {
+				objectsPerMsg = attempted / 2
+				log.Debugf(ctx, "oversized message, retrying in smaller chunks")
+				continue
 			}
 
-			podsToSend = podsToSend[podsPerMsg:]
-			ctrsToSend = ctrsToSend[ctrsPerMsg:]
-
-			if podsPerMsg > len(podsToSend) {
-				podsPerMsg = len(podsToSend)
-			}
-			if ctrsPerMsg > len(ctrsToSend) {
-				ctrsPerMsg = len(ctrsToSend)
-			}
-		} else {
-			podsPerMsg, ctrsPerMsg, err = recalcObjsPerSyncMsg(podsPerMsg, ctrsPerMsg, err)
-			if err != nil {
-				p.close()
-				return nil, err
-			}
-
-			log.Debugf(ctx, "oversized message, retrying in smaller chunks")
+			p.close()
+			return nil, err
 		}
+
+		if rpl != nil {
+			p.recordAdjustments("Synchronize", nil, len(rpl.Update), 0)
+		}
+		if !req.More {
+			return rpl.Update, nil
+		}
+		if len(rpl.Update) > 0 || !rpl.More {
+			p.close()
+			return nil, fmt.Errorf("plugin does not handle split sync requests")
+		}
+
+		podsToSend = podsToSend[podsPerMsg:]
+		ctrsToSend = ctrsToSend[ctrsPerMsg:]
 	}
-
-	return rpl.Update, nil
-}
-
-func recalcObjsPerSyncMsg(pods, ctrs int, err error) (int, int, error) {
-	const (
-		minObjsPerMsg = 8
-	)
-
-	if status.Code(err) != codes.ResourceExhausted {
-		return pods, ctrs, err
-	}
-
-	if pods+ctrs <= minObjsPerMsg {
-		return pods, ctrs, fmt.Errorf("failed to synchronize plugin with split messages")
-	}
-
-	var e *ttrpc.OversizedMessageErr
-	if !errors.As(err, &e) {
-		return pods, ctrs, fmt.Errorf("failed to synchronize plugin with split messages")
-	}
-
-	maxLen := e.MaximumLength()
-	msgLen := e.RejectedLength()
-
-	if msgLen == 0 || maxLen == 0 || msgLen <= maxLen {
-		return pods, ctrs, fmt.Errorf("failed to synchronize plugin with split messages")
-	}
-
-	factor := float64(maxLen) / float64(msgLen)
-	if factor > 0.9 {
-		factor = 0.9
-	}
-
-	pods = int(float64(pods) * factor)
-	ctrs = int(float64(ctrs) * factor)
-
-	if pods+ctrs < minObjsPerMsg {
-		pods = minObjsPerMsg / 2
-		ctrs = minObjsPerMsg / 2
-	}
-
-	return pods, ctrs, nil
 }
 
 // Relay RunPodSandbox request to plugin.

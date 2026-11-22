@@ -856,6 +856,11 @@ func main() {
 		opts = append(opts, stub.WithPluginIdx(pluginIdx))
 	}
 
+	// Fail closed: if a request times out (for example minting SVIDs takes longer than request timeout),
+	// loses its connection or causes a protocol error while handling a request,
+	// the runtime fails the request (e.g. container creation) instead of proceeding without identity injection.
+	opts = append(opts, stub.WithFailurePolicy(&api.FailurePolicy{FailRequest: true}))
+
 	p := &plugin{
 		watchers: make(map[string]*containerWatcher),
 	}

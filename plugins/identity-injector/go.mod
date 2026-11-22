@@ -15,7 +15,6 @@ require (
 	github.com/kr/text v0.2.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.2 // indirect
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
-	golang.org/x/mod v0.32.0 // indirect
 )
 
 require (

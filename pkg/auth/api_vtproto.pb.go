@@ -65,6 +65,20 @@ func (m *RequestChallengeRequest) MarshalToSizedBufferVT(dAtA []byte) (int, erro
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
 	}
+	if len(m.RuntimePublicKey) > 0 {
+		i -= len(m.RuntimePublicKey)
+		copy(dAtA[i:], m.RuntimePublicKey)
+		i = encodeVarint(dAtA, i, uint64(len(m.RuntimePublicKey)))
+		i--
+		dAtA[i] = 0x22
+	}
+	if len(m.Challenge) > 0 {
+		i -= len(m.Challenge)
+		copy(dAtA[i:], m.Challenge)
+		i = encodeVarint(dAtA, i, uint64(len(m.Challenge)))
+		i--
+		dAtA[i] = 0x1a
+	}
 	if len(m.PublicKey) > 0 {
 		i -= len(m.PublicKey)
 		copy(dAtA[i:], m.PublicKey)
@@ -111,6 +125,13 @@ func (m *RequestChallengeResponse) MarshalToSizedBufferVT(dAtA []byte) (int, err
 	if m.unknownFields != nil {
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
+	}
+	if len(m.Response) > 0 {
+		i -= len(m.Response)
+		copy(dAtA[i:], m.Response)
+		i = encodeVarint(dAtA, i, uint64(len(m.Response)))
+		i--
+		dAtA[i] = 0x1a
 	}
 	if len(m.Challenge) > 0 {
 		i -= len(m.Challenge)
@@ -253,6 +274,14 @@ func (m *RequestChallengeRequest) SizeVT() (n int) {
 	if l > 0 {
 		n += 1 + l + sov(uint64(l))
 	}
+	l = len(m.Challenge)
+	if l > 0 {
+		n += 1 + l + sov(uint64(l))
+	}
+	l = len(m.RuntimePublicKey)
+	if l > 0 {
+		n += 1 + l + sov(uint64(l))
+	}
 	n += len(m.unknownFields)
 	return n
 }
@@ -268,6 +297,10 @@ func (m *RequestChallengeResponse) SizeVT() (n int) {
 		n += 1 + l + sov(uint64(l))
 	}
 	l = len(m.Challenge)
+	if l > 0 {
+		n += 1 + l + sov(uint64(l))
+	}
+	l = len(m.Response)
 	if l > 0 {
 		n += 1 + l + sov(uint64(l))
 	}
@@ -412,6 +445,74 @@ func (m *RequestChallengeRequest) UnmarshalVT(dAtA []byte) error {
 				m.PublicKey = []byte{}
 			}
 			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Challenge", wireType)
+			}
+			var byteLen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflow
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				byteLen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if byteLen < 0 {
+				return ErrInvalidLength
+			}
+			postIndex := iNdEx + byteLen
+			if postIndex < 0 {
+				return ErrInvalidLength
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Challenge = append(m.Challenge[:0], dAtA[iNdEx:postIndex]...)
+			if m.Challenge == nil {
+				m.Challenge = []byte{}
+			}
+			iNdEx = postIndex
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field RuntimePublicKey", wireType)
+			}
+			var byteLen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflow
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				byteLen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if byteLen < 0 {
+				return ErrInvalidLength
+			}
+			postIndex := iNdEx + byteLen
+			if postIndex < 0 {
+				return ErrInvalidLength
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.RuntimePublicKey = append(m.RuntimePublicKey[:0], dAtA[iNdEx:postIndex]...)
+			if m.RuntimePublicKey == nil {
+				m.RuntimePublicKey = []byte{}
+			}
+			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
 			skippy, err := skip(dAtA[iNdEx:])
@@ -529,6 +630,40 @@ func (m *RequestChallengeResponse) UnmarshalVT(dAtA []byte) error {
 			m.Challenge = append(m.Challenge[:0], dAtA[iNdEx:postIndex]...)
 			if m.Challenge == nil {
 				m.Challenge = []byte{}
+			}
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Response", wireType)
+			}
+			var byteLen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflow
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				byteLen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if byteLen < 0 {
+				return ErrInvalidLength
+			}
+			postIndex := iNdEx + byteLen
+			if postIndex < 0 {
+				return ErrInvalidLength
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Response = append(m.Response[:0], dAtA[iNdEx:postIndex]...)
+			if m.Response == nil {
+				m.Response = []byte{}
 			}
 			iNdEx = postIndex
 		default:

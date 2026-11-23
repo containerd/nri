@@ -23,6 +23,17 @@ import (
 	sync "sync"
 )
 
+// IsAnonymous returns true if the plugin does not prove its own identity.
+// An empty response is how a plugin says it claims nothing: it has finished
+// the handshake, so it may register, but it is registered with no role,
+// exactly as a plugin which never authenticated at all.
+//
+// This is the single definition of that rule. Nothing else should test the
+// response for emptiness to decide what it means.
+func (r *RespondChallengeRequest) IsAnonymous() bool {
+	return len(r.GetResponse()) == 0
+}
+
 type (
 	// PrivateKey in encoded format as stored in configuration.
 	PrivateKey []byte

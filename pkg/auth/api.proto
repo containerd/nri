@@ -32,19 +32,36 @@ service Authentication {
 message RequestChallengeRequest {
     // Algorithm to use for authentication.
     string algorithm = 1;
-    // Public key of the plugin.
+    // Public key of the plugin. Long-term if the plugin authenticates
+    // itself, ephemeral if it does not.
     bytes public_key = 2;
+    // Optional challenge for the runtime to answer, if the plugin
+    // wants the runtime to prove its identity.
+    bytes challenge = 3;
+    // The public key the plugin expects the runtime to prove
+    // possession of. Set together with challenge, which is sealed to
+    // this key.
+    bytes runtime_public_key = 4;
 }
 
 message RequestChallengeResponse {
-    // Public key of the runtime for challenge exchange.
+    // Public key of the runtime for challenge exchange. The identity
+    // the plugin asked for, if the runtime holds it, an ephemeral key
+    // otherwise.
     bytes public_key = 1;
     // Encrypted challenge for the plugin.
     bytes challenge = 2;
+    // The runtime's answer to the plugin's challenge. Empty if the
+    // plugin sent none, or if the runtime does not hold the identity
+    // it asked for.
+    bytes response = 3;
 }
 
 message RespondChallengeRequest {
-    // Encrypted response for the challenge by the plugin.
+    // Encrypted response for the challenge by the plugin. An empty
+    // response means the plugin does not prove its own identity: it is
+    // then registered with no role, exactly as a plugin which never
+    // authenticated at all.
     bytes response = 1;
 }
 

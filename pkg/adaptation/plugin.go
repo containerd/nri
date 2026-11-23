@@ -590,6 +590,15 @@ func (p *plugin) authFinish(ctx context.Context, req *auth.RespondChallengeReque
 		return errors.New("authentication failed")
 	}
 
+	if req.IsAnonymous() {
+		// The plugin finished the handshake without proving its own
+		// identity. We register it as an unauthenticated plugin.
+		log.Infof(ctx, "client declined to authenticate itself")
+		p.auth.done = true
+
+		return nil
+	}
+
 	if err := p.auth.algo.Verify(req.Response); err != nil {
 		log.Errorf(ctx, "rejecting client: failed challenge response: %v", err)
 		return errors.New("authentication failed")

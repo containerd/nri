@@ -17,6 +17,7 @@
 package adaptation_test
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -1064,6 +1065,19 @@ func (l *capturingLogger) Errorf(_ context.Context, format string, args ...any) 
 	l.record(format, args...)
 }
 
+// longest returns the length of the longest recorded message.
+func (l *capturingLogger) longest() int {
+	l.Lock()
+	defer l.Unlock()
+	longest := 0
+	for _, msg := range l.msgs {
+		if len(msg) > longest {
+			longest = len(msg)
+		}
+	}
+	return longest
+}
+
 // contains reports whether any recorded message contains substr.
 func (l *capturingLogger) contains(substr string) bool {
 	l.Lock()
@@ -1169,7 +1183,7 @@ func TestRuntimeAuthentication(t *testing.T) {
 		require.Equal(t, "role0", s.plugin("00-foo").stub.GetRole())
 	})
 
-	t.Run("should refuse an unlicensed runtime", func(t *testing.T) {
+	t.Run("should refuse an unauthenticated runtime", func(t *testing.T) {
 		path, _ := writeIdentityKey(t, t.TempDir(), "vendor-a")
 		_, otherKey := writeIdentityKey(t, t.TempDir(), "vendor-b")
 
@@ -1353,6 +1367,38 @@ func TestRuntimeAuthentication(t *testing.T) {
 		}
 	})
 
+	t.Run("should not log an oversized key in full", func(t *testing.T) {
+		logger := captureRuntimeLog(t)
+
+		path, _ := writeIdentityKey(t, t.TempDir(), "vendor-a")
+
+		s := &Suite{}
+		s.Prepare(t, &mockRuntime{options: authConfig(map[string]*auth.Identity{
+			"vendor-a": {PrivateKeyPath: path},
+		})})
+		s.StartRuntime()
+
+		p := &roguePlugin{idx: "00", name: "foo"}
+		require.NoError(t, p.Connect(s.dir))
+		defer p.Stop()
+
+		// The named key is an unbounded field from a peer which has not
+		// authenticated, logged once per connection. Anyone who can
+		// reach the socket can reconnect in a loop, so we limit the size
+		// of the key we log.
+		huge := bytes.Repeat([]byte("A"), 1<<20)
+
+		rpl, err := p.RequestChallengeFor(nri.DefaultAuthentication,
+			pluginKeys.public, []byte("challenge"), huge)
+		require.NoError(t, err)
+		require.Empty(t, rpl.Response)
+
+		require.False(t, logger.contains(string(huge)),
+			"the runtime logged an unbounded key in full")
+		require.Less(t, logger.longest(), 1024,
+			"the runtime logged an unbounded amount for one connection")
+	})
+
 	t.Run("should reject an undecodable key", func(t *testing.T) {
 		path, _ := writeIdentityKey(t, t.TempDir(), "vendor-a")
 
@@ -1370,5 +1416,201 @@ func TestRuntimeAuthentication(t *testing.T) {
 			pluginKeys.public, []byte("challenge"), []byte("not a valid key"))
 		require.NoError(t, err, "an undecodable key must not break the runtime")
 		require.Empty(t, rpl.Response)
+	})
+}
+
+// RespondChallengeWith sends an arbitrary challenge response, so that a
+// test can send responses the stub never would.
+func (p *roguePlugin) RespondChallengeWith(response []byte) (*auth.RespondChallengeResponse, error) {
+	return auth.NewAuthenticationClient(p.rpcc).RespondChallenge(context.Background(),
+		&auth.RespondChallengeRequest{
+			Response: response,
+		},
+	)
+}
+
+// TestAnonymousPluginAuthentication tests that a plugin can authenticate
+// the runtime without authenticating itself.
+func TestAnonymousPluginAuthentication(t *testing.T) {
+	var (
+		keyedPlugin = []byte("OlqYOu+/5pP9S+6XpeiC3ryr/iKEkZiTdo9VmMohbFY=")
+	)
+
+	authConfig := func(identities map[string]*auth.Identity) []nri.Option {
+		return []nri.Option{
+			nri.WithAuthConfig(&auth.Config{
+				Roles: map[string]*auth.Role{
+					"role0": {
+						Keys: []string{string(keyedPlugin)},
+						Tags: map[string]string{"cap": "all"},
+					},
+				},
+				Identities: identities,
+			}),
+		}
+	}
+
+	t.Run("should let an anonymous plugin authenticate the runtime", func(t *testing.T) {
+		path, runtimeKey := writeIdentityKey(t, t.TempDir(), "vendor-a")
+
+		s := &Suite{}
+		s.Prepare(t,
+			&mockRuntime{options: authConfig(map[string]*auth.Identity{
+				"vendor-a": {PrivateKeyPath: path},
+			})},
+			&mockPlugin{
+				idx:  "00",
+				name: "foo",
+				options: []stub.Option{
+					stub.WithRuntimeAuthentication(nri.DefaultAuthentication, runtimeKey),
+				},
+			},
+		)
+		s.Startup()
+
+		s.WaitForPluginsToSync(s.plugin("00-foo"))
+		require.Equal(t, "", s.plugin("00-foo").stub.GetRole(),
+			"an anonymous plugin must not be given a role")
+		require.Nil(t, s.plugin("00-foo").stub.GetTags())
+	})
+
+	t.Run("should ignore authentication keys from the environment", func(t *testing.T) {
+		path, runtimeKey := writeIdentityKey(t, t.TempDir(), "vendor-a")
+
+		// A key directory and an algorithm the plugin never asked for,
+		// in the environment the host operator controls. A plugin which
+		// only wants to authenticate the runtime should not be given an
+		// identity, and should not have the algorithm of the exchange
+		// swapped either.
+		keyDir := t.TempDir()
+		priv, pub, err := ecdh.GenerateKeyPair()
+		require.NoError(t, err)
+		require.NoError(t, os.WriteFile(filepath.Join(keyDir, "private"), priv.Encode(), 0o600))
+		require.NoError(t, os.WriteFile(filepath.Join(keyDir, "public"), pub.Encode(), 0o644))
+		t.Setenv(api.PluginAuthKeyDirEnvVar, keyDir)
+		t.Setenv(api.PluginAuthAlgoEnvVar, "no-such-algorithm")
+
+		s := &Suite{}
+		s.Prepare(t,
+			&mockRuntime{options: []nri.Option{
+				nri.WithAuthConfig(&auth.Config{
+					Roles: map[string]*auth.Role{
+						// a role for the key planted in the environment
+						"planted": {Keys: []string{string(pub.Encode())}},
+					},
+					Identities: map[string]*auth.Identity{
+						"vendor-a": {PrivateKeyPath: path},
+					},
+				}),
+			}},
+			&mockPlugin{
+				idx:  "00",
+				name: "foo",
+				options: []stub.Option{
+					stub.WithRuntimeAuthentication(nri.DefaultAuthentication, runtimeKey),
+				},
+			},
+		)
+		s.Startup()
+
+		s.WaitForPluginsToSync(s.plugin("00-foo"))
+		require.Equal(t, "", s.plugin("00-foo").stub.GetRole(),
+			"the plugin picked up an identity from the environment")
+	})
+
+	t.Run("should refuse an unlicensed runtime anonymously too", func(t *testing.T) {
+		path, _ := writeIdentityKey(t, t.TempDir(), "vendor-a")
+		_, otherKey := writeIdentityKey(t, t.TempDir(), "vendor-b")
+
+		s := &Suite{}
+		s.Prepare(t,
+			&mockRuntime{options: authConfig(map[string]*auth.Identity{
+				"vendor-a": {PrivateKeyPath: path},
+			})},
+			&mockPlugin{
+				idx:  "00",
+				name: "foo",
+				options: []stub.Option{
+					stub.WithRuntimeAuthentication(nri.DefaultAuthentication, otherKey),
+				},
+			},
+		)
+		s.StartRuntime()
+
+		// The plugin aborts before it would have declared itself
+		// anonymous, so it never registers.
+		require.Error(t, s.StartPlugin(s.plugins[0]))
+	})
+
+	t.Run("should refuse a plugin which responds with garbage", func(t *testing.T) {
+		path, runtimeKey := writeIdentityKey(t, t.TempDir(), "vendor-a")
+
+		s := &Suite{}
+		s.Prepare(t, &mockRuntime{options: authConfig(map[string]*auth.Identity{
+			"vendor-a": {PrivateKeyPath: path},
+		})})
+		s.StartRuntime()
+
+		p := &roguePlugin{idx: "00", name: "foo"}
+		require.NoError(t, p.Connect(s.dir))
+		defer p.Stop()
+
+		_, err := p.RequestChallengeFor(nri.DefaultAuthentication,
+			keyedPlugin, []byte("challenge"), runtimeKey)
+		require.NoError(t, err)
+
+		// A non-empty response is a claim of identity, so it has to
+		// verify. Only an empty one means the plugin claims nothing.
+		_, err = p.RespondChallengeWith([]byte("response"))
+		require.Error(t, err)
+	})
+
+	t.Run("should give no role to a keyed plugin that goes anonymous", func(t *testing.T) {
+		path, runtimeKey := writeIdentityKey(t, t.TempDir(), "vendor-a")
+
+		s := &Suite{}
+		s.Prepare(t, &mockRuntime{options: authConfig(map[string]*auth.Identity{
+			"vendor-a": {PrivateKeyPath: path},
+		})})
+		s.StartRuntime()
+
+		p := &roguePlugin{idx: "00", name: "foo"}
+		require.NoError(t, p.Connect(s.dir))
+		defer p.Stop()
+
+		_, err := p.RequestChallengeFor(nri.DefaultAuthentication,
+			keyedPlugin, []byte("challenge"), runtimeKey)
+		require.NoError(t, err)
+
+		// This key has a role configured, but the plugin declined to
+		// prove it holds the matching private key, so it gets nothing.
+		rpl, err := p.RespondChallengeWith(nil)
+		require.NoError(t, err)
+		require.Equal(t, "", rpl.GetRole())
+		require.Nil(t, rpl.GetTags())
+	})
+
+	t.Run("should still refuse an aborted handshake", func(t *testing.T) {
+		path, runtimeKey := writeIdentityKey(t, t.TempDir(), "vendor-a")
+
+		s := &Suite{}
+		s.Prepare(t, &mockRuntime{options: authConfig(map[string]*auth.Identity{
+			"vendor-a": {PrivateKeyPath: path},
+		})})
+		s.StartRuntime()
+
+		p := &roguePlugin{idx: "00", name: "foo"}
+		require.NoError(t, p.Connect(s.dir))
+		defer p.Stop()
+
+		_, err := p.RequestChallengeFor(nri.DefaultAuthentication,
+			keyedPlugin, []byte("challenge"), runtimeKey)
+		require.NoError(t, err)
+
+		// Neither a response nor a declaration of anonymity: the
+		// handshake was started and never finished, which is what the
+		// bypass check exists for. Adding the anonymous path must not
+		// turn this into an accepted registration.
+		require.Error(t, p.Register())
 	})
 }

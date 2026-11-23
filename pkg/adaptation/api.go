@@ -77,6 +77,7 @@ type (
 	PluginInstance                      = api.PluginInstance
 
 	Role       = auth.Role
+	Identity   = auth.Identity
 	AuthConfig = auth.Config
 
 	PodSandbox               = api.PodSandbox

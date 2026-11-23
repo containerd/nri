@@ -139,6 +139,9 @@ var (
 	ErrInvalidConfig = errors.New("invalid authentication configuration provided")
 	// ErrInvalidRole is returned if an invalid role entry is found in the configuration.
 	ErrInvalidRole = errors.New("invalid role in configuration")
+	// ErrInvalidIdentity is returned if an invalid identity entry is found
+	// in the configuration.
+	ErrInvalidIdentity = errors.New("invalid identity in configuration")
 	// ErrKeyConflict is returned if a single key is configured for multiple roles.
 	ErrKeyConflict = errors.New("key already exists")
 	// ErrUnknownKey is returned if no role could be found for a key.
@@ -146,9 +149,40 @@ var (
 )
 
 // Config represents authentication configuration. It maps authentication keys
-// to roles.
+// to roles, and optionally gives the runtime identities of its own.
 type Config struct {
-	Roles map[string]*Role `json:"roles" toml:"roles"`
+	Roles      map[string]*Role     `json:"roles"      toml:"roles"`
+	Identities map[string]*Identity `json:"identities" toml:"identities"`
+}
+
+// Identity is a long-term key pair the runtime can prove possession of,
+// to a plugin which demands it. A runtime holds any number of them, one
+// per plugin which asks: a plugin names the public key it expects and
+// the runtime answers with the matching identity, so two plugins never
+// have to expect the same key.
+//
+// Only the private key is configured. The public key is derived from
+// it, and is what a plugin names on the wire.
+type Identity struct {
+	// Identity is the name of this identity. It is filled in from the
+	// name the identity is configured under, and is what logs and
+	// errors refer to it by.
+	Identity string `json:"identity" toml:"identity"`
+	// Algorithm this key is for. Defaults to the default algorithm.
+	Algorithm string `json:"algorithm" toml:"algorithm"`
+	// PrivateKeyPath is the path to the private key of this identity.
+	// It is a path rather than an inline value, because unlike the
+	// public keys of a role this is secret and does not belong in the
+	// configuration file of a runtime.
+	PrivateKeyPath string `json:"privateKeyPath" toml:"private_key_path"`
+}
+
+// GetIdentity returns the name of the identity.
+func (i *Identity) GetIdentity() string {
+	if i == nil {
+		return ""
+	}
+	return i.Identity
 }
 
 // Validate that all keys are unique in the configuration.
@@ -186,6 +220,33 @@ func (c *Config) Validate() error {
 			}
 			keyMap[key] = role
 		}
+	}
+
+	pathMap := map[string]*Identity{}
+
+	for name, identity := range c.Identities {
+		if identity == nil {
+			return fmt.Errorf("%w: nil identity entry", ErrInvalidIdentity)
+		}
+		if identity.Identity == "" {
+			identity.Identity = name
+		}
+		switch {
+		case name == "":
+			return fmt.Errorf("%w: identity with empty name", ErrInvalidIdentity)
+		case identity.Identity != name:
+			return fmt.Errorf("%w: identity name set (%q) but does not match map key (%q)",
+				ErrInvalidIdentity, identity.Identity, name)
+		case identity.PrivateKeyPath == "":
+			return fmt.Errorf("%w: identity %q has no private key path",
+				ErrInvalidIdentity, identity.Identity)
+		}
+
+		if other, ok := pathMap[identity.PrivateKeyPath]; ok {
+			return fmt.Errorf("%w: identity conflict (%q, %q) for private key %q",
+				ErrInvalidIdentity, identity.Identity, other.Identity, identity.PrivateKeyPath)
+		}
+		pathMap[identity.PrivateKeyPath] = identity
 	}
 
 	return nil

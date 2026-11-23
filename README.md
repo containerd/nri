@@ -582,6 +582,12 @@ protecting the socket itself. See [Container Adjustment
 Validation](#container-adjustment-validation) and [Plugin
 Authentication](#plugin-authentication) for the details.
 
+Authentication also works in the other direction: a plugin can require
+the runtime to prove its identity, and refuse to run against one which
+cannot. This is for the plugin's benefit, not the runtime's, and it
+protects nothing on the runtime side. See [Authenticating the
+Runtime](#authenticating-the-runtime).
+
 ### Plugins as Kubernetes DaemonSets
 
 When the runtime manages pods and containers in a Kubernetes cluster, it
@@ -644,6 +650,30 @@ WebAssembly plugins are part of the runtime process and never
 authenticate. Authentication establishes the identity of those plugins
 which have keys. It is not an admission control mechanism for the NRI
 socket.
+
+### Authenticating the Runtime
+
+A plugin can request the runtime to prove its identity. The purpose of
+authenticating the runtime is only to prove that it is configured with
+an identity known to and expected by the plugin. A runtime which cannot
+prove its identity answers with no proof instead of refusing the plugin,
+leaving the policy of what to do to the plugin side. The plugin stub
+then refuses to register and fails to start.
+
+Authentication is optional in each direction independently. A plugin can
+require the runtime to authenticate without itself authenticating to the
+runtime.
+
+A runtime can be configured with multiple identities, each of which has
+a name and the path to a private key. A plugin names the public key it
+expects, and the runtime answers with the matching identity if it holds
+it. This lets multiple plugins authenticate the runtime without sharing
+a single key.
+
+The plugin challenges the runtime each time with a per-connection value.
+An earlier successful authentication cannot be replayed as a new one.
+How a plugin safely acquires the key it uses to authenticate the runtime
+is out of scope for NRI and left to plugin implementations.
 
 ### Default Validation of Authenticated Plugins
 

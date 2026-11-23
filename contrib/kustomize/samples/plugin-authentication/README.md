@@ -36,3 +36,22 @@ time="2025-09-10T17:12:12Z" level=info msg="Authenticated with role test1 (tags:
 time="2025-09-10T17:12:12Z" level=info msg="Registering plugin 10-template..."
 time="2025-09-10T17:12:12Z" level=info msg="Configuring plugin 10-template for runtime containerd/v2.1.0-372-g7b052529d.m..."
 ```
+
+## Authenticating the Runtime
+
+This overlay only sets up the plugin authenticating itself. The reverse
+direction, where the plugin requires the runtime to prove its identity,
+cannot be enabled by an overlay: there is deliberately no environment
+variable for the runtime's public key. A key handed to the plugin by
+whoever deploys it proves nothing to the plugin, and that is exactly
+who an overlay is written by.
+
+A plugin which wants it passes the key to the stub itself, with
+
+```go
+stub.WithRuntimeAuthentication(stub.DefaultAuthentication, runtimeKey)
+```
+
+where `runtimeKey` is the encoded public key the plugin expects, obtained
+in whatever way the plugin considers trustworthy. The runtime side needs
+a matching identity in its NRI authentication configuration.

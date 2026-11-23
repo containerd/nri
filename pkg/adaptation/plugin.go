@@ -479,7 +479,7 @@ func (p *plugin) authInit(ctx context.Context, req *auth.RequestChallengeRequest
 		return nil, nil, errors.New("authentication failed")
 	}
 
-	algo, err := impl.NewWithEphemeralKeys()
+	algo, err := impl.NewWithEphemeralKeys(auth.RuntimeSide)
 	if err != nil {
 		log.Errorf(ctx, "rejecting client: failed to start authentication: %v", err)
 		return nil, nil, errors.New("authentication failed")

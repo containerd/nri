@@ -722,7 +722,7 @@ func (p *roguePlugin) Authenticate(algorithm string, private, public []byte) (*a
 		return nil, err
 	}
 
-	algo, err := impl.NewWithKeys(private, public)
+	algo, err := impl.NewWithKeys(auth.PluginSide, private, public)
 	if err != nil {
 		return nil, err
 	}

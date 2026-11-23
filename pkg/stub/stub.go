@@ -700,7 +700,7 @@ func (stub *stub) authenticate(ctx context.Context) error {
 		return fmt.Errorf("%w: failed to set up authentication: %w", ErrAuth, err)
 	}
 
-	algo, err := impl.NewWithKeys(private, public)
+	algo, err := impl.NewWithKeys(auth.PluginSide, private, public)
 	if err != nil {
 		return fmt.Errorf("%w: failed to set up authentication: %w", ErrAuth, err)
 	}

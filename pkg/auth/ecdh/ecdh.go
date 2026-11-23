@@ -111,6 +111,15 @@ func (k *PrivateKey) Decode(bytes []byte) error {
 	return nil
 }
 
+// Public returns the public key matching this private key. The runtime
+// uses this to index its identity keys, which are configured as private
+// keys alone.
+func (k *PrivateKey) Public() *PublicKey {
+	return &PublicKey{
+		PublicKey: k.PrivateKey.PublicKey(),
+	}
+}
+
 // SharedSecret performs an ECDH exchange and returns the shared secret.
 // The result is secret, but it is not uniformly random, so it must not
 // be used as a key as such. Use DeriveKey to derive keys from it.

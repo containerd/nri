@@ -42,18 +42,54 @@ type (
 	PublicKey []byte
 )
 
+// Side identifies which end of a connection an authentication instance
+// runs on. It selects which key derivation purposes are used to prove
+// this end's identity and which to verify the peer's. The two ends are
+// mirror images of each other: what one proves with, the other verifies
+// with.
+//
+// Both ends can authenticate, independently of each other. Either end
+// can use a long-term key pair, to be authenticated by the peer, or an
+// ephemeral one, when it only wants to authenticate the peer.
+type Side int
+
+const (
+	// PluginSide is the plugin end of a connection.
+	PluginSide Side = iota
+	// RuntimeSide is the runtime end of a connection.
+	RuntimeSide
+)
+
+// String returns the name of the side.
+func (s Side) String() string {
+	switch s {
+	case PluginSide:
+		return "plugin"
+	case RuntimeSide:
+		return "runtime"
+	}
+	return fmt.Sprintf("invalid side %d", int(s))
+}
+
 // Implementation of an authentication algorithm.
 type Implementation interface {
 	// Name returns the name of the implementation.
 	Name() string
+	// PublicKey returns the public key matching the given private key.
+	// The runtime needs this to index its identity keys, which are
+	// configured as private keys alone. Deriving one from the other
+	// is specific to the algorithm, so it has to live here.
+	PublicKey(PrivateKey) (PublicKey, error)
 	// NewWithKeys instantiates authentication with the given key pair.
-	// This is always used on the plugin side to set up authentication
-	// with a pre-generated key pair.
-	NewWithKeys(PrivateKey, PublicKey) (Authentication, error)
-	// NewWithEphemeralKeys instantiates authentication with a new temporary
-	// key pair. We use this on the runtime side to generate a new key pair
-	// for each authentication request.
-	NewWithEphemeralKeys() (Authentication, error)
+	// This is used by an end which wants to be authenticated by its
+	// peer: a plugin proving its identity, or a runtime proving one of
+	// its configured identities.
+	NewWithKeys(Side, PrivateKey, PublicKey) (Authentication, error)
+	// NewWithEphemeralKeys instantiates authentication with a new
+	// temporary key pair. We use this for an end which does not prove
+	// its own identity: a runtime with no identity key to present, or
+	// a plugin which only wants to authenticate the runtime.
+	NewWithEphemeralKeys(Side) (Authentication, error)
 }
 
 // Authentication is an instance of authentication in progress.

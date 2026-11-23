@@ -72,6 +72,7 @@ type Adaptation struct {
 	serverOpts  []ttrpc.ServerOpt
 	listener    net.Listener
 	auth        *auth.Config
+	identities  map[string]*identityKey
 	plugins     []*plugin
 	validators  []*plugin
 	builtin     []*builtin.BuiltinPlugin
@@ -241,6 +242,10 @@ func (r *Adaptation) Start() error {
 
 	r.Lock()
 	defer r.Unlock()
+
+	if err := r.setupIdentities(); err != nil {
+		return err
+	}
 
 	if err := r.startPlugins(); err != nil {
 		return err

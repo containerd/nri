@@ -908,3 +908,127 @@ func (p *roguePlugin) StateChange(context.Context, *api.StateChangeEvent) (*api.
 func (p *roguePlugin) ValidateContainerAdjustment(context.Context, *api.ValidateContainerAdjustmentRequest) (*api.ValidateContainerAdjustmentResponse, error) {
 	return &api.ValidateContainerAdjustmentResponse{}, nil
 }
+
+// writeIdentityKey generates a key pair and writes the private key to a
+// file in dir. It returns the path to the private key and the matching
+// public key.
+func writeIdentityKey(t *testing.T, dir, name string) (string, auth.PublicKey) {
+	t.Helper()
+
+	priv, pub, err := ecdh.GenerateKeyPair()
+	require.NoError(t, err)
+
+	path := filepath.Join(dir, name)
+	require.NoError(t, os.WriteFile(path, priv.Encode(), 0o600))
+
+	return path, pub.Encode()
+}
+
+// TestRuntimeIdentityStartup verifies that identity keys are loaded and
+// indexed when the runtime starts, so that configuration which cannot
+// work fails there rather than at the first plugin connection.
+func TestRuntimeIdentityStartup(t *testing.T) {
+	t.Run("should start with a valid identity", func(t *testing.T) {
+		dir := t.TempDir()
+		path, _ := writeIdentityKey(t, dir, "vendor-a")
+
+		s := &Suite{}
+		s.Prepare(t, &mockRuntime{
+			options: []nri.Option{
+				nri.WithAuthConfig(&auth.Config{
+					Identities: map[string]*auth.Identity{
+						"vendor-a": {PrivateKeyPath: path},
+					},
+				}),
+			},
+		})
+
+		require.NoError(t, s.runtime.Start(s.dir))
+	})
+
+	t.Run("should fail on an unreadable key file", func(t *testing.T) {
+		s := &Suite{}
+		s.Prepare(t, &mockRuntime{
+			options: []nri.Option{
+				nri.WithAuthConfig(&auth.Config{
+					Identities: map[string]*auth.Identity{
+						"vendor-a": {PrivateKeyPath: filepath.Join(t.TempDir(), "absent")},
+					},
+				}),
+			},
+		})
+
+		err := s.runtime.Start(s.dir)
+		require.Error(t, err)
+		require.ErrorContains(t, err, "vendor-a")
+	})
+
+	t.Run("should fail on a malformed key file", func(t *testing.T) {
+		dir := t.TempDir()
+		path := filepath.Join(dir, "vendor-a")
+		require.NoError(t, os.WriteFile(path, []byte("not a key"), 0o600))
+
+		s := &Suite{}
+		s.Prepare(t, &mockRuntime{
+			options: []nri.Option{
+				nri.WithAuthConfig(&auth.Config{
+					Identities: map[string]*auth.Identity{
+						"vendor-a": {PrivateKeyPath: path},
+					},
+				}),
+			},
+		})
+
+		err := s.runtime.Start(s.dir)
+		require.Error(t, err)
+		require.ErrorContains(t, err, "vendor-a")
+	})
+
+	t.Run("should fail when two identities hold the same key", func(t *testing.T) {
+		dir := t.TempDir()
+		priv, _, err := ecdh.GenerateKeyPair()
+		require.NoError(t, err)
+
+		encoded := priv.Encode()
+		first := filepath.Join(dir, "first")
+		second := filepath.Join(dir, "second")
+		require.NoError(t, os.WriteFile(first, encoded, 0o600))
+		require.NoError(t, os.WriteFile(second, encoded, 0o600))
+
+		s := &Suite{}
+		s.Prepare(t, &mockRuntime{
+			options: []nri.Option{
+				nri.WithAuthConfig(&auth.Config{
+					Identities: map[string]*auth.Identity{
+						"vendor-a": {PrivateKeyPath: first},
+						"vendor-b": {PrivateKeyPath: second},
+					},
+				}),
+			},
+		})
+
+		// Two identities sharing a key would collide in the lookup, so
+		// one of them would silently never be selected.
+		require.Error(t, s.runtime.Start(s.dir))
+	})
+
+	t.Run("should fail on an unknown algorithm", func(t *testing.T) {
+		dir := t.TempDir()
+		path, _ := writeIdentityKey(t, dir, "vendor-a")
+
+		s := &Suite{}
+		s.Prepare(t, &mockRuntime{
+			options: []nri.Option{
+				nri.WithAuthConfig(&auth.Config{
+					Identities: map[string]*auth.Identity{
+						"vendor-a": {PrivateKeyPath: path, Algorithm: "no-such-algorithm"},
+					},
+				}),
+			},
+		})
+
+		err := s.runtime.Start(s.dir)
+		require.Error(t, err)
+		require.ErrorContains(t, err, "vendor-a")
+	})
+}

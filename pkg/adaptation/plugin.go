@@ -460,41 +460,112 @@ func (p *plugin) qualifiedName() string {
 	return kind + ":" + idx + "-" + base + pid
 }
 
-func (p *plugin) authInit(ctx context.Context, req *auth.RequestChallengeRequest) ([]byte, []byte, error) {
+// authSetup instantiates authentication for a challenge request. If the
+// plugin asked the runtime to prove an identity, and the runtime holds
+// it, the exchange runs on that identity's key pair. Otherwise it runs
+// on an ephemeral one, which proves nothing and is not meant to.
+//
+// A plugin which asks for an identity the runtime does not hold is not
+// refused here. The runtime has no business having an opinion about the
+// plugin's policy: it answers with no proof, and a plugin which demands
+// one fails closed on its own.
+// It returns the identity the exchange runs on, or nil for an ephemeral
+// one. Only one place decides this: a second, independent decision about
+// which identity applies could silently disagree with this one, and the
+// result would be a runtime which answers a challenge with a key that
+// proves nothing, or holds an identity and answers nothing at all.
+func (p *plugin) authSetup(ctx context.Context, req *auth.RequestChallengeRequest) (auth.Authentication, *identityKey, error) {
+	impl, err := auth.Get(req.GetAlgorithm())
+	if err != nil {
+		return nil, nil, err
+	}
+
+	ephemeral := func() (auth.Authentication, *identityKey, error) {
+		algo, err := impl.NewWithEphemeralKeys(auth.RuntimeSide)
+		return algo, nil, err
+	}
+
+	wanted := req.GetRuntimePublicKey()
+	if len(wanted) == 0 {
+		if len(req.GetChallenge()) > 0 {
+			log.Warnf(ctx, "client challenged the runtime without naming an identity")
+		}
+		return ephemeral()
+	}
+
+	if len(req.GetChallenge()) == 0 {
+		log.Warnf(ctx, "client named runtime identity %q without a challenge",
+			loggableKey(wanted))
+		return ephemeral()
+	}
+
+	identity := p.r.lookupIdentity(req.GetAlgorithm(), wanted)
+	if identity == nil {
+		log.Errorf(ctx, "no %s runtime identity %q for client to authenticate",
+			req.GetAlgorithm(), loggableKey(wanted))
+		return ephemeral()
+	}
+
+	log.Infof(ctx, "authenticating runtime identity %q to client...", identity.name)
+
+	algo, err := impl.NewWithKeys(auth.RuntimeSide, identity.private, identity.public)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return algo, identity, nil
+}
+
+// authProve answers the plugin's challenge, if the exchange runs on an
+// identity the runtime holds. Whether it does is decided once, by
+// authSetup, and passed in here.
+func (p *plugin) authProve(ctx context.Context, algo auth.Authentication, identity *identityKey, req *auth.RequestChallengeRequest) []byte {
+	if identity == nil {
+		return nil
+	}
+
+	response, err := algo.Response(req.GetChallenge(), req.GetPublicKey())
+	if err != nil {
+		log.Errorf(ctx, "failed to answer challenge for identity %q: %v", identity.name, err)
+		return nil
+	}
+
+	return response
+}
+
+func (p *plugin) authInit(ctx context.Context, req *auth.RequestChallengeRequest) ([]byte, []byte, []byte, error) {
 	p.Lock()
 	defer p.Unlock()
 
 	if p.auth != nil {
 		if p.auth.done && p.auth.algo == nil {
 			log.Errorf(ctx, "rejecting client: authentication after registration")
-			return nil, nil, errors.New("authentication failed")
+			return nil, nil, nil, errors.New("authentication failed")
 		}
 		log.Errorf(ctx, "rejecting client: multiple authentication requests")
-		return nil, nil, errors.New("authentication failed")
+		return nil, nil, nil, errors.New("authentication failed")
 	}
 
-	impl, err := auth.Get(req.GetAlgorithm())
+	algo, identity, err := p.authSetup(ctx, req)
 	if err != nil {
 		log.Errorf(ctx, "rejecting client: failed to start authentication: %v", err)
-		return nil, nil, errors.New("authentication failed")
+		return nil, nil, nil, errors.New("authentication failed")
 	}
 
-	algo, err := impl.NewWithEphemeralKeys(auth.RuntimeSide)
-	if err != nil {
-		log.Errorf(ctx, "rejecting client: failed to start authentication: %v", err)
-		return nil, nil, errors.New("authentication failed")
-	}
+	// Answer the plugin's challenge before we create our own, so that
+	// nothing depends on the order the plugin sends them in.
+	proof := p.authProve(ctx, algo, identity, req)
 
 	seed := make([]byte, 32)
 	if _, err := rand.Read(seed); err != nil {
 		log.Errorf(ctx, "rejecting client: failed to generate seed: %v", err)
-		return nil, nil, errors.New("authentication failed")
+		return nil, nil, nil, errors.New("authentication failed")
 	}
 
 	chal, key, err := algo.Challenge(seed, req.PublicKey)
 	if err != nil {
 		log.Errorf(ctx, "rejecting client: failed to generate challenge: %v", err)
-		return nil, nil, errors.New("authentication failed")
+		return nil, nil, nil, errors.New("authentication failed")
 	}
 
 	p.auth = &authInfo{
@@ -502,7 +573,7 @@ func (p *plugin) authInit(ctx context.Context, req *auth.RequestChallengeRequest
 		algo: algo,
 	}
 
-	return []byte(key), chal, nil
+	return []byte(key), chal, proof, nil
 }
 
 func (p *plugin) authFinish(ctx context.Context, req *auth.RespondChallengeRequest) error {
@@ -605,7 +676,7 @@ func (p *plugin) refuseRegistration(err error) error {
 
 // RequestChallenge initiates authentication for the plugin.
 func (p *plugin) RequestChallenge(ctx context.Context, req *auth.RequestChallengeRequest) (*auth.RequestChallengeResponse, error) {
-	key, chal, err := p.authInit(ctx, req)
+	key, chal, proof, err := p.authInit(ctx, req)
 	if err != nil {
 		p.close()
 		return nil, err
@@ -616,6 +687,7 @@ func (p *plugin) RequestChallenge(ctx context.Context, req *auth.RequestChalleng
 	return &auth.RequestChallengeResponse{
 		PublicKey: key,
 		Challenge: chal,
+		Response:  proof,
 	}, nil
 }
 

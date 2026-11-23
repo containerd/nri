@@ -32,6 +32,22 @@ type identityKey struct {
 	public  auth.PublicKey
 }
 
+// maxLoggedKeyLen is how much of a peer provided key we are willing to
+// put in the log. An encoded key is 44 bytes, so a well-formed one is
+// never truncated.
+const maxLoggedKeyLen = 64
+
+// loggableKey bounds a key for logging. The key a plugin names is an
+// unbounded field from a peer which has not authenticated yet, and it
+// is logged once per connection, so it has to be truncated before it
+// reaches the log.
+func loggableKey(key []byte) string {
+	if len(key) > maxLoggedKeyLen {
+		return string(key[:maxLoggedKeyLen]) + "...(truncated)"
+	}
+	return string(key)
+}
+
 // identityIndex returns the key an identity is indexed by. A public key
 // is only meaningful for the algorithm it belongs to, and the algorithm
 // of a connection is named by the plugin, so both are part of it.

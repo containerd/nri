@@ -17,13 +17,16 @@
 package stub
 
 import (
+	"bytes"
 	"context"
+	"crypto/rand"
 	"errors"
 	"fmt"
 	"maps"
 	stdnet "net"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"sync"
 	"time"
@@ -216,6 +219,9 @@ var (
 
 	// ErrAuth indicates failure to authentication with the runtime.
 	ErrAuth = errors.New("stub: failed to authenticate")
+
+	// ErrInvalidArgument indicates an invalid or conflicting option.
+	ErrInvalidArgument = errors.New("stub: invalid argument")
 )
 
 // EventMask holds a mask of events for plugin subscription.
@@ -322,10 +328,50 @@ func WithFailurePolicy(policy *api.FailurePolicy) Option {
 // use these keys to authenticate itself with the runtime before registration.
 func WithAuthentication(algorithm string, fetchKeys auth.KeyFetcher) Option {
 	return func(s *stub) error {
+		if err := s.setAuthAlgo(algorithm); err != nil {
+			return err
+		}
 		s.authKeys = fetchKeys
-		s.authAlgo = algorithm
 		return nil
 	}
+}
+
+// WithRuntimeAuthentication makes the stub require the runtime to prove
+// possession of the private key matching the given public key, and refuse
+// to register if it cannot. How the plugin obtains that key, and how far
+// it trusts where it came from, is up to the plugin.
+//
+// The key must be known up front, because the stub seals its challenge to
+// it: a runtime which does not hold the matching private key cannot open
+// the challenge at all, let alone answer it. One connection therefore
+// admits exactly one runtime identity.
+//
+// This is independent of WithAuthentication. A plugin can authenticate the
+// runtime without authenticating itself, in which case it registers with no
+// role, exactly as an unauthenticated plugin does.
+func WithRuntimeAuthentication(algorithm string, key auth.PublicKey) Option {
+	return func(s *stub) error {
+		if len(key) == 0 {
+			return fmt.Errorf("%w: no runtime public key given", ErrInvalidArgument)
+		}
+		if err := s.setAuthAlgo(algorithm); err != nil {
+			return err
+		}
+		s.runtimeKey = key
+		return nil
+	}
+}
+
+// setAuthAlgo sets the algorithm used for authentication. One exchange
+// authenticates with one algorithm, in either direction, so the options
+// which set it must agree.
+func (stub *stub) setAuthAlgo(algorithm string) error {
+	if stub.authAlgo != "" && stub.authAlgo != algorithm {
+		return fmt.Errorf("%w: conflicting authentication algorithms (%q, %q)",
+			ErrInvalidArgument, stub.authAlgo, algorithm)
+	}
+	stub.authAlgo = algorithm
+	return nil
 }
 
 // stub implements Stub.
@@ -348,6 +394,7 @@ type stub struct {
 	rpcc       *ttrpc.Client
 	authKeys   auth.KeyFetcher
 	authAlgo   string
+	runtimeKey auth.PublicKey
 	role       string
 	tags       map[string]string
 	runtime    api.RuntimeService
@@ -407,8 +454,17 @@ func New(p any, opts ...Option) (Stub, error) {
 		}
 	}
 
-	if stub.authKeys == nil {
-		if dir := os.Getenv(api.PluginAuthKeyDirEnvVar); dir != "" {
+	// We either try to use keys from the environment or we expect the plugin
+	// to set up keys. We never do both. We only take plugin authentication
+	// keys from the environment. We log a warning when the environment is set
+	// but ignored.
+	if dir := os.Getenv(api.PluginAuthKeyDirEnvVar); dir != "" {
+		if stub.authKeys != nil || stub.runtimeKey != nil {
+			stub.logger.Warnf(noCtx, "keys already set, ignoring environment (%s=%q)",
+				api.PluginAuthKeyDirEnvVar, dir)
+		} else {
+			stub.logger.Infof(noCtx, "using keys from environment %s=%q",
+				api.PluginAuthKeyDirEnvVar, dir)
 			stub.authKeys = auth.NewFileKeyFetcher(
 				filepath.Join(dir, "private"),
 				filepath.Join(dir, "public"),
@@ -678,31 +734,113 @@ func (stub *stub) connect() error {
 	return nil
 }
 
-// Authenticate the plugin with NRI, if we have been set up with keys.
-func (stub *stub) authenticate(ctx context.Context) error {
+// setupAuth instantiates authentication for this connection. A plugin
+// which proves its own identity uses its long-term key pair; one which
+// only authenticates the runtime uses an ephemeral pair, which says
+// nothing about who it is and is not meant to.
+func (stub *stub) setupAuth() (auth.Authentication, auth.PublicKey, error) {
+	impl, err := auth.Get(stub.authAlgo)
+	if err != nil {
+		return nil, nil, fmt.Errorf("%w: failed to set up authentication: %w", ErrAuth, err)
+	}
+
 	if stub.authKeys == nil {
-		nrilog.Infof(ctx, "No authentication keys set...")
-		return nil
+		algo, err := impl.NewWithEphemeralKeys(auth.PluginSide)
+		if err != nil {
+			return nil, nil, fmt.Errorf("%w: failed to set up authentication: %w", ErrAuth, err)
+		}
+		return algo, nil, nil
 	}
 
 	defer stub.authKeys.ClearKeys()
 	private, err := stub.authKeys.PrivateKey()
 	if err != nil {
-		return fmt.Errorf("%w: failed to fetch private key: %w", ErrAuth, err)
+		return nil, nil, fmt.Errorf("%w: failed to fetch private key: %w", ErrAuth, err)
 	}
 	public, err := stub.authKeys.PublicKey()
 	if err != nil {
-		return fmt.Errorf("%w: failed to fetch public key: %w", ErrAuth, err)
-	}
-
-	impl, err := auth.Get(stub.authAlgo)
-	if err != nil {
-		return fmt.Errorf("%w: failed to set up authentication: %w", ErrAuth, err)
+		return nil, nil, fmt.Errorf("%w: failed to fetch public key: %w", ErrAuth, err)
 	}
 
 	algo, err := impl.NewWithKeys(auth.PluginSide, private, public)
 	if err != nil {
-		return fmt.Errorf("%w: failed to set up authentication: %w", ErrAuth, err)
+		return nil, nil, fmt.Errorf("%w: failed to set up authentication: %w", ErrAuth, err)
+	}
+
+	// Our own copy: ClearKeys zeroes the fetcher's slices in place, and
+	// we still have to put the public key on the wire.
+	return algo, slices.Clone(public), nil
+}
+
+// challengeRuntime creates our challenge to the runtime, sealed to the
+// public key we expect it to prove possession of. It also returns our
+// own public key, which is the long-term one if we have keys and the
+// ephemeral one if we do not.
+func (stub *stub) challengeRuntime(algo auth.Authentication, public auth.PublicKey) ([]byte, auth.PublicKey, error) {
+	if stub.runtimeKey == nil {
+		return nil, public, nil
+	}
+
+	// A fresh seed for every connection is what makes the runtime's
+	// answer unforgeable: without it, a recording of a licensed runtime
+	// would authenticate an unlicensed one.
+	seed := make([]byte, 32)
+	if _, err := rand.Read(seed); err != nil {
+		return nil, nil, fmt.Errorf("%w: failed to generate seed: %w", ErrAuth, err)
+	}
+
+	challenge, key, err := algo.Challenge(seed, stub.runtimeKey)
+	if err != nil {
+		return nil, nil, fmt.Errorf("%w: failed to challenge runtime: %w", ErrAuth, err)
+	}
+
+	return challenge, key, nil
+}
+
+// verifyRuntime verifies the runtime's answer to our challenge. An
+// absent answer is a failure like any other: a runtime which proves
+// nothing must not get a plugin which asked for proof.
+func (stub *stub) verifyRuntime(ctx context.Context, algo auth.Authentication, rpl *auth.RequestChallengeResponse) error {
+	if stub.runtimeKey == nil {
+		return nil
+	}
+
+	if len(rpl.GetResponse()) == 0 {
+		return fmt.Errorf("%w: runtime did not prove its identity", ErrAuth)
+	}
+
+	// Not the security boundary, which is that only the holder of the
+	// matching private key can answer at all. This only tells a
+	// misconfiguration from a failed proof.
+	if !bytes.Equal(rpl.GetPublicKey(), stub.runtimeKey) {
+		return fmt.Errorf("%w: runtime presented another identity", ErrAuth)
+	}
+
+	if err := algo.Verify(rpl.GetResponse()); err != nil {
+		return fmt.Errorf("%w: runtime failed to prove its identity: %w", ErrAuth, err)
+	}
+
+	nrilog.Infof(ctx, "Runtime authenticated...")
+
+	return nil
+}
+
+// Authenticate the plugin with NRI, and NRI with the plugin, depending
+// on which of the two the plugin has been set up for.
+func (stub *stub) authenticate(ctx context.Context) error {
+	if stub.authKeys == nil && stub.runtimeKey == nil {
+		nrilog.Infof(ctx, "No authentication keys set...")
+		return nil
+	}
+
+	algo, public, err := stub.setupAuth()
+	if err != nil {
+		return err
+	}
+
+	challenge, public, err := stub.challengeRuntime(algo, public)
+	if err != nil {
+		return err
 	}
 
 	client := auth.NewAuthenticationClient(stub.rpcc)
@@ -711,24 +849,40 @@ func (stub *stub) authenticate(ctx context.Context) error {
 
 	rpl, err := client.RequestChallenge(ctx,
 		&auth.RequestChallengeRequest{
-			Algorithm: stub.authAlgo,
-			PublicKey: public,
+			Algorithm:        stub.authAlgo,
+			PublicKey:        public,
+			Challenge:        challenge,
+			RuntimePublicKey: stub.runtimeKey,
 		},
 	)
 	if err != nil {
 		return fmt.Errorf("%w: %w", ErrAuth, err)
 	}
 
-	response, err := algo.Response(rpl.Challenge, auth.PublicKey(rpl.PublicKey))
-	if err != nil {
-		return fmt.Errorf("%w: %w", ErrAuth, err)
+	// Verify the runtime before we answer its challenge: we must not
+	// produce a response for a seed chosen by a peer we have not
+	// authenticated yet.
+	if err := stub.verifyRuntime(ctx, algo, rpl); err != nil {
+		return err
 	}
 
-	result, err := client.RespondChallenge(ctx,
-		&auth.RespondChallengeRequest{
-			Response: response,
-		},
-	)
+	request := &auth.RespondChallengeRequest{}
+
+	if stub.authKeys != nil {
+		request.Response, err = algo.Response(rpl.Challenge, auth.PublicKey(rpl.PublicKey))
+		if err != nil {
+			return fmt.Errorf("%w: %w", ErrAuth, err)
+		}
+	}
+
+	// When we authenticate the runtime without authenticating ourselves, we
+	// use ephemeral keys instead of long-term ones. The runtime won't have a
+	// role associated with our key, so we leave the response empty to say we
+	// claim no identity. Otherwise it would kick us out. We still have to
+	// send this message: without it we would look like a plugin which
+	// started authenticating and then abandoned it.
+
+	result, err := client.RespondChallenge(ctx, request)
 	if err != nil {
 		return fmt.Errorf("%w: %w", ErrAuth, err)
 	}

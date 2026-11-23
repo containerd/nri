@@ -25,6 +25,7 @@ import (
 	"path/filepath"
 	"runtime/debug"
 	"slices"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -33,6 +34,7 @@ import (
 	"github.com/containerd/nri/pkg/api"
 	"github.com/containerd/nri/pkg/auth"
 	"github.com/containerd/nri/pkg/auth/ecdh"
+	nrilog "github.com/containerd/nri/pkg/log"
 	"github.com/containerd/nri/pkg/net/multiplex"
 	"github.com/containerd/nri/pkg/stub"
 	"github.com/containerd/ttrpc"
@@ -1030,5 +1032,343 @@ func TestRuntimeIdentityStartup(t *testing.T) {
 		err := s.runtime.Start(s.dir)
 		require.Error(t, err)
 		require.ErrorContains(t, err, "vendor-a")
+	})
+}
+
+// capturingLogger records what the runtime logs, for the tests which
+// assert a reason the plugin never gets to see.
+type capturingLogger struct {
+	sync.Mutex
+	msgs []string
+}
+
+func (l *capturingLogger) record(format string, args ...any) {
+	l.Lock()
+	defer l.Unlock()
+	l.msgs = append(l.msgs, fmt.Sprintf(format, args...))
+}
+
+func (l *capturingLogger) Debugf(_ context.Context, format string, args ...any) {
+	l.record(format, args...)
+}
+
+func (l *capturingLogger) Infof(_ context.Context, format string, args ...any) {
+	l.record(format, args...)
+}
+
+func (l *capturingLogger) Warnf(_ context.Context, format string, args ...any) {
+	l.record(format, args...)
+}
+
+func (l *capturingLogger) Errorf(_ context.Context, format string, args ...any) {
+	l.record(format, args...)
+}
+
+// contains reports whether any recorded message contains substr.
+func (l *capturingLogger) contains(substr string) bool {
+	l.Lock()
+	defer l.Unlock()
+	for _, msg := range l.msgs {
+		if strings.Contains(msg, substr) {
+			return true
+		}
+	}
+	return false
+}
+
+// captureRuntimeLog redirects the NRI log for the duration of a test.
+func captureRuntimeLog(t *testing.T) *capturingLogger {
+	t.Helper()
+
+	previous := nrilog.Get()
+	logger := &capturingLogger{}
+	nrilog.Set(logger)
+	t.Cleanup(func() { nrilog.Set(previous) })
+
+	return logger
+}
+
+// RequestChallengeFor is RequestChallenge with the fields which ask the
+// runtime to prove an identity of its own. It bypasses the stub, so a
+// test can send field combinations the stub never would.
+func (p *roguePlugin) RequestChallengeFor(algorithm string, key, challenge, runtimeKey []byte) (*auth.RequestChallengeResponse, error) {
+	return auth.NewAuthenticationClient(p.rpcc).RequestChallenge(context.Background(),
+		&auth.RequestChallengeRequest{
+			Algorithm:        algorithm,
+			PublicKey:        key,
+			Challenge:        challenge,
+			RuntimePublicKey: runtimeKey,
+		},
+	)
+}
+
+// TestRuntimeAuthentication verifies that a plugin can require the
+// runtime to prove possession of a specific private key, and refuses to
+// register against a runtime which cannot.
+func TestRuntimeAuthentication(t *testing.T) {
+	var (
+		pluginKeys = &struct{ private, public []byte }{
+			private: []byte("TkCE8UGWdLKjXzrUzc6AI6pFuma39+wL4d1P/gyqI0A="),
+			public:  []byte("OlqYOu+/5pP9S+6XpeiC3ryr/iKEkZiTdo9VmMohbFY="),
+		}
+	)
+
+	// pluginAuth returns the option a plugin authenticates itself with.
+	// The same key pair serves several plugins here: a role represents
+	// one or more plugins, and these tests are about the runtime's
+	// identities, not about telling plugins apart.
+	pluginAuth := func() stub.Option {
+		return stub.WithAuthentication(
+			nri.DefaultAuthentication,
+			auth.NewMemKeyFetcher(
+				slices.Clone(pluginKeys.private),
+				slices.Clone(pluginKeys.public),
+			),
+		)
+	}
+
+	// authConfig returns a runtime configuration with a role for the
+	// plugin keys above and the given identities.
+	authConfig := func(identities map[string]*auth.Identity) []nri.Option {
+		return []nri.Option{
+			nri.WithAuthConfig(&auth.Config{
+				Roles: map[string]*auth.Role{
+					"role0": {Keys: []string{string(pluginKeys.public)}},
+				},
+				Identities: identities,
+			}),
+		}
+	}
+
+	t.Run("should authenticate the runtime and the plugin", func(t *testing.T) {
+		path, runtimeKey := writeIdentityKey(t, t.TempDir(), "vendor-a")
+
+		s := &Suite{}
+		s.Prepare(t,
+			&mockRuntime{options: authConfig(map[string]*auth.Identity{
+				"vendor-a": {PrivateKeyPath: path},
+			})},
+			&mockPlugin{
+				idx:  "00",
+				name: "foo",
+				options: []stub.Option{
+					stub.WithAuthentication(
+						nri.DefaultAuthentication,
+						auth.NewMemKeyFetcher(
+							slices.Clone(pluginKeys.private),
+							slices.Clone(pluginKeys.public),
+						),
+					),
+					stub.WithRuntimeAuthentication(nri.DefaultAuthentication, runtimeKey),
+				},
+			},
+		)
+		s.Startup()
+
+		s.WaitForPluginsToSync(s.plugin("00-foo"))
+		require.Equal(t, "role0", s.plugin("00-foo").stub.GetRole())
+	})
+
+	t.Run("should refuse an unlicensed runtime", func(t *testing.T) {
+		path, _ := writeIdentityKey(t, t.TempDir(), "vendor-a")
+		_, otherKey := writeIdentityKey(t, t.TempDir(), "vendor-b")
+
+		s := &Suite{}
+		s.Prepare(t,
+			&mockRuntime{options: authConfig(map[string]*auth.Identity{
+				"vendor-a": {PrivateKeyPath: path},
+			})},
+			&mockPlugin{
+				idx:  "00",
+				name: "foo",
+				options: []stub.Option{
+					stub.WithAuthentication(
+						nri.DefaultAuthentication,
+						auth.NewMemKeyFetcher(
+							slices.Clone(pluginKeys.private),
+							slices.Clone(pluginKeys.public),
+						),
+					),
+					// the runtime does not hold this identity
+					stub.WithRuntimeAuthentication(nri.DefaultAuthentication, otherKey),
+				},
+			},
+		)
+		s.StartRuntime()
+		require.Error(t, s.StartPlugin(s.plugins[0]))
+	})
+
+	t.Run("should name the missing identity in the runtime log", func(t *testing.T) {
+		logger := captureRuntimeLog(t)
+
+		path, _ := writeIdentityKey(t, t.TempDir(), "vendor-a")
+		_, otherKey := writeIdentityKey(t, t.TempDir(), "vendor-b")
+
+		s := &Suite{}
+		s.Prepare(t,
+			&mockRuntime{options: authConfig(map[string]*auth.Identity{
+				"vendor-a": {PrivateKeyPath: path},
+			})},
+			&mockPlugin{
+				idx:  "00",
+				name: "foo",
+				options: []stub.Option{
+					pluginAuth(),
+					stub.WithRuntimeAuthentication(nri.DefaultAuthentication, otherKey),
+				},
+			},
+		)
+		s.StartRuntime()
+		require.Error(t, s.StartPlugin(s.plugins[0]))
+
+		// The plugin only ever sees "authentication failed", so the
+		// operator's only way to tell which license is missing is this
+		// log line. That diagnosability is why the plugin names the
+		// key it wants instead of letting the runtime try them all.
+		require.True(t, logger.contains(string(otherKey)),
+			"the runtime log does not name the identity the plugin asked for")
+	})
+
+	t.Run("should serve two plugins with their own identities", func(t *testing.T) {
+		dir := t.TempDir()
+		pathA, keyA := writeIdentityKey(t, dir, "vendor-a")
+		pathB, keyB := writeIdentityKey(t, dir, "vendor-b")
+
+		s := &Suite{}
+		s.Prepare(t,
+			&mockRuntime{options: authConfig(map[string]*auth.Identity{
+				"vendor-a": {PrivateKeyPath: pathA},
+				"vendor-b": {PrivateKeyPath: pathB},
+			})},
+			&mockPlugin{
+				idx:  "00",
+				name: "foo",
+				options: []stub.Option{
+					pluginAuth(),
+					stub.WithRuntimeAuthentication(nri.DefaultAuthentication, keyA),
+				},
+			},
+			&mockPlugin{
+				idx:  "10",
+				name: "bar",
+				options: []stub.Option{
+					pluginAuth(),
+					stub.WithRuntimeAuthentication(nri.DefaultAuthentication, keyB),
+				},
+			},
+		)
+		s.Startup()
+
+		s.WaitForPluginsToSync(s.plugin("00-foo"), s.plugin("10-bar"))
+	})
+
+	t.Run("should refuse the plugin whose identity is absent", func(t *testing.T) {
+		dir := t.TempDir()
+		pathA, keyA := writeIdentityKey(t, dir, "vendor-a")
+		_, keyB := writeIdentityKey(t, dir, "vendor-b")
+
+		s := &Suite{}
+		s.Prepare(t,
+			// the runtime holds only one of the two identities
+			&mockRuntime{options: authConfig(map[string]*auth.Identity{
+				"vendor-a": {PrivateKeyPath: pathA},
+			})},
+			&mockPlugin{
+				idx:  "00",
+				name: "foo",
+				options: []stub.Option{
+					pluginAuth(),
+					stub.WithRuntimeAuthentication(nri.DefaultAuthentication, keyA),
+				},
+			},
+			&mockPlugin{
+				idx:  "10",
+				name: "bar",
+				options: []stub.Option{
+					pluginAuth(),
+					stub.WithRuntimeAuthentication(nri.DefaultAuthentication, keyB),
+				},
+			},
+		)
+		s.StartRuntime()
+
+		// One license installed, two licensed plugins: only the plugin
+		// whose key the runtime holds gets in. This fails if identities
+		// ever collapse back into a single runtime key.
+		require.NoError(t, s.StartPlugin(s.plugins[0]))
+		require.Error(t, s.StartPlugin(s.plugins[1]))
+	})
+
+	t.Run("should fail closed against a runtime with no auth config", func(t *testing.T) {
+		_, runtimeKey := writeIdentityKey(t, t.TempDir(), "vendor-a")
+
+		s := &Suite{}
+		s.Prepare(t,
+			// no nri.WithAuthConfig at all, so the runtime does not
+			// even serve the authentication service
+			&mockRuntime{},
+			&mockPlugin{
+				idx:  "00",
+				name: "foo",
+				options: []stub.Option{
+					pluginAuth(),
+					stub.WithRuntimeAuthentication(nri.DefaultAuthentication, runtimeKey),
+				},
+			},
+		)
+		s.StartRuntime()
+
+		err := s.StartPlugin(s.plugins[0])
+		require.Error(t, err, "the plugin registered against a runtime which proved nothing")
+	})
+
+	t.Run("should ignore a key without a challenge", func(t *testing.T) {
+		path, runtimeKey := writeIdentityKey(t, t.TempDir(), "vendor-a")
+
+		s := &Suite{}
+		s.Prepare(t, &mockRuntime{options: authConfig(map[string]*auth.Identity{
+			"vendor-a": {PrivateKeyPath: path},
+		})})
+		s.StartRuntime()
+
+		for _, tc := range []struct {
+			name      string
+			challenge []byte
+			key       []byte
+		}{
+			{name: "key without challenge", key: runtimeKey},
+			{name: "challenge without key", challenge: []byte("challenge")},
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				p := &roguePlugin{idx: "00", name: "foo"}
+				require.NoError(t, p.Connect(s.dir))
+				defer p.Stop()
+
+				rpl, err := p.RequestChallengeFor(nri.DefaultAuthentication,
+					pluginKeys.public, tc.challenge, tc.key)
+				require.NoError(t, err, "a half-filled request must not break the runtime")
+				require.Empty(t, rpl.Response,
+					"the runtime answered a challenge it was not asked for")
+			})
+		}
+	})
+
+	t.Run("should reject an undecodable key", func(t *testing.T) {
+		path, _ := writeIdentityKey(t, t.TempDir(), "vendor-a")
+
+		s := &Suite{}
+		s.Prepare(t, &mockRuntime{options: authConfig(map[string]*auth.Identity{
+			"vendor-a": {PrivateKeyPath: path},
+		})})
+		s.StartRuntime()
+
+		p := &roguePlugin{idx: "00", name: "foo"}
+		require.NoError(t, p.Connect(s.dir))
+		defer p.Stop()
+
+		rpl, err := p.RequestChallengeFor(nri.DefaultAuthentication,
+			pluginKeys.public, []byte("challenge"), []byte("not a valid key"))
+		require.NoError(t, err, "an undecodable key must not break the runtime")
+		require.Empty(t, rpl.Response)
 	})
 }

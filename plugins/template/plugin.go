@@ -17,15 +17,18 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/sirupsen/logrus"
 	"sigs.k8s.io/yaml"
 
 	"github.com/containerd/nri/pkg/api"
+	"github.com/containerd/nri/pkg/auth"
 	"github.com/containerd/nri/pkg/stub"
 )
 
@@ -167,10 +170,12 @@ func (p *plugin) onClose() {
 
 func main() {
 	var (
-		pluginName string
-		pluginIdx  string
-		socketPath string
-		err        error
+		pluginName     string
+		pluginIdx      string
+		socketPath     string
+		runtimeKeyFile string
+		pluginKeyDir   string
+		err            error
 	)
 
 	log = logrus.StandardLogger()
@@ -181,6 +186,10 @@ func main() {
 	flag.StringVar(&pluginName, "name", "", "plugin name to register to NRI")
 	flag.StringVar(&pluginIdx, "idx", "", "plugin index to register to NRI")
 	flag.StringVar(&socketPath, "socket", "", "path to the plugin socket")
+	flag.StringVar(&pluginKeyDir, "plugin-keydir", "",
+		"directory with plugin keys for authentication ('private', 'public')")
+	flag.StringVar(&runtimeKeyFile, "runtime-key", "",
+		"file with the public key the runtime must prove it holds")
 	flag.Parse()
 
 	p := &plugin{}
@@ -195,6 +204,34 @@ func main() {
 	}
 	if socketPath != "" {
 		opts = append(opts, stub.WithSocketPath(socketPath))
+	}
+	if pluginKeyDir != "" {
+		log.Infof("Using plugin authentication keys from %q", pluginKeyDir)
+		opts = append(opts,
+			stub.WithAuthentication(
+				stub.DefaultAuthentication,
+				auth.NewFileKeyFetcher(
+					filepath.Join(pluginKeyDir, "private"),
+					filepath.Join(pluginKeyDir, "public"),
+				),
+			),
+		)
+	}
+	if runtimeKeyFile != "" {
+		log.Infof("Using runtime authentication key from %q", runtimeKeyFile)
+		// How a plugin obtains the key to authenticate the runtime is up to
+		// the plugin implementation. For testing and demonstration purposes
+		// we simply read the key from a file here.
+		key, err := os.ReadFile(runtimeKeyFile)
+		if err != nil {
+			log.Fatalf("failed to read runtime key: %v", err)
+		}
+		opts = append(opts,
+			stub.WithRuntimeAuthentication(
+				stub.DefaultAuthentication,
+				auth.PublicKey(bytes.TrimRight(key, "\r\n")),
+			),
+		)
 	}
 
 	if p.stub, err = stub.New(p, opts...); err != nil {

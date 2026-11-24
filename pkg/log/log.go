@@ -18,13 +18,15 @@ package log
 
 import (
 	"context"
+	"sync/atomic"
 
 	"github.com/sirupsen/logrus"
 )
 
-var (
-	log Logger = &fallbackLogger{}
-)
+// log is the logger in use. It is stored atomically: a runtime can set
+// a logger at any point, including while NRI is running and logging
+// from goroutines of its own.
+var log atomic.Pointer[Logger]
 
 // Logger is the interface NRI uses for logging.
 type Logger interface {
@@ -36,32 +38,37 @@ type Logger interface {
 
 // Set the logger used by NRI.
 func Set(l Logger) {
-	log = l
+	log.Store(&l)
 }
 
 // Get the logger used by NRI.
 func Get() Logger {
-	return log
+	if l := log.Load(); l != nil {
+		return *l
+	}
+	return fallback
 }
+
+var fallback Logger = &fallbackLogger{}
 
 // Debugf logs a formatted debug message.
 func Debugf(ctx context.Context, format string, args ...any) {
-	log.Debugf(ctx, format, args...)
+	Get().Debugf(ctx, format, args...)
 }
 
 // Infof logs a formatted informational message.
 func Infof(ctx context.Context, format string, args ...any) {
-	log.Infof(ctx, format, args...)
+	Get().Infof(ctx, format, args...)
 }
 
 // Warnf logs a formatted warning message.
 func Warnf(ctx context.Context, format string, args ...any) {
-	log.Warnf(ctx, format, args...)
+	Get().Warnf(ctx, format, args...)
 }
 
 // Errorf logs a formatted error message.
 func Errorf(ctx context.Context, format string, args ...any) {
-	log.Errorf(ctx, format, args...)
+	Get().Errorf(ctx, format, args...)
 }
 
 type fallbackLogger struct{}

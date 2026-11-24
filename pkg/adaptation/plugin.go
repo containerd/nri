@@ -563,6 +563,14 @@ func (p *plugin) synchronize(ctx context.Context, pods []*PodSandbox, containers
 				return nil, err
 			}
 
+			// The recalculated counts can exceed the number of objects
+			// left, in particular when recalcObjsPerSyncMsg bumps both
+			// counts up to the minimum after scaling them down. Clamp
+			// the counts, otherwise slicing the next message out of
+			// podsToSend and ctrsToSend panics.
+			podsPerMsg = min(podsPerMsg, len(podsToSend))
+			ctrsPerMsg = min(ctrsPerMsg, len(ctrsToSend))
+
 			log.Debugf(ctx, "oversized message, retrying in smaller chunks")
 		}
 	}

@@ -663,6 +663,11 @@ func (r *Adaptation) startPlugins() (retErr error) {
 
 	r.plugins = plugins
 	r.sortPlugins()
+
+	for _, p := range plugins {
+		p.updateStatus(noCtx, api.PluginStatus_PLUGIN_STATUS_LIVE, api.StatusReasonRegistered)
+	}
+
 	return nil
 }
 
@@ -794,6 +799,8 @@ func (r *Adaptation) acceptPluginConnections(l net.Listener) error {
 					}
 					if replaced != nil {
 						r.retirePlugin(replaced)
+						log.Warnf(ctx, "plugin %q replaced by a new instance, retiring the old one",
+							replaced.name())
 					}
 					r.sortPlugins()
 				}
@@ -805,11 +812,18 @@ func (r *Adaptation) acceptPluginConnections(l net.Listener) error {
 					p.close()
 				} else {
 					r.metrics.UpdatePluginCount(count)
-					if replaced != nil {
-						log.Warnf(ctx, "plugin %q replaced by a new instance, retiring the old one",
-							replaced.name())
-					}
 					log.Infof(ctx, "plugin %q connected and synchronized", p.name())
+
+					// Tell the plugins their status while plugin sync is
+					// still blocked. A plugin learns that it is live before
+					// it can get any event.
+					reason := api.StatusReasonRegistered
+					if replaced != nil {
+						replaced.updateStatus(ctx, api.PluginStatus_PLUGIN_STATUS_RETIRED,
+							api.StatusReasonReplaced)
+						reason = api.StatusReasonReplacedOther
+					}
+					p.updateStatus(ctx, api.PluginStatus_PLUGIN_STATUS_LIVE, reason)
 				}
 			}
 			r.finishedPluginSync()

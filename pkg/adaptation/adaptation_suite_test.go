@@ -234,6 +234,7 @@ func TestPluginConnection(t *testing.T) {
 		require.ElementsMatch(t, []*Event{
 			PluginConfigured,
 			PluginSynchronized,
+			PluginLive,
 		}, plugin.Events())
 
 		require.True(t, protoEqual(plugin.pods["pod0"], runtime.pods["pod0"]), protoDiff(plugin.pods["pod0"], runtime.pods["pod0"]))
@@ -257,6 +258,7 @@ func TestPluginConnection(t *testing.T) {
 		require.ElementsMatch(t, []*Event{
 			PluginConfigured,
 			PluginSynchronized,
+			PluginLive,
 		}, plugin0.Events())
 
 		runtime.failSync = true

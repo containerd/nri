@@ -587,6 +587,21 @@ func (p *plugin) UpdateContainers(ctx context.Context, req *UpdateContainersRequ
 	}, err
 }
 
+// updateStatus tells the plugin its status in the runtime.
+func (p *plugin) updateStatus(ctx context.Context, status api.PluginStatus, reason string) {
+	ctx, cancel := context.WithTimeout(ctx, getPluginRequestTimeout())
+	defer cancel()
+
+	req := &UpdatePluginStatusRequest{
+		Status: status,
+		Reason: reason,
+	}
+
+	if _, err := p.impl.UpdatePluginStatus(ctx, req); err != nil {
+		log.Warnf(ctx, "failed to tell plugin %q it is %s: %v", p.name(), status, err)
+	}
+}
+
 // configure the plugin and subscribe it for the events it requested.
 func (p *plugin) configure(ctx context.Context, name, version, config string) (err error) {
 	ctx, cancel := context.WithTimeout(ctx, getPluginRequestTimeout())

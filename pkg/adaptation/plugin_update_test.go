@@ -336,3 +336,31 @@ func TestRefusedPreinstalledPluginIsStopped(t *testing.T) {
 	require.Equal(t, before, childPids(t),
 		"plugin processes left behind by a refused registration")
 }
+
+// Every plugin is told its status in the runtime: a plugin which
+// registers is told it is live, and one replaced by another instance is
+// told it is retired.
+func TestPluginsAreToldTheirStatus(t *testing.T) {
+	var (
+		s         = &Suite{}
+		incumbent = &mockPlugin{idx: "10", name: "test"}
+		newcomer  = &mockPlugin{idx: "10", name: "test"}
+	)
+
+	s.Prepare(t, &mockRuntime{}, incumbent)
+	s.Startup()
+
+	require.NoError(t, incumbent.Wait(PluginLive, time.After(startupTimeout)),
+		"a plugin which registered should be told it is live")
+
+	s.StartPlugins(newcomer)
+	s.WaitForPluginsToSync(newcomer)
+
+	require.NoError(t, newcomer.Wait(PluginLive, time.After(startupTimeout)),
+		"a plugin which took over a name should be told it is live")
+	require.NoError(t, incumbent.Wait(PluginRetired, time.After(startupTimeout)),
+		"a replaced plugin should be told it is retired")
+
+	require.True(t, newcomer.stub.IsLive(), "the live plugin")
+	require.False(t, incumbent.stub.IsLive(), "the retired plugin")
+}

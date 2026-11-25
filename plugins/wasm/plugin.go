@@ -47,6 +47,11 @@ func (p *plugin) Synchronize(ctx context.Context, req *api.SynchronizeRequest) (
 	return nil, nil
 }
 
+func (p *plugin) UpdatePluginStatus(ctx context.Context, req *api.UpdatePluginStatusRequest) (*api.UpdatePluginStatusResponse, error) {
+	log(ctx, "Got update plugin status update: "+req.GetStatus().String())
+	return nil, nil
+}
+
 func (p *plugin) Shutdown(ctx context.Context, req *api.Empty) (*api.Empty, error) {
 	log(ctx, "Got shutdown request")
 	return nil, nil

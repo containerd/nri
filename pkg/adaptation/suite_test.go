@@ -439,6 +439,7 @@ type mockPlugin struct {
 var (
 	_ = stub.ConfigureInterface(&mockPlugin{})
 	_ = stub.SynchronizeInterface(&mockPlugin{})
+	_ = stub.PluginStatusInterface(&mockPlugin{})
 	_ = stub.RunPodInterface(&mockPlugin{})
 	_ = stub.UpdatePodInterface(&mockPlugin{})
 	_ = stub.StopPodInterface(&mockPlugin{})
@@ -673,6 +674,19 @@ func (m *mockPlugin) Shutdown(_ context.Context) {
 	m.q.Add(PluginShutdown)
 }
 
+func (m *mockPlugin) UpdatePluginStatus(_ context.Context, status api.PluginStatus, reason string) error {
+	m.Log("status in the runtime: %s (%s)", status, reason)
+
+	switch status {
+	case api.PluginStatus_PLUGIN_STATUS_LIVE:
+		m.q.Add(PluginLive)
+	case api.PluginStatus_PLUGIN_STATUS_RETIRED:
+		m.q.Add(PluginRetired)
+	}
+
+	return nil
+}
+
 func (m *mockPlugin) RunPodSandbox(_ context.Context, pod *api.PodSandbox) error {
 	m.track(pod, nil)
 	err := m.runPodSandbox(m, pod, nil)
@@ -795,14 +809,16 @@ func nopStopContainer(*mockPlugin, *api.PodSandbox, *api.Container) ([]*api.Cont
 type EventType string
 
 const (
-	CreateError  = "create-error"
-	Started      = "started"
-	Configured   = "configured"
-	Synchronized = "synchronized"
-	StartupError = "startup-error"
-	Shutdown     = "shutdown"
-	Disconnected = "closed"
-	Stopped      = "stopped"
+	CreateError   = "create-error"
+	Started       = "started"
+	Configured    = "configured"
+	Synchronized  = "synchronized"
+	StartupError  = "startup-error"
+	Shutdown      = "shutdown"
+	StatusLive    = "status-live"
+	StatusRetired = "status-retired"
+	Disconnected  = "closed"
+	Stopped       = "stopped"
 
 	RunPodSandbox        = "RunPodSandbox"
 	UpdatePodSandbox     = "UpdatePodSandbox"
@@ -836,6 +852,8 @@ var (
 	PluginSynchronized  = &Event{Type: Synchronized}
 	PluginStartupError  = &Event{Type: StartupError}
 	PluginShutdown      = &Event{Type: Shutdown}
+	PluginLive          = &Event{Type: StatusLive}
+	PluginRetired       = &Event{Type: StatusRetired}
 	PluginDisconnected  = &Event{Type: Disconnected}
 	PluginStopped       = &Event{Type: Stopped}
 

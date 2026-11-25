@@ -164,6 +164,13 @@ A retired plugin gets no events, so its view of pods and containers goes
 stale. Nothing refreshes that view, because an instance is synchronized
 only once. This is why retiring an instance is final.
 
+A retired plugin keeps its connection, so NRI keeps at most two of them
+per plugin name. Beyond that the plugin retired longest ago is closed. A
+rolling update retires one instance, so this leaves one instance of
+slack over what such an update needs. It also bounds what a name whose
+instances are replaced repeatedly, without the replaced ones ever going
+away, can accumulate.
+
 Two rules limit which registration can take over a name:
 
   - an externally started plugin cannot take over the name of a builtin

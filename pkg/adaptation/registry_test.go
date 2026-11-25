@@ -24,19 +24,20 @@ import (
 
 func TestRegistryCommitReplacesTheLivePlugin(t *testing.T) {
 	var (
-		reg       = newRegistry()
+		reg       = newRegistry(maxRetiredPlugins)
 		incumbent = &plugin{idx: "10", base: "test"}
 		newcomer  = &plugin{idx: "10", base: "test"}
 	)
 
 	require.NoError(t, reg.Claim(incumbent))
-	replaced, err := reg.Commit(incumbent)
+	replaced, expired, err := reg.Commit(incumbent)
 	require.NoError(t, err)
 	require.Nil(t, replaced, "nothing to replace for an unclaimed name")
+	require.Empty(t, expired, "nothing retired for an unclaimed name")
 	require.Equal(t, incumbent, reg.Get("10", "test"))
 
 	require.NoError(t, reg.Claim(newcomer))
-	replaced, err = reg.Commit(newcomer)
+	replaced, _, err = reg.Commit(newcomer)
 	require.NoError(t, err)
 	require.Equal(t, incumbent, replaced, "the replaced instance")
 	require.Equal(t, newcomer, reg.Get("10", "test"))
@@ -44,7 +45,7 @@ func TestRegistryCommitReplacesTheLivePlugin(t *testing.T) {
 
 func TestRegistryReleaseOfRetiredPluginKeepsLiveOne(t *testing.T) {
 	var (
-		reg       = newRegistry()
+		reg       = newRegistry(maxRetiredPlugins)
 		incumbent = &plugin{idx: "10", base: "test"}
 		newcomer  = &plugin{idx: "10", base: "test"}
 	)
@@ -63,7 +64,7 @@ func TestRegistryReleaseOfRetiredPluginKeepsLiveOne(t *testing.T) {
 
 func TestRegistryClaimRefusesConcurrentRegistration(t *testing.T) {
 	var (
-		reg   = newRegistry()
+		reg   = newRegistry(maxRetiredPlugins)
 		first = &plugin{idx: "10", base: "test"}
 		other = &plugin{idx: "10", base: "test"}
 	)
@@ -79,19 +80,19 @@ func TestRegistryClaimRefusesConcurrentRegistration(t *testing.T) {
 // goes away while it registers, and the claim goes with it.
 func TestRegistryCommitNeedsTheClaim(t *testing.T) {
 	var (
-		reg       = newRegistry()
+		reg       = newRegistry(maxRetiredPlugins)
 		incumbent = &plugin{idx: "10", base: "test"}
 		newcomer  = &plugin{idx: "10", base: "test"}
 	)
 
 	require.NoError(t, reg.Claim(incumbent))
-	_, err := reg.Commit(incumbent)
+	_, _, err := reg.Commit(incumbent)
 	require.NoError(t, err)
 
 	require.NoError(t, reg.Claim(newcomer))
 	reg.Release(newcomer)
 
-	_, err = reg.Commit(newcomer)
+	_, _, err = reg.Commit(newcomer)
 	require.Error(t, err, "commit of a plugin which lost its claim")
 	require.Equal(t, incumbent, reg.Get("10", "test"),
 		"the live plugin after a failed commit")

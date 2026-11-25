@@ -18,6 +18,7 @@ package adaptation
 
 import (
 	"fmt"
+	"slices"
 	"sync"
 )
 
@@ -25,19 +26,24 @@ import (
 // at most one live plugin, the instance which gets relayed requests and
 // events. Another instance of the same name replaces it once that
 // instance has synchronized. A replaced instance is retired: it is taken
-// out of the request and validator paths, but stays connected.
+// out of the request and validator paths, but stays connected. A name
+// keeps at most maxRetired retired plugins, the ones retired most recently.
 type registry struct {
 	sync.Mutex
-	live    map[string]*plugin // live plugin of each name
-	pending map[string]*plugin // claimed, not committed yet
-	stopped bool               // no more claims or commits
+	live       map[string]*plugin   // live plugin of each name
+	pending    map[string]*plugin   // claimed, not committed yet
+	retired    map[string][]*plugin // retired plugins of each name, oldest first
+	maxRetired int
+	stopped    bool // no more claims or commits
 }
 
 // newRegistry returns an empty plugin registry.
-func newRegistry() *registry {
+func newRegistry(maxRetired int) *registry {
 	return &registry{
-		live:    make(map[string]*plugin),
-		pending: make(map[string]*plugin),
+		live:       make(map[string]*plugin),
+		pending:    make(map[string]*plugin),
+		retired:    make(map[string][]*plugin),
+		maxRetired: maxRetired,
 	}
 }
 
@@ -79,19 +85,20 @@ func mayDisplace(live, p *plugin) error {
 	return nil
 }
 
-// Commit makes a claimed plugin the live one of its name and returns the
-// instance it replaced, if there was one. It fails if the plugin lost its
+// Commit makes a claimed plugin the live one of its name. It returns the
+// instance it replaced, if there was one, and the retired instances of the
+// name which are beyond the retired limit. It fails if the plugin lost its
 // claim, which happens if the plugin goes away while it registers.
-func (reg *registry) Commit(p *plugin) (*plugin, error) {
+func (reg *registry) Commit(p *plugin) (*plugin, []*plugin, error) {
 	reg.Lock()
 	defer reg.Unlock()
 
 	name := p.name()
 	if reg.stopped {
-		return nil, fmt.Errorf("cannot activate plugin %q, NRI is stopping", name)
+		return nil, nil, fmt.Errorf("cannot activate plugin %q, NRI is stopping", name)
 	}
 	if reg.pending[name] != p {
-		return nil, fmt.Errorf("plugin %q lost its claim on the name", name)
+		return nil, nil, fmt.Errorf("plugin %q lost its claim on the name", name)
 	}
 
 	delete(reg.pending, name)
@@ -99,11 +106,22 @@ func (reg *registry) Commit(p *plugin) (*plugin, error) {
 	replaced := reg.live[name]
 	reg.live[name] = p
 
-	if replaced == p {
-		return nil, nil
+	if replaced == nil || replaced == p {
+		return nil, nil, nil
 	}
 
-	return replaced, nil
+	retired := append(reg.retired[name], replaced)
+
+	// Keep the plugins retired most recently, give up the rest. Retiring
+	// order decides, so this needs no clock.
+	var expired []*plugin
+	if excess := len(retired) - reg.maxRetired; excess > 0 {
+		expired = retired[:excess:excess]
+		retired = retired[excess:]
+	}
+	reg.retired[name] = retired
+
+	return replaced, expired, nil
 }
 
 // Release drops a plugin's claim on its name, pending or committed.
@@ -121,6 +139,15 @@ func (reg *registry) Release(p *plugin) {
 	if reg.live[name] == p {
 		delete(reg.live, name)
 	}
+
+	if retired, ok := reg.retired[name]; ok {
+		retired = slices.DeleteFunc(retired, func(o *plugin) bool { return o == p })
+		if len(retired) == 0 {
+			delete(reg.retired, name)
+		} else {
+			reg.retired[name] = retired
+		}
+	}
 }
 
 // Stop empties the registry and refuses later claims and commits. It
@@ -137,9 +164,13 @@ func (reg *registry) Stop() []*plugin {
 	for _, p := range reg.live {
 		plugins = append(plugins, p)
 	}
+	for _, retired := range reg.retired {
+		plugins = append(plugins, retired...)
+	}
 
 	reg.pending = make(map[string]*plugin)
 	reg.live = make(map[string]*plugin)
+	reg.retired = make(map[string][]*plugin)
 	reg.stopped = true
 
 	return plugins

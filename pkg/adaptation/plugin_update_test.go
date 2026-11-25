@@ -475,3 +475,57 @@ func TestRegisteringPluginIsStoppedWithTheRuntime(t *testing.T) {
 	require.False(t, pending.EventQ().Has(PluginLive),
 		"such a plugin must not be told that it is live")
 }
+
+// Retired plugins of one name are limited. Beyond the limit the one
+// retired longest ago is closed.
+func TestRetiredPluginsAreLimited(t *testing.T) {
+	var (
+		s      = &Suite{}
+		first  = &mockPlugin{idx: "10", name: "test"}
+		update = []*mockPlugin{
+			{idx: "10", name: "test"},
+			{idx: "10", name: "test"},
+			{idx: "10", name: "test"},
+		}
+	)
+
+	// The limit is two, so the fourth instance is the first one to push
+	// a retired plugin out.
+	s.Prepare(t, &mockRuntime{}, first)
+	s.Startup()
+
+	for _, p := range update {
+		s.StartPlugins(p)
+		s.WaitForPluginsToSync(p)
+	}
+
+	require.NoError(t, first.Wait(PluginDisconnected, time.After(startupTimeout)),
+		"the plugin retired longest ago, beyond the limit")
+	require.True(t, update[0].stub.IsStarted(), "a plugin retired within the limit")
+	require.True(t, update[1].stub.IsStarted(), "the plugin retired last")
+	require.True(t, update[2].stub.IsLive(), "the live plugin")
+}
+
+// Stopping the runtime closes the connection of a retired plugin too.
+func TestRetiredPluginIsClosedWhenRuntimeStops(t *testing.T) {
+	var (
+		s         = &Suite{}
+		incumbent = &mockPlugin{idx: "10", name: "test"}
+		newcomer  = &mockPlugin{idx: "10", name: "test"}
+	)
+
+	s.Prepare(t, &mockRuntime{}, incumbent)
+	s.Startup()
+	require.NoError(t, incumbent.Wait(PluginLive, time.After(startupTimeout)))
+
+	s.StartPlugins(newcomer)
+	s.WaitForPluginsToSync(newcomer)
+	require.NoError(t, incumbent.Wait(PluginRetired, time.After(startupTimeout)))
+	require.True(t, incumbent.stub.IsStarted(), "a retired plugin is still connected")
+
+	s.runtime.Stop()
+
+	require.Eventually(t, func() bool { return !incumbent.stub.IsStarted() },
+		startupTimeout, 20*time.Millisecond,
+		"a retired plugin after the runtime stopped")
+}

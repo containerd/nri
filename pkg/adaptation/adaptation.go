@@ -44,6 +44,12 @@ const (
 	DefaultSocketPath = api.DefaultSocketPath
 	// DefaultPluginConfigPath is the drop-in directory for NRI-launched plugin configuration.
 	DefaultPluginConfigPath = "/etc/nri/conf.d"
+	// maxRetiredPlugins is how many retired plugins are kept per plugin
+	// name. Retiring a plugin keeps its connection open, so a name which
+	// is updated repeatedly would otherwise accumulate them. A rolling
+	// update of a plugin retires one instance, so this leaves one instance
+	// of slack over what such an update needs.
+	maxRetiredPlugins = 2
 )
 
 // SyncFn is a container runtime function for state synchronization.
@@ -198,7 +204,6 @@ func New(name, version string, syncFn SyncFn, updateFn UpdateFn, opts ...Option)
 		dropinPath:  DefaultPluginConfigPath,
 		socketPath:  DefaultSocketPath,
 		syncLock:    sync.RWMutex{},
-		registry:    newRegistry(),
 		wasmService: wasmService,
 		metrics:     &noopMetrics{},
 	}
@@ -208,6 +213,8 @@ func New(name, version string, syncFn SyncFn, updateFn UpdateFn, opts ...Option)
 			return nil, fmt.Errorf("failed to apply option: %w", err)
 		}
 	}
+
+	r.registry = newRegistry(maxRetiredPlugins)
 
 	log.Infof(noCtx, "runtime interface created")
 
@@ -656,7 +663,7 @@ func (r *Adaptation) startPlugins() (retErr error) {
 	}
 
 	for _, p := range plugins {
-		if _, err := r.registry.Commit(p); err != nil {
+		if _, _, err := r.registry.Commit(p); err != nil {
 			log.Errorf(noCtx, "failed to activate NRI plugin %q: %v", p.name(), err)
 			continue
 		}
@@ -679,11 +686,11 @@ func (r *Adaptation) stopPlugins() {
 
 	// Close the connection, not just the plugin we launched. A plugin
 	// which is left connected has no way to tell that the runtime it is
-	// registered with is gone. A plugin which is still registering is
-	// connected too, and it is not among r.plugins. Empty the registry
-	// first, as closing a plugin drops it from there. It also stops
-	// taking claims, so a plugin in the middle of registering cannot
-	// become live after this.
+	// registered with is gone. Retired plugins and plugins which are
+	// still registering are connected too, and neither is among
+	// r.plugins. Empty the registry first, as closing a plugin drops it
+	// from there. It also stops taking claims, so a plugin in the middle
+	// of registering cannot become live after this.
 	for _, p := range append(r.registry.Stop(), r.plugins...) {
 		p.setLive(false)
 		p.close()
@@ -791,6 +798,8 @@ func (r *Adaptation) acceptPluginConnections(l net.Listener) error {
 				continue
 			}
 
+			var expired []*plugin
+
 			r.requestPluginSync()
 			err = r.syncFn(ctx, p.synchronize)
 			if err != nil {
@@ -800,7 +809,7 @@ func (r *Adaptation) acceptPluginConnections(l net.Listener) error {
 				var replaced *plugin
 
 				r.Lock()
-				replaced, err = r.registry.Commit(p)
+				replaced, expired, err = r.registry.Commit(p)
 				if err == nil {
 					p.setLive(true)
 					r.plugins = append(r.plugins, p)
@@ -837,6 +846,12 @@ func (r *Adaptation) acceptPluginConnections(l net.Listener) error {
 				}
 			}
 			r.finishedPluginSync()
+
+			for _, o := range expired {
+				log.Warnf(ctx, "closing plugin %q: more than %d retired instances of the name",
+					o.name(), maxRetiredPlugins)
+				o.close()
+			}
 		}
 	}()
 

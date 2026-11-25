@@ -29,7 +29,7 @@ func testRegisteringPlugin() *plugin {
 	return &plugin{
 		regC: make(chan error, 1),
 		impl: &pluginType{},
-		r:    &Adaptation{registry: newRegistry()},
+		r:    &Adaptation{registry: newRegistry(maxRetiredPlugins)},
 	}
 }
 

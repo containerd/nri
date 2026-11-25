@@ -632,6 +632,10 @@ func (r *Adaptation) startPlugins() (retErr error) {
 		return fmt.Errorf("failed to synchronize pre-installed NRI Plugins: %w", err)
 	}
 
+	for _, p := range plugins {
+		p.setLive(true)
+	}
+
 	r.plugins = plugins
 	r.sortPlugins()
 	return nil
@@ -642,6 +646,7 @@ func (r *Adaptation) stopPlugins() {
 	log.Infof(noCtx, "stopping plugins...")
 
 	for _, p := range r.plugins {
+		p.setLive(false)
 		p.stop()
 	}
 	r.plugins = nil
@@ -739,6 +744,7 @@ func (r *Adaptation) acceptPluginConnections(l net.Listener) error {
 				p.close()
 			} else {
 				r.Lock()
+				p.setLive(true)
 				r.plugins = append(r.plugins, p)
 				if p.isContainerAdjustmentValidator() {
 					r.validators = append(r.validators, p)

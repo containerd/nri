@@ -66,6 +66,7 @@ type plugin struct {
 	policy     *FailurePolicy
 	registered bool
 	closed     bool
+	live       bool
 	regC       chan error
 	closeC     chan struct{}
 	r          *Adaptation
@@ -365,6 +366,7 @@ func (p *plugin) start(name, version string) (err error) {
 func (p *plugin) close() {
 	if p.impl.isWasm() || p.impl.isBuiltin() {
 		p.closed = true
+		p.live = false
 		return
 	}
 
@@ -375,6 +377,7 @@ func (p *plugin) close() {
 	}
 
 	p.closed = true
+	p.live = false
 	p.mux.Close()
 	p.rpcc.Close()
 	p.rpcs.Close()
@@ -385,6 +388,22 @@ func (p *plugin) isClosed() bool {
 	p.Lock()
 	defer p.Unlock()
 	return p.closed
+}
+
+// setLive marks the plugin as live, or no longer live. A live plugin is
+// the one the runtime considers the current instance for its name: it is
+// among the runtime's plugins, it is relayed requests and events, and it
+// is allowed to make requests back to the runtime.
+func (p *plugin) setLive(live bool) {
+	p.Lock()
+	defer p.Unlock()
+	p.live = live
+}
+
+func (p *plugin) isLive() bool {
+	p.Lock()
+	defer p.Unlock()
+	return p.live
 }
 
 // stop a plugin (if it was launched by us)
@@ -510,6 +529,11 @@ func (p *plugin) RegisterPlugin(ctx context.Context, req *RegisterPluginRequest)
 
 // UpdateContainers relays container update request to the runtime.
 func (p *plugin) UpdateContainers(ctx context.Context, req *UpdateContainersRequest) (*UpdateContainersResponse, error) {
+	if !p.isLive() {
+		log.Warnf(ctx, "refusing container updates requested by plugin %q: not a live plugin", p.name())
+		return nil, fmt.Errorf("plugin %q is not a live plugin, refusing container updates", p.name())
+	}
+
 	log.Infof(ctx, "plugin %q requested container updates", p.name())
 
 	failed, err := p.r.updateContainers(ctx, req.Update)

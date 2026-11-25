@@ -914,6 +914,11 @@ func (q *EventQ) Wait(w *Event, deadline <-chan time.Time) (*Event, error) {
 	}
 	q.c = make(chan *Event, 16)
 	defer func() {
+		// Take the lock: an event can be added as this Wait() returns.
+		// Dropping the channel without it also lets Add() send on a
+		// channel which is already closed.
+		q.Lock()
+		defer q.Unlock()
 		c := q.c
 		q.c = nil
 		close(c)

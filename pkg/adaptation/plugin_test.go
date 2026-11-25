@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/containerd/ttrpc"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -198,4 +199,35 @@ func TestHandleRequestError(t *testing.T) {
 			})
 		}
 	}
+}
+
+// A failed startup must release the names it claimed. Otherwise the next
+// startup attempt finds them taken by plugins which never ran.
+func TestFailedStartupReleasesClaims(t *testing.T) {
+	var (
+		syncErr error
+		syncFn  = func(ctx context.Context, cb SyncCB) error {
+			_, err := cb(ctx, nil, nil)
+			if err != nil {
+				return err
+			}
+			return syncErr
+		}
+		updateFn = func(context.Context, []*ContainerUpdate) ([]*ContainerUpdate, error) {
+			return nil, nil
+		}
+	)
+
+	r, err := New("test", "0.0.1", syncFn, updateFn,
+		WithPluginPath(t.TempDir()),
+		WithDisabledExternalConnections(),
+		WithBuiltinPlugins(&builtin.BuiltinPlugin{Index: "10", Base: "test"}),
+	)
+	require.NoError(t, err)
+
+	syncErr = errors.New("synchronization failed")
+	require.Error(t, r.startPlugins(), "startup with a failing synchronization")
+
+	syncErr = nil
+	require.NoError(t, r.startPlugins(), "startup after a failed one")
 }

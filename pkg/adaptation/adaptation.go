@@ -574,6 +574,9 @@ func (r *Adaptation) startPlugins() (retErr error) {
 	defer func() {
 		if retErr != nil {
 			for _, p := range plugins {
+				// Close them, do not only stop them. A builtin plugin has
+				// no process to stop, and its name stays claimed.
+				p.close()
 				p.stop()
 			}
 		}
@@ -584,6 +587,10 @@ func (r *Adaptation) startPlugins() (retErr error) {
 		p, err := r.newBuiltinPlugin(b)
 		if err != nil {
 			return fmt.Errorf("failed to initialize builtin NRI plugin %q: %v", b.Base, err)
+		}
+
+		if err := r.registry.Claim(p); err != nil {
+			return fmt.Errorf("failed to register builtin NRI plugin %q: %w", p.name(), err)
 		}
 
 		if err := p.start(r.name, r.version); err != nil {
@@ -603,8 +610,19 @@ func (r *Adaptation) startPlugins() (retErr error) {
 			continue
 		}
 
+		if err := r.registry.Claim(p); err != nil {
+			log.Errorf(noCtx, "not starting pre-installed NRI plugin %q, its name is taken: %v",
+				filepath.Join(r.pluginPath, p.name()), err)
+			// This plugin never reaches the list of started plugins, so
+			// nothing else would stop the process we launched.
+			p.close()
+			p.stop()
+			continue
+		}
+
 		if err := p.start(r.name, r.version); err != nil {
 			log.Warnf(noCtx, "failed to start pre-installed NRI plugin %q: %v", name, err)
+			r.registry.Release(p)
 			continue
 		}
 
@@ -620,6 +638,7 @@ func (r *Adaptation) startPlugins() (retErr error) {
 			us, err := plugin.synchronize(ctx, pods, containers)
 			if err != nil {
 				plugin.stop()
+				r.registry.Release(plugin)
 				log.Warnf(noCtx, "failed to synchronize pre-installed NRI plugin %q: %v", plugin.name(), err)
 				continue
 			}
@@ -635,6 +654,10 @@ func (r *Adaptation) startPlugins() (retErr error) {
 	}
 
 	for _, p := range plugins {
+		if _, err := r.registry.Commit(p); err != nil {
+			log.Errorf(noCtx, "failed to activate NRI plugin %q: %v", p.name(), err)
+			continue
+		}
 		p.setLive(true)
 	}
 

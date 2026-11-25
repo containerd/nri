@@ -51,8 +51,34 @@ var (
 	timeoutCfgLock            sync.RWMutex
 )
 
+// pluginOrigin tells where a plugin came from.
+type pluginOrigin int
+
+const (
+	// originBuiltin is a plugin compiled into the runtime.
+	originBuiltin pluginOrigin = iota
+	// originLaunched is a pre-installed plugin started by the runtime.
+	originLaunched
+	// originExternal is a plugin which connected to our socket.
+	originExternal
+)
+
+// String returns the name of a plugin origin.
+func (o pluginOrigin) String() string {
+	switch o {
+	case originBuiltin:
+		return "builtin"
+	case originLaunched:
+		return "pre-installed"
+	case originExternal:
+		return "external"
+	}
+	return "unknown"
+}
+
 type plugin struct {
 	sync.Mutex
+	origin     pluginOrigin
 	idx        string
 	base       string
 	cfg        string
@@ -117,11 +143,12 @@ func (r *Adaptation) newLaunchedPlugin(dir, idx, base, cfg string) (p *plugin, r
 			return nil, fmt.Errorf("load WASM plugin %s: %w", fullPath, err)
 		}
 		return &plugin{
-			cfg:  cfg,
-			idx:  idx,
-			base: base,
-			r:    r,
-			impl: &pluginType{wasmImpl: wasm},
+			origin: originLaunched,
+			cfg:    cfg,
+			idx:    idx,
+			base:   base,
+			r:      r,
+			impl:   &pluginType{wasmImpl: wasm},
 		}, nil
 	}
 
@@ -153,6 +180,7 @@ func (r *Adaptation) newLaunchedPlugin(dir, idx, base, cfg string) (p *plugin, r
 	}
 
 	p = &plugin{
+		origin: originLaunched,
 		cfg:    cfg,
 		cmd:    cmd,
 		idx:    idx,
@@ -179,6 +207,7 @@ func (r *Adaptation) newBuiltinPlugin(b *builtin.BuiltinPlugin) (*plugin, error)
 	}
 
 	return &plugin{
+		origin: originBuiltin,
 		idx:    b.Index,
 		base:   b.Base,
 		closeC: make(chan struct{}),
@@ -214,6 +243,7 @@ func isWasm(path string) bool {
 // Create a plugin (stub) for an accepted external plugin connection.
 func (r *Adaptation) newExternalPlugin(conn stdnet.Conn) (p *plugin, retErr error) {
 	p = &plugin{
+		origin: originExternal,
 		regC:   make(chan error, 1),
 		closeC: make(chan struct{}),
 		r:      r,

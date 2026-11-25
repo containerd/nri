@@ -41,17 +41,36 @@ func newRegistry() *registry {
 }
 
 // Claim records a plugin as the pending registration of its name. It
-// fails if another instance of that name is already being registered.
+// fails if another instance of that name is already being registered, or
+// if the plugin is not allowed to displace the live instance.
 func (reg *registry) Claim(p *plugin) error {
 	reg.Lock()
 	defer reg.Unlock()
 
 	name := p.name()
 	if other, ok := reg.pending[name]; ok && other != p {
-		return fmt.Errorf("another registration of plugin %q is in progress", name)
+		return fmt.Errorf("another registration of plugin %q (%s) is in progress",
+			name, other.origin)
+	}
+
+	if live, ok := reg.live[name]; ok && live != p {
+		if err := mayDisplace(live, p); err != nil {
+			return err
+		}
 	}
 
 	reg.pending[name] = p
+	return nil
+}
+
+// mayDisplace returns an error if a plugin is not allowed to take over
+// the name of the live instance.
+func mayDisplace(live, p *plugin) error {
+	if p.origin == originExternal && live.origin != originExternal {
+		return fmt.Errorf("plugin %q is %s, an external plugin cannot displace it",
+			live.name(), live.origin)
+	}
+
 	return nil
 }
 

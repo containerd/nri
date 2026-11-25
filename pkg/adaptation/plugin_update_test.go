@@ -19,9 +19,18 @@ package adaptation_test
 import (
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
+	"runtime"
+	"slices"
+	"strconv"
+	"strings"
+	"syscall"
 	"testing"
 	"time"
 
+	nri "github.com/containerd/nri/pkg/adaptation"
+	"github.com/containerd/nri/pkg/adaptation/builtin"
 	"github.com/containerd/nri/pkg/api"
 
 	"github.com/stretchr/testify/require"
@@ -207,4 +216,123 @@ func TestFailedPluginUpdateWithSwallowedSyncError(t *testing.T) {
 	require.NoError(t, s.runtime.RunPodSandbox(ctx, &api.RunPodSandboxRequest{Pod: pod}))
 	require.True(t, live.EventQ().Has(PodSandboxEvent(pod, RunPodSandbox)),
 		"the live instance should still receive events")
+}
+
+// An external plugin cannot displace a builtin plugin of the same name.
+func TestExternalPluginCannotDisplaceBuiltinPlugin(t *testing.T) {
+	var (
+		s        = &Suite{}
+		runtime  = &mockRuntime{}
+		external = &mockPlugin{idx: "10", name: "builtin-test"}
+	)
+
+	runtime.options = append(runtime.options,
+		nri.WithBuiltinPlugins(&builtin.BuiltinPlugin{
+			Index: "10",
+			Base:  "builtin-test",
+		}),
+	)
+
+	s.Prepare(t, runtime)
+	s.StartRuntime()
+
+	require.NoError(t, external.Init(s.Dir()))
+	require.Error(t, external.Start(s.Dir()),
+		"registration of an external plugin taking a builtin plugin's name")
+}
+
+// Two builtin plugins cannot share an indexed name.
+func TestDuplicateBuiltinPluginNameIsRefused(t *testing.T) {
+	var (
+		s       = &Suite{}
+		runtime = &mockRuntime{}
+	)
+
+	runtime.options = append(runtime.options,
+		nri.WithBuiltinPlugins(
+			&builtin.BuiltinPlugin{Index: "10", Base: "builtin-test"},
+			&builtin.BuiltinPlugin{Index: "10", Base: "builtin-test"},
+		),
+	)
+
+	s.Prepare(t, runtime)
+	require.Error(t, runtime.Start(s.Dir()),
+		"startup with two builtin plugins of the same name")
+}
+
+// childPids returns the pids of this process' live children.
+func childPids(t *testing.T) []int {
+	t.Helper()
+
+	entries, err := os.ReadDir("/proc")
+	require.NoError(t, err)
+
+	var (
+		pids []int
+		me   = os.Getpid()
+	)
+	for _, e := range entries {
+		pid, err := strconv.Atoi(e.Name())
+		if err != nil {
+			continue
+		}
+		stat, err := os.ReadFile(filepath.Join("/proc", e.Name(), "stat"))
+		if err != nil {
+			continue // the process is gone, it is not a leftover
+		}
+		// The comm field can contain spaces and parentheses, the fields
+		// after the last ')' are the state and the parent pid.
+		fields := strings.Fields(string(stat[strings.LastIndex(string(stat), ")")+1:]))
+		if len(fields) < 2 {
+			continue
+		}
+		if ppid, err := strconv.Atoi(fields[1]); err == nil && ppid == me {
+			pids = append(pids, pid)
+		}
+	}
+
+	return pids
+}
+
+// The runtime launches a pre-installed plugin before it can claim the
+// name. If the registry refuses the claim, the runtime must stop the
+// plugin it launched.
+func TestRefusedPreinstalledPluginIsStopped(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("the test needs /proc to find leftover plugin processes")
+	}
+
+	var (
+		s  = &Suite{}
+		rt = &mockRuntime{}
+	)
+
+	rt.options = append(rt.options,
+		nri.WithBuiltinPlugins(
+			&builtin.BuiltinPlugin{Index: "10", Base: "collide"},
+		),
+	)
+
+	dir := s.Prepare(t, rt)
+
+	// A pre-installed plugin with the indexed name of the builtin one. It
+	// blocks reading its socket, so it stays alive until it is stopped.
+	plugins := filepath.Join(dir, "opt", "nri", "plugins")
+	require.NoError(t, os.MkdirAll(plugins, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(plugins, "10-collide"),
+		[]byte("#!/bin/sh\nread line <&3\n"), 0o755))
+
+	before := childPids(t)
+	t.Cleanup(func() {
+		for _, pid := range childPids(t) {
+			if !slices.Contains(before, pid) {
+				syscall.Kill(pid, syscall.SIGKILL)
+			}
+		}
+	})
+
+	require.NoError(t, rt.Start(dir),
+		"startup with a refused pre-installed plugin")
+	require.Equal(t, before, childPids(t),
+		"plugin processes left behind by a refused registration")
 }

@@ -29,7 +29,7 @@ func testRegisteringPlugin() *plugin {
 	return &plugin{
 		regC: make(chan error, 1),
 		impl: &pluginType{},
-		r:    &Adaptation{},
+		r:    &Adaptation{registry: newRegistry()},
 	}
 }
 
@@ -85,6 +85,22 @@ func TestRegisterPluginRefusesASecondRegistration(t *testing.T) {
 	}
 }
 
+func TestRegisterPluginClaimsItsName(t *testing.T) {
+	var (
+		ctx = context.Background()
+		p   = testRegisteringPlugin()
+	)
+
+	_, err := p.RegisterPlugin(ctx, &RegisterPluginRequest{
+		PluginName: "test",
+		PluginIdx:  "10",
+	})
+	require.NoError(t, err)
+
+	err = p.r.registry.Claim(&plugin{idx: "10", base: "test"})
+	require.Error(t, err, "a second instance claiming a name being registered")
+}
+
 func TestRegisterPluginRefusesAnInvalidName(t *testing.T) {
 	for _, tc := range []struct {
 		name string
@@ -119,4 +135,24 @@ func TestRegisterPluginRefusesAnInvalidName(t *testing.T) {
 			require.NoError(t, err, "registration after a refused one")
 		})
 	}
+}
+
+// A connection can go down while a plugin registers. Its name must not
+// stay claimed, or no instance of that name could register again.
+func TestRegisterPluginRefusesAClosedConnection(t *testing.T) {
+	var (
+		ctx = context.Background()
+		p   = testRegisteringPlugin()
+	)
+
+	p.closed = true
+
+	_, err := p.RegisterPlugin(ctx, &RegisterPluginRequest{
+		PluginName: "test",
+		PluginIdx:  "10",
+	})
+	require.Error(t, err, "registration on a closed connection")
+
+	require.NoError(t, p.r.registry.Claim(&plugin{idx: "10", base: "test"}),
+		"the name of a refused registration must be free")
 }

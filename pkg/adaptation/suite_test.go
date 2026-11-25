@@ -156,6 +156,9 @@ type mockRuntime struct {
 
 	updateFn nri.UpdateFn
 	failSync bool
+	// swallowSyncErr makes SyncFn discard the error of its callback,
+	// which a runtime is allowed to do.
+	swallowSyncErr bool
 }
 
 func (m *mockRuntime) Start(dir string) error {
@@ -229,6 +232,9 @@ func (m *mockRuntime) synchronize(ctx context.Context, cb nri.SyncCB) error {
 
 	if m.failSync {
 		return fmt.Errorf("mock runtime forced synchronize failure")
+	}
+	if m.swallowSyncErr {
+		return nil
 	}
 
 	return err
@@ -387,6 +393,7 @@ type mockPlugin struct {
 	pods map[string]*api.PodSandbox
 	ctrs map[string]*api.Container
 
+	synchronize          func(*mockPlugin, []*api.PodSandbox, []*api.Container) ([]*api.ContainerUpdate, error)
 	runPodSandbox        func(*mockPlugin, *api.PodSandbox, *api.Container) error
 	updatePodSandbox     func(*mockPlugin, *api.PodSandbox, *api.LinuxResources, *api.LinuxResources) error
 	postUpdatePodSandbox func(*mockPlugin, *api.PodSandbox, *api.Container) error
@@ -620,6 +627,10 @@ func (m *mockPlugin) forget(pod *api.PodSandbox, ctr *api.Container) {
 }
 
 func (m *mockPlugin) Synchronize(_ context.Context, pods []*api.PodSandbox, ctrs []*api.Container) ([]*api.ContainerUpdate, error) {
+	if m.synchronize != nil {
+		return m.synchronize(m, pods, ctrs)
+	}
+
 	for _, pod := range pods {
 		m.track(pod, nil)
 	}

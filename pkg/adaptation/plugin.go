@@ -367,6 +367,7 @@ func (p *plugin) close() {
 	if p.impl.isWasm() || p.impl.isBuiltin() {
 		p.closed = true
 		p.live = false
+		p.r.registry.Release(p)
 		return
 	}
 
@@ -378,6 +379,7 @@ func (p *plugin) close() {
 
 	p.closed = true
 	p.live = false
+	p.r.registry.Release(p)
 	p.mux.Close()
 	p.rpcc.Close()
 	p.rpcs.Close()
@@ -479,6 +481,12 @@ func (p *plugin) admitRegistration(ctx context.Context, req *RegisterPluginReque
 	p.Lock()
 	defer p.Unlock()
 
+	if p.closed {
+		log.Errorf(ctx, "plugin %q attempted to register on a closed connection",
+			p.name())
+		return errors.New("plugin connection closed")
+	}
+
 	if p.registered {
 		log.Errorf(ctx, "plugin %q attempted to register multiple times", p.name())
 		return errors.New("plugin already registered")
@@ -497,6 +505,13 @@ func (p *plugin) admitRegistration(ctx context.Context, req *RegisterPluginReque
 		}
 
 		p.idx, p.base = req.PluginIdx, req.PluginName
+
+		// Claim the name with the plugin lock held. close() takes the
+		// same lock before it releases a claim, so a connection going
+		// down now cannot leave the name claimed for good.
+		if err := p.r.registry.Claim(p); err != nil {
+			return p.refuseRegistration(err)
+		}
 	}
 
 	p.registered = true

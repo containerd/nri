@@ -58,6 +58,7 @@ func testPlugin(policy *FailurePolicy) *plugin {
 		base:   "test",
 		policy: policy,
 		impl:   &pluginType{builtinImpl: &builtin.BuiltinPlugin{}},
+		r:      &Adaptation{registry: newRegistry()},
 	}
 }
 

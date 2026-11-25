@@ -17,6 +17,8 @@
 package adaptation_test
 
 import (
+	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -50,4 +52,159 @@ func TestUpdateContainersFromPluginWhichIsNotLive(t *testing.T) {
 		{ContainerId: "ctr0"},
 	})
 	require.Error(t, err, "unsolicited update from a plugin which is not live")
+}
+
+// A second instance of a plugin takes over the name once it has
+// synchronized. The instance it replaces stops receiving events, but is
+// not disconnected.
+func TestPluginUpdateTakesOverTheName(t *testing.T) {
+	var (
+		s         = &Suite{}
+		incumbent = &mockPlugin{idx: "10", name: "test"}
+		newcomer  = &mockPlugin{idx: "10", name: "test"}
+		ctx       = context.Background()
+		pod       = &api.PodSandbox{Id: "pod0", Name: "pod0", Namespace: "default"}
+	)
+
+	s.Prepare(t, &mockRuntime{}, incumbent)
+	s.Startup()
+
+	s.StartPlugins(newcomer)
+	s.WaitForPluginsToSync(newcomer)
+
+	incumbent.EventQ().Reset()
+	newcomer.EventQ().Reset()
+
+	require.NoError(t, s.runtime.RunPodSandbox(ctx, &api.RunPodSandboxRequest{Pod: pod}))
+
+	require.True(t, newcomer.EventQ().Has(PodSandboxEvent(pod, RunPodSandbox)),
+		"the newcomer instance should receive the event")
+	require.False(t, incumbent.EventQ().Has(PodSandboxEvent(pod, RunPodSandbox)),
+		"the replaced instance should not receive the event")
+	require.False(t, incumbent.EventQ().Has(PluginDisconnected),
+		"the replaced instance should not be disconnected")
+}
+
+// A failed update leaves the instance it would have replaced live, and
+// lets a later instance of the name register.
+func TestFailedPluginUpdateKeepsTheLiveInstance(t *testing.T) {
+	var (
+		s       = &Suite{}
+		live    = &mockPlugin{idx: "10", name: "test"}
+		failing = &mockPlugin{
+			idx:  "10",
+			name: "test",
+			synchronize: func(*mockPlugin, []*api.PodSandbox, []*api.Container) ([]*api.ContainerUpdate, error) {
+				return nil, errors.New("mock plugin forced synchronize failure")
+			},
+		}
+		retry = &mockPlugin{idx: "10", name: "test"}
+		ctx   = context.Background()
+		pod   = &api.PodSandbox{Id: "pod0", Name: "pod0", Namespace: "default"}
+	)
+
+	s.Prepare(t, &mockRuntime{}, live)
+	s.Startup()
+
+	s.StartPlugins(failing)
+	require.NoError(t, failing.Wait(PluginDisconnected, time.After(startupTimeout)))
+
+	live.EventQ().Reset()
+	require.NoError(t, s.runtime.RunPodSandbox(ctx, &api.RunPodSandboxRequest{Pod: pod}))
+	require.True(t, live.EventQ().Has(PodSandboxEvent(pod, RunPodSandbox)),
+		"the live instance should still receive events")
+
+	s.StartPlugins(retry)
+	s.WaitForPluginsToSync(retry)
+
+	live.EventQ().Reset()
+	retry.EventQ().Reset()
+	pod = &api.PodSandbox{Id: "pod1", Name: "pod1", Namespace: "default"}
+	require.NoError(t, s.runtime.RunPodSandbox(ctx, &api.RunPodSandboxRequest{Pod: pod}))
+
+	require.True(t, retry.EventQ().Has(PodSandboxEvent(pod, RunPodSandbox)),
+		"a later instance of the name should take over")
+	require.False(t, live.EventQ().Has(PodSandboxEvent(pod, RunPodSandbox)),
+		"the replaced instance should not receive the event")
+}
+
+// A retired plugin cannot request unsolicited container updates.
+func TestUpdateContainersFromRetiredPlugin(t *testing.T) {
+	var (
+		s        = &Suite{}
+		retired  = &mockPlugin{idx: "10", name: "test"}
+		newcomer = &mockPlugin{idx: "10", name: "test"}
+	)
+
+	s.Prepare(t, &mockRuntime{}, retired)
+	s.Startup()
+
+	s.StartPlugins(newcomer)
+	s.WaitForPluginsToSync(newcomer)
+
+	_, err := retired.stub.UpdateContainers([]*api.ContainerUpdate{
+		{ContainerId: "ctr0"},
+	})
+	require.Error(t, err, "unsolicited update from a retired plugin")
+}
+
+// A retired plugin stays retired when the plugin which replaced it goes
+// away.
+func TestRetiredPluginIsNotPromoted(t *testing.T) {
+	var (
+		s        = &Suite{}
+		retired  = &mockPlugin{idx: "10", name: "test"}
+		newcomer = &mockPlugin{idx: "10", name: "test"}
+		ctx      = context.Background()
+		pod      = &api.PodSandbox{Id: "pod0", Name: "pod0", Namespace: "default"}
+	)
+
+	s.Prepare(t, &mockRuntime{}, retired)
+	s.Startup()
+
+	s.StartPlugins(newcomer)
+	s.WaitForPluginsToSync(newcomer)
+
+	newcomer.Stop()
+	require.NoError(t, newcomer.Wait(PluginStopped, time.After(startupTimeout)))
+
+	retired.EventQ().Reset()
+
+	// The first relay may fail for the plugin which just went away. It
+	// drops it, so the next one has no plugins left to relay to.
+	_ = s.runtime.RunPodSandbox(ctx, &api.RunPodSandboxRequest{Pod: pod})
+	require.NoError(t, s.runtime.RunPodSandbox(ctx, &api.RunPodSandboxRequest{Pod: pod}))
+
+	require.False(t, retired.EventQ().Has(PodSandboxEvent(pod, RunPodSandbox)),
+		"a retired plugin should not be promoted")
+}
+
+// A runtime is allowed to return no error from SyncFn although the
+// synchronization callback failed. A plugin which failed to synchronize
+// must not take over the name even then.
+func TestFailedPluginUpdateWithSwallowedSyncError(t *testing.T) {
+	var (
+		s       = &Suite{}
+		live    = &mockPlugin{idx: "10", name: "test"}
+		failing = &mockPlugin{
+			idx:  "10",
+			name: "test",
+			synchronize: func(*mockPlugin, []*api.PodSandbox, []*api.Container) ([]*api.ContainerUpdate, error) {
+				return nil, errors.New("mock plugin forced synchronize failure")
+			},
+		}
+		ctx = context.Background()
+		pod = &api.PodSandbox{Id: "pod0", Name: "pod0", Namespace: "default"}
+	)
+
+	s.Prepare(t, &mockRuntime{swallowSyncErr: true}, live)
+	s.Startup()
+
+	s.StartPlugins(failing)
+	require.NoError(t, failing.Wait(PluginDisconnected, time.After(startupTimeout)))
+
+	live.EventQ().Reset()
+	require.NoError(t, s.runtime.RunPodSandbox(ctx, &api.RunPodSandboxRequest{Pod: pod}))
+	require.True(t, live.EventQ().Has(PodSandboxEvent(pod, RunPodSandbox)),
+		"the live instance should still receive events")
 }

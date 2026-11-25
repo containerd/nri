@@ -72,6 +72,7 @@ type Adaptation struct {
 	listener    net.Listener
 	plugins     []*plugin
 	validators  []*plugin
+	registry    *registry
 	builtin     []*builtin.BuiltinPlugin
 	syncLock    sync.RWMutex
 	wasmService *api.PluginPlugin
@@ -197,6 +198,7 @@ func New(name, version string, syncFn SyncFn, updateFn UpdateFn, opts ...Option)
 		dropinPath:  DefaultPluginConfigPath,
 		socketPath:  DefaultSocketPath,
 		syncLock:    sync.RWMutex{},
+		registry:    newRegistry(),
 		wasmService: wasmService,
 		metrics:     &noopMetrics{},
 	}
@@ -658,6 +660,20 @@ func (r *Adaptation) stopPlugins() {
 // the end of the next request. Until then, requests skip it: a request
 // relayed to it fails with ttrpc.ErrClosed, and a fail_request policy
 // would fail the request for a plugin that is already gone.
+// retirePlugin takes a plugin out of the set of plugins which get relayed
+// requests and events, leaving its connection alone.
+func (r *Adaptation) retirePlugin(p *plugin) {
+	plugins := make([]*plugin, 0, len(r.plugins))
+	for _, o := range r.plugins {
+		if o != p {
+			plugins = append(plugins, o)
+		}
+	}
+
+	p.setLive(false)
+	r.plugins = plugins
+}
+
 func (r *Adaptation) removeClosedPlugins() {
 	var active, closed, validators []*plugin
 	for _, p := range r.plugins {
@@ -743,17 +759,35 @@ func (r *Adaptation) acceptPluginConnections(l net.Listener) error {
 				log.Errorf(ctx, "failed to synchronize plugin: %v", err)
 				p.close()
 			} else {
+				var replaced *plugin
+
 				r.Lock()
-				p.setLive(true)
-				r.plugins = append(r.plugins, p)
-				if p.isContainerAdjustmentValidator() {
-					r.validators = append(r.validators, p)
+				replaced, err = r.registry.Commit(p)
+				if err == nil {
+					p.setLive(true)
+					r.plugins = append(r.plugins, p)
+					if p.isContainerAdjustmentValidator() {
+						r.validators = append(r.validators, p)
+					}
+					if replaced != nil {
+						r.retirePlugin(replaced)
+					}
+					r.sortPlugins()
 				}
-				r.sortPlugins()
 				count := len(r.plugins)
 				r.Unlock()
-				r.metrics.UpdatePluginCount(count)
-				log.Infof(ctx, "plugin %q connected and synchronized", p.name())
+
+				if err != nil {
+					log.Errorf(ctx, "failed to activate plugin %q: %v", p.name(), err)
+					p.close()
+				} else {
+					r.metrics.UpdatePluginCount(count)
+					if replaced != nil {
+						log.Warnf(ctx, "plugin %q replaced by a new instance, retiring the old one",
+							replaced.name())
+					}
+					log.Infof(ctx, "plugin %q connected and synchronized", p.name())
+				}
 			}
 			r.finishedPluginSync()
 		}

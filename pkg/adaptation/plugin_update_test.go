@@ -364,3 +364,114 @@ func TestPluginsAreToldTheirStatus(t *testing.T) {
 	require.True(t, newcomer.stub.IsLive(), "the live plugin")
 	require.False(t, incumbent.stub.IsLive(), "the retired plugin")
 }
+
+// A plugin which the runtime drops stops reporting itself live, without
+// any status update telling it so.
+func TestDroppedPluginIsNotLive(t *testing.T) {
+	var (
+		s    = &Suite{}
+		slow = &mockPlugin{
+			idx:  "10",
+			name: "test",
+			mask: api.MustParseEventMask("RunPodSandbox"),
+		}
+		ctx = context.Background()
+		pod = &api.PodSandbox{Id: "pod0", Name: "pod0", Namespace: "default"}
+	)
+
+	b := newBlocker(t)
+	slow.runPodSandbox = func(*mockPlugin, *api.PodSandbox, *api.Container) error {
+		return b.handle()
+	}
+
+	s.Prepare(t, &mockRuntime{}, slow)
+	s.Startup()
+
+	require.NoError(t, slow.Wait(PluginLive, time.After(startupTimeout)))
+	require.True(t, slow.stub.IsLive())
+
+	// The plugin blocks past the request timeout, so the runtime drops it.
+	require.NoError(t, s.runtime.RunPodSandbox(ctx, &api.RunPodSandboxRequest{Pod: pod}))
+	require.NoError(t, slow.Wait(PluginDisconnected, time.After(startupTimeout)))
+
+	require.False(t, slow.stub.IsLive(), "a plugin dropped by the runtime")
+}
+
+// A plugin stops reporting itself live when the runtime goes away.
+func TestPluginIsNotLiveAfterRuntimeStops(t *testing.T) {
+	var (
+		s      = &Suite{}
+		plugin = &mockPlugin{idx: "10", name: "test"}
+	)
+
+	s.Prepare(t, &mockRuntime{}, plugin)
+	s.Startup()
+
+	require.NoError(t, plugin.Wait(PluginLive, time.After(startupTimeout)))
+	require.True(t, plugin.stub.IsLive())
+
+	s.runtime.Stop()
+
+	require.Eventually(t, func() bool { return !plugin.stub.IsLive() },
+		startupTimeout, 20*time.Millisecond, "a plugin after the runtime stopped")
+}
+
+// The status a plugin reads tells the live instance, a retired one, and a
+// runtime which reported nothing apart from each other.
+func TestPluginReadsItsStatus(t *testing.T) {
+	var (
+		s         = &Suite{}
+		incumbent = &mockPlugin{idx: "10", name: "test"}
+		newcomer  = &mockPlugin{idx: "10", name: "test"}
+	)
+
+	s.Prepare(t, &mockRuntime{}, incumbent)
+	s.Startup()
+	require.NoError(t, incumbent.Wait(PluginLive, time.After(startupTimeout)))
+
+	require.True(t, incumbent.stub.IsStarted(), "a registered plugin")
+	require.Equal(t, api.PluginStatus_PLUGIN_STATUS_LIVE, incumbent.stub.Status(),
+		"a registered plugin")
+
+	s.StartPlugins(newcomer)
+	s.WaitForPluginsToSync(newcomer)
+	require.NoError(t, incumbent.Wait(PluginRetired, time.After(startupTimeout)))
+
+	require.True(t, incumbent.stub.IsStarted(), "a retired plugin is still connected")
+	require.Equal(t, api.PluginStatus_PLUGIN_STATUS_RETIRED, incumbent.stub.Status(),
+		"a retired plugin")
+	require.False(t, incumbent.stub.IsLive(), "a retired plugin")
+
+	s.runtime.Stop()
+
+	require.Eventually(t, func() bool { return !newcomer.stub.IsStarted() },
+		startupTimeout, 20*time.Millisecond, "a plugin after the runtime stopped")
+	require.Equal(t, api.PluginStatus_PLUGIN_STATUS_UNKNOWN, newcomer.stub.Status(),
+		"a plugin which is not connected")
+}
+
+// A plugin which is still registering when the runtime stops must not
+// become the live instance afterwards.
+func TestRegisteringPluginIsStoppedWithTheRuntime(t *testing.T) {
+	var (
+		s       = &Suite{}
+		pending = &mockPlugin{idx: "10", name: "test"}
+	)
+
+	s.Prepare(t, &mockRuntime{})
+	s.Startup()
+
+	// Hold plugin synchronization. The plugin registers and gets
+	// configured, then waits for the block to be lifted.
+	block := s.runtime.runtime.BlockPluginSync()
+
+	s.StartPlugins(pending)
+
+	s.runtime.Stop()
+	block.Unblock()
+
+	require.NoError(t, pending.Wait(PluginDisconnected, time.After(startupTimeout)),
+		"a plugin still registering when the runtime stopped")
+	require.False(t, pending.EventQ().Has(PluginLive),
+		"such a plugin must not be told that it is live")
+}

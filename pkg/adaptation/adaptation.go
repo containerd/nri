@@ -221,6 +221,8 @@ func (r *Adaptation) Start() error {
 	r.Lock()
 	defer r.Unlock()
 
+	r.registry.Start()
+
 	if err := r.startPlugins(); err != nil {
 		return err
 	}
@@ -675,8 +677,16 @@ func (r *Adaptation) startPlugins() (retErr error) {
 func (r *Adaptation) stopPlugins() {
 	log.Infof(noCtx, "stopping plugins...")
 
-	for _, p := range r.plugins {
+	// Close the connection, not just the plugin we launched. A plugin
+	// which is left connected has no way to tell that the runtime it is
+	// registered with is gone. A plugin which is still registering is
+	// connected too, and it is not among r.plugins. Empty the registry
+	// first, as closing a plugin drops it from there. It also stops
+	// taking claims, so a plugin in the middle of registering cannot
+	// become live after this.
+	for _, p := range append(r.registry.Stop(), r.plugins...) {
 		p.setLive(false)
+		p.close()
 		p.stop()
 	}
 	r.plugins = nil

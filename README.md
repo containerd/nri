@@ -157,6 +157,9 @@ Kubernetes deletes the pod of the plugin instance being replaced. Each
 instance is sent exactly one Synchronize request, as the last step of
 its own registration.
 
+NRI closes the connection of a retired plugin when NRI itself stops, or
+when the plugin falls beyond the limit below.
+
 A retired plugin gets no events, so its view of pods and containers goes
 stale. Nothing refreshes that view, because an instance is synchronized
 only once. This is why retiring an instance is final.

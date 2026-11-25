@@ -65,6 +65,7 @@ type PluginService interface {
 	Configure(context.Context, *ConfigureRequest) (*ConfigureResponse, error)
 	Synchronize(context.Context, *SynchronizeRequest) (*SynchronizeResponse, error)
 	Shutdown(context.Context, *Empty) (*Empty, error)
+	UpdatePluginStatus(context.Context, *UpdatePluginStatusRequest) (*UpdatePluginStatusResponse, error)
 	RunPodSandbox(context.Context, *RunPodSandboxRequest) (*RunPodSandboxResponse, error)
 	UpdatePodSandbox(context.Context, *UpdatePodSandboxRequest) (*UpdatePodSandboxResponse, error)
 	PostUpdatePodSandbox(context.Context, *PostUpdatePodSandboxRequest) (*PostUpdatePodSandboxResponse, error)
@@ -105,6 +106,13 @@ func RegisterPluginService(srv *ttrpc.Server, svc PluginService) {
 					return nil, err
 				}
 				return svc.Shutdown(ctx, &req)
+			},
+			"UpdatePluginStatus": func(ctx context.Context, unmarshal func(interface{}) error) (interface{}, error) {
+				var req UpdatePluginStatusRequest
+				if err := unmarshal(&req); err != nil {
+					return nil, err
+				}
+				return svc.UpdatePluginStatus(ctx, &req)
 			},
 			"RunPodSandbox": func(ctx context.Context, unmarshal func(interface{}) error) (interface{}, error) {
 				var req RunPodSandboxRequest
@@ -244,6 +252,14 @@ func (c *pluginClient) Synchronize(ctx context.Context, req *SynchronizeRequest)
 func (c *pluginClient) Shutdown(ctx context.Context, req *Empty) (*Empty, error) {
 	var resp Empty
 	if err := c.client.Call(ctx, "nri.pkg.api.v1alpha1.Plugin", "Shutdown", req, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+func (c *pluginClient) UpdatePluginStatus(ctx context.Context, req *UpdatePluginStatusRequest) (*UpdatePluginStatusResponse, error) {
+	var resp UpdatePluginStatusResponse
+	if err := c.client.Call(ctx, "nri.pkg.api.v1alpha1.Plugin", "UpdatePluginStatus", req, &resp); err != nil {
 		return nil, err
 	}
 	return &resp, nil

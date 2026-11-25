@@ -41,6 +41,9 @@ type (
 	ShutdownRequest  = api.Empty
 	ShutdownResponse = api.Empty
 
+	UpdatePluginStatusRequest  = api.UpdatePluginStatusRequest
+	UpdatePluginStatusResponse = api.UpdatePluginStatusResponse
+
 	CreateContainerRequest  = api.CreateContainerRequest
 	CreateContainerResponse = api.CreateContainerResponse
 	UpdateContainerRequest  = api.UpdateContainerRequest

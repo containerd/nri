@@ -54,7 +54,7 @@ const (
 // can be used by plugins to discover the full extent of changes applied to
 // the container, including any changes made by other active plugins.
 //
-// go:plugin type=plugin version=1
+// go:plugin type=plugin version=2
 type Plugin interface {
 	// Configure the plugin and get its event subscription.
 	Configure(context.Context, *ConfigureRequest) (*ConfigureResponse, error)
@@ -62,6 +62,8 @@ type Plugin interface {
 	Synchronize(context.Context, *SynchronizeRequest) (*SynchronizeResponse, error)
 	// Shutdown a plugin (let it know the runtime is going down).
 	Shutdown(context.Context, *Empty) (*Empty, error)
+	// UpdatePluginStatus tells the plugin its status in the runtime.
+	UpdatePluginStatus(context.Context, *UpdatePluginStatusRequest) (*UpdatePluginStatusResponse, error)
 	// RunPodSandbox relays the corresponding request to the plugin.
 	RunPodSandbox(context.Context, *RunPodSandboxRequest) (*RunPodSandboxResponse, error)
 	// UpdatePodSandbox relays the corresponding request to the plugin.

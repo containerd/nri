@@ -27,7 +27,6 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/sirupsen/logrus"
 	"sigs.k8s.io/yaml"
@@ -45,11 +44,6 @@ import (
 const (
 	// identityKey is the prefix of the key used for identity annotations in the podspec.
 	identityKey = "identity.noderesource.dev"
-
-	// initialWriteTimeout is the maximum time startCertificateWatcher will wait for
-	// both the SVID and the bundle to be written to the host directory before returning
-	// an error to the caller (and therefore blocking the container from starting).
-	initialWriteTimeout = 30 * time.Second
 
 	// Default paths for certificate files in the container
 	defaultCertFileName      = "svid.pem"
@@ -97,7 +91,7 @@ type containerWatcher struct {
 // in-memory state that was lost across a restart. Without this, containers that were
 // running before a plugin restart would never get their certificate watchers recreated
 // and their short-lived SVIDs would eventually expire without renewal.
-func (p *plugin) Synchronize(_ context.Context, pods []*api.PodSandbox, containers []*api.Container) ([]*api.ContainerUpdate, error) {
+func (p *plugin) Synchronize(ctx context.Context, pods []*api.PodSandbox, containers []*api.Container) ([]*api.ContainerUpdate, error) {
 	log.Infof("Synchronize: rebuilding watchers for %d pods, %d containers", len(pods), len(containers))
 
 	// Build a pod-id → pod map for quick lookup.
@@ -130,7 +124,7 @@ func (p *plugin) Synchronize(_ context.Context, pods []*api.PodSandbox, containe
 			continue
 		}
 
-		if err := p.injectIdentity(pod, ctr); err != nil {
+		if err := p.injectIdentity(ctx, pod, ctr); err != nil {
 			// Log but do not abort: best-effort rebuild for all other containers.
 			log.Errorf("Synchronize: %s: failed to rebuild certificate watcher: %v", containerName(pod, ctr), err)
 		}
@@ -173,12 +167,12 @@ func (p *plugin) CreateContainer(_ context.Context, pod *api.PodSandbox, contain
 	return adjust, nil, nil
 }
 
-func (p *plugin) StartContainer(_ context.Context, pod *api.PodSandbox, container *api.Container) error {
+func (p *plugin) StartContainer(ctx context.Context, pod *api.PodSandbox, container *api.Container) error {
 	if verbose {
 		dump("StartContainer", "pod", pod, "container", container)
 	}
 
-	return p.injectIdentity(pod, container)
+	return p.injectIdentity(ctx, pod, container)
 }
 
 // Supporting UpdateContainer() is not required because the container pid does not change when a container is updated.
@@ -257,7 +251,7 @@ func (p *plugin) Shutdown(ctx context.Context) {
 }
 
 
-func (p *plugin) injectIdentity(pod *api.PodSandbox, container *api.Container) error {
+func (p *plugin) injectIdentity(ctx context.Context, pod *api.PodSandbox, container *api.Container) error {
 	// Check container PID
 	if container.Pid == 0 {
 		return fmt.Errorf("%s container PID not available", containerName(pod, container))
@@ -281,7 +275,7 @@ func (p *plugin) injectIdentity(pod *api.PodSandbox, container *api.Container) e
 
 	// Start watching for certificate updates using streaming API
 	// This will automatically receive new certificates when they're rotated
-	if err := p.startCertificateWatcher(pod, container, int32(container.Pid), hostDir, config); err != nil {
+	if err := p.startCertificateWatcher(ctx, pod, container, int32(container.Pid), hostDir, config); err != nil {
 		return fmt.Errorf("failed to start certificate watcher: %w", err)
 	}
 
@@ -291,7 +285,7 @@ func (p *plugin) injectIdentity(pod *api.PodSandbox, container *api.Container) e
 // startCertificateWatcher starts a goroutine that watches for certificate updates
 // using the SPIRE Delegated Identity API streaming interface (SubscribeToX509SVIDs).
 // This automatically receives new certificates when they're rotated by SPIRE.
-func (p *plugin) startCertificateWatcher(pod *api.PodSandbox, ctr *api.Container, pid int32, hostDir string, config *identityConfig) error {
+func (p *plugin) startCertificateWatcher(ctx context.Context, pod *api.PodSandbox, ctr *api.Container, pid int32, hostDir string, config *identityConfig) error {
 	watcherKey := filepath.Join(pod.GetUid(), ctr.Name)
 
 	// Check if watcher already exists
@@ -499,10 +493,11 @@ func (p *plugin) startCertificateWatcher(pod *api.PodSandbox, ctr *api.Container
 	}()
 
 	// Block until both the SVID and bundle have been written to the host directory
-	// for the first time, or until the setup timeout expires.
-	// The goroutines continue running after this point for certificate rotation.
-	setupCtx, setupCancel := context.WithTimeout(context.Background(), initialWriteTimeout)
-	defer setupCancel()
+	// for the first time, or until the request context (bounded by the NRI plugin
+	// request timeout) is done.
+	// The goroutines continue running after this point for certificate rotation;
+	// they use watcherCtx, which is detached from the request context.
+	setupCtx := ctx
 
 	// Collect exactly one signal from each goroutine (svidReady and bundleReady).
 	// Each channel is buffered(1) and each goroutine sends at most once, so neither

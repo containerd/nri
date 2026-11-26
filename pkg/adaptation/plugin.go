@@ -53,22 +53,23 @@ var (
 
 type plugin struct {
 	sync.Mutex
-	idx    string
-	base   string
-	cfg    string
-	pid    int
-	cmd    *exec.Cmd
-	mux    multiplex.Mux
-	rpcc   *ttrpc.Client
-	rpcl   stdnet.Listener
-	rpcs   *ttrpc.Server
-	events EventMask
-	policy *FailurePolicy
-	closed bool
-	regC   chan error
-	closeC chan struct{}
-	r      *Adaptation
-	impl   *pluginType
+	idx        string
+	base       string
+	cfg        string
+	pid        int
+	cmd        *exec.Cmd
+	mux        multiplex.Mux
+	rpcc       *ttrpc.Client
+	rpcl       stdnet.Listener
+	rpcs       *ttrpc.Server
+	events     EventMask
+	policy     *FailurePolicy
+	registered bool
+	closed     bool
+	regC       chan error
+	closeC     chan struct{}
+	r          *Adaptation
+	impl       *pluginType
 }
 
 // SetPluginRegistrationTimeout sets the timeout for plugin registration.
@@ -433,19 +434,65 @@ func (p *plugin) qualifiedName() string {
 	return kind + ":" + idx + "-" + base + pid
 }
 
-// RegisterPlugin handles the plugin's registration request.
-func (p *plugin) RegisterPlugin(ctx context.Context, req *RegisterPluginRequest) (*RegisterPluginResponse, error) {
+// notifyRegistrationStatus delivers a registration status back to start().
+func (p *plugin) notifyRegistrationStatus(err error) {
+	// Notes:
+	//   The non-blocking send is currently just a precaution. We shouldn't
+	//   hit the default branch, as we only deliver one status for now.
+	//
+	//   Also, delivering a status wakes up start(). For a non-nil status
+	//   start() closes the connection. Delivering an error returned from
+	//   RegisterPlugin races with that, and only gets to the plugin if it
+	//   wins the race. The runtime log will always contain the real reason
+	//   for registration failure.
+	select {
+	case p.regC <- err:
+	default:
+	}
+}
+
+// admitRegistration returns an error if a plugin is not allowed to
+// register. It takes an external plugin's index and name from the
+// request, so a plugin picks its name exactly once.
+func (p *plugin) admitRegistration(ctx context.Context, req *RegisterPluginRequest) error {
+	p.Lock()
+	defer p.Unlock()
+
+	if p.registered {
+		log.Errorf(ctx, "plugin %q attempted to register multiple times", p.name())
+		return errors.New("plugin already registered")
+	}
+
 	if p.isExternal() {
 		if err := api.CheckPluginName(req.PluginName); err != nil {
-			p.regC <- fmt.Errorf("plugin registered with an invalid name: %w", err)
-			return &RegisterPluginResponse{}, fmt.Errorf("invalid plugin name: %w", err)
+			log.Errorf(ctx, "plugin %q attempted to register with an invalid name: %v",
+				p.qualifiedName(), err)
+			return p.refuseRegistration(err)
 		}
 		if err := api.CheckPluginIndex(req.PluginIdx); err != nil {
-			p.regC <- fmt.Errorf("plugin %q registered with an invalid index: %w", req.PluginName, err)
-			return &RegisterPluginResponse{}, fmt.Errorf("invalid plugin index: %w", err)
+			log.Errorf(ctx, "plugin %q attempted to register with an invalid index: %v",
+				p.qualifiedName(), err)
+			return p.refuseRegistration(err)
 		}
-		p.base = req.PluginName
-		p.idx = req.PluginIdx
+
+		p.idx, p.base = req.PluginIdx, req.PluginName
+	}
+
+	p.registered = true
+
+	return nil
+}
+
+// refuseRegistration tells start() why a registration was refused.
+func (p *plugin) refuseRegistration(err error) error {
+	p.notifyRegistrationStatus(err)
+	return err
+}
+
+// RegisterPlugin handles the plugin's registration request.
+func (p *plugin) RegisterPlugin(ctx context.Context, req *RegisterPluginRequest) (*RegisterPluginResponse, error) {
+	if err := p.admitRegistration(ctx, req); err != nil {
+		return nil, err
 	}
 
 	nriVersion := "unknown"
@@ -455,7 +502,7 @@ func (p *plugin) RegisterPlugin(ctx context.Context, req *RegisterPluginRequest)
 	log.Infof(ctx, "plugin %q registered as %q (with NRI version %s)",
 		p.qualifiedName(), p.name(), nriVersion)
 
-	p.regC <- nil
+	p.notifyRegistrationStatus(nil)
 	return &RegisterPluginResponse{}, nil
 }
 

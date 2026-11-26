@@ -78,7 +78,7 @@ func (s *Suite) Prepare(t *testing.T, runtime *mockRuntime, plugins ...*mockPlug
 	s.dir = dir
 	s.runtime = runtime
 	for _, plugin := range plugins {
-		plugin.logf = t.Logf
+		plugin.logf = testLogf(t)
 	}
 	s.plugins = plugins
 	s.byName = make(map[string]*mockPlugin)
@@ -141,6 +141,32 @@ func (s *Suite) plugin(fullName string) *mockPlugin {
 }
 
 // ------------------------------------
+
+// testLogf returns a logging function which logs through t until the
+// test is over. A plugin can still have a request in flight then, and
+// logging through t after that is a data race.
+func testLogf(t *testing.T) func(string, ...any) {
+	var (
+		lock sync.Mutex
+		done bool
+	)
+
+	t.Cleanup(func() {
+		lock.Lock()
+		defer lock.Unlock()
+		done = true
+	})
+
+	return func(format string, args ...any) {
+		lock.Lock()
+		defer lock.Unlock()
+		if done {
+			Log(format, args...)
+			return
+		}
+		t.Logf(format, args...)
+	}
+}
 
 func Log(format string, args ...any) {
 	logrus.Debugf(format, args...)

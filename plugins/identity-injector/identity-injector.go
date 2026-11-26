@@ -533,6 +533,11 @@ func (p *plugin) startCertificateWatcher(pod *api.PodSandbox, ctr *api.Container
 		// cancel is idempotent: a goroutine's defer cancel() may have already fired
 		// if it exited due to a stream error; calling it again here is safe and
 		// ensures the peer goroutine is also stopped when we return early.
+		//
+		// This also covers the case of initial write timeout case.
+		// Cancelling watcherCtx here makes the blocked stream.Recv()/Subscribe calls
+		// return with a Canceled error, so both goroutines exit, call wg.Done(), and the
+		// cleanup goroutine closes done.
 		cancel()
 		// The watcher map entry has not been registered yet (registration is below),
 		// so there is nothing to delete here.

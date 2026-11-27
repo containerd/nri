@@ -26,6 +26,8 @@ import (
 )
 
 type (
+	// Config is an alias for Config from main package.
+	Config = validator.Config
 	// DefaultValidatorConfig is an alias for DefaultValidatorConfig from main package.
 	DefaultValidatorConfig = validator.DefaultValidatorConfig
 )

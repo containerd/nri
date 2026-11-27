@@ -29,6 +29,7 @@ import (
 
 	"github.com/containerd/nri/pkg/adaptation/builtin"
 	"github.com/containerd/nri/pkg/api"
+	"github.com/containerd/nri/pkg/auth"
 	"github.com/containerd/nri/pkg/log"
 	nriver "github.com/containerd/nri/pkg/version"
 	validator "github.com/containerd/nri/plugins/default-validator/builtin"
@@ -70,6 +71,8 @@ type Adaptation struct {
 	clientOpts  []ttrpc.ClientOpts
 	serverOpts  []ttrpc.ServerOpt
 	listener    net.Listener
+	auth        *auth.Config
+	identities  map[string]*identityKey
 	plugins     []*plugin
 	validators  []*plugin
 	builtin     []*builtin.BuiltinPlugin
@@ -168,6 +171,20 @@ func WithDeprecationRecorder(d DeprecationRecorder) Option {
 	}
 }
 
+// WithAuthConfig sets up configuration for plugin authentication.
+// Note that WithAuthConfig does not prevent unauthenticated plugins
+// from registering. Such plugins are registered with no authenticated
+// role.
+func WithAuthConfig(cfg *auth.Config) Option {
+	return func(r *Adaptation) error {
+		if err := cfg.Validate(); err != nil {
+			return err
+		}
+		r.auth = cfg
+		return nil
+	}
+}
+
 // New creates a new NRI Runtime.
 func New(name, version string, syncFn SyncFn, updateFn UpdateFn, opts ...Option) (*Adaptation, error) {
 	var err error
@@ -209,6 +226,13 @@ func New(name, version string, syncFn SyncFn, updateFn UpdateFn, opts ...Option)
 
 	log.Infof(noCtx, "runtime interface created")
 
+	if r.auth != nil {
+		log.Debugf(noCtx, "plugin authentication configuration")
+		for _, role := range r.auth.Roles {
+			log.Debugf(noCtx, "  role %q with %d keys %v", role.Role, len(role.Keys), role.Keys)
+		}
+	}
+
 	return r, nil
 }
 
@@ -218,6 +242,10 @@ func (r *Adaptation) Start() error {
 
 	r.Lock()
 	defer r.Unlock()
+
+	if err := r.setupIdentities(); err != nil {
+		return err
+	}
 
 	if err := r.startPlugins(); err != nil {
 		return err
@@ -358,7 +386,7 @@ func (r *Adaptation) CreateContainer(ctx context.Context, req *CreateContainerRe
 			continue
 		}
 		if validate != nil {
-			validate.AddPlugin(plugin.base, plugin.idx)
+			validate.AddPlugin(plugin.base, plugin.idx, plugin.auth.GetRole())
 		}
 		rpl, err := plugin.createContainer(ctx, req)
 		if err != nil {

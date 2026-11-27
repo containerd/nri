@@ -75,7 +75,7 @@ message UpdateContainersResponse {
 // can be used by plugins to discover the full extent of changes applied to
 // the container, including any changes made by other active plugins.
 //
-// go:plugin type=plugin version=1
+// go:plugin type=plugin version=2
 service Plugin {
   // Configure the plugin and get its event subscription.
   rpc Configure(ConfigureRequest) returns (ConfigureResponse);
@@ -85,6 +85,9 @@ service Plugin {
 
   // Shutdown a plugin (let it know the runtime is going down).
   rpc Shutdown(Empty) returns (Empty);
+
+  // UpdatePluginStatus tells the plugin its status in the runtime.
+  rpc UpdatePluginStatus(UpdatePluginStatusRequest) returns (UpdatePluginStatusResponse);
 
   // RunPodSandbox relays the corresponding request to the plugin.
   rpc RunPodSandbox(RunPodSandboxRequest) returns (RunPodSandboxResponse);
@@ -213,6 +216,26 @@ message FailurePolicy {
   // protocol error is always disconnected.
   bool keep_connected = 2;
 }
+
+// PluginStatus is the status of a plugin in the runtime.
+enum PluginStatus {
+  PLUGIN_STATUS_UNKNOWN = 0;
+  // The plugin is the instance of its name which gets relayed requests
+  // and events.
+  PLUGIN_STATUS_LIVE = 1;
+  // The plugin was replaced by another instance of its name. It stays
+  // connected, but gets no requests or events.
+  PLUGIN_STATUS_RETIRED = 2;
+}
+
+message UpdatePluginStatusRequest {
+  // Status of the plugin in the runtime.
+  PluginStatus status = 1;
+  // Human readable reason for the status.
+  string reason = 2;
+}
+
+message UpdatePluginStatusResponse {}
 
 message SynchronizeRequest {
   // Pods known to the runtime.

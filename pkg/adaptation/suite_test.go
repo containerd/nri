@@ -78,7 +78,7 @@ func (s *Suite) Prepare(t *testing.T, runtime *mockRuntime, plugins ...*mockPlug
 	s.dir = dir
 	s.runtime = runtime
 	for _, plugin := range plugins {
-		plugin.logf = t.Logf
+		plugin.logf = testLogf(t)
 	}
 	s.plugins = plugins
 	s.byName = make(map[string]*mockPlugin)
@@ -142,6 +142,32 @@ func (s *Suite) plugin(fullName string) *mockPlugin {
 
 // ------------------------------------
 
+// testLogf returns a logging function which logs through t until the
+// test is over. A plugin can still have a request in flight then, and
+// logging through t after that is a data race.
+func testLogf(t *testing.T) func(string, ...any) {
+	var (
+		lock sync.Mutex
+		done bool
+	)
+
+	t.Cleanup(func() {
+		lock.Lock()
+		defer lock.Unlock()
+		done = true
+	})
+
+	return func(format string, args ...any) {
+		lock.Lock()
+		defer lock.Unlock()
+		if done {
+			Log(format, args...)
+			return
+		}
+		t.Logf(format, args...)
+	}
+}
+
 func Log(format string, args ...any) {
 	logrus.Debugf(format, args...)
 }
@@ -156,6 +182,9 @@ type mockRuntime struct {
 
 	updateFn nri.UpdateFn
 	failSync bool
+	// swallowSyncErr makes SyncFn discard the error of its callback,
+	// which a runtime is allowed to do.
+	swallowSyncErr bool
 }
 
 func (m *mockRuntime) Start(dir string) error {
@@ -229,6 +258,9 @@ func (m *mockRuntime) synchronize(ctx context.Context, cb nri.SyncCB) error {
 
 	if m.failSync {
 		return fmt.Errorf("mock runtime forced synchronize failure")
+	}
+	if m.swallowSyncErr {
+		return nil
 	}
 
 	return err
@@ -387,6 +419,7 @@ type mockPlugin struct {
 	pods map[string]*api.PodSandbox
 	ctrs map[string]*api.Container
 
+	synchronize          func(*mockPlugin, []*api.PodSandbox, []*api.Container) ([]*api.ContainerUpdate, error)
 	runPodSandbox        func(*mockPlugin, *api.PodSandbox, *api.Container) error
 	updatePodSandbox     func(*mockPlugin, *api.PodSandbox, *api.LinuxResources, *api.LinuxResources) error
 	postUpdatePodSandbox func(*mockPlugin, *api.PodSandbox, *api.Container) error
@@ -406,6 +439,7 @@ type mockPlugin struct {
 var (
 	_ = stub.ConfigureInterface(&mockPlugin{})
 	_ = stub.SynchronizeInterface(&mockPlugin{})
+	_ = stub.PluginStatusInterface(&mockPlugin{})
 	_ = stub.RunPodInterface(&mockPlugin{})
 	_ = stub.UpdatePodInterface(&mockPlugin{})
 	_ = stub.StopPodInterface(&mockPlugin{})
@@ -620,6 +654,10 @@ func (m *mockPlugin) forget(pod *api.PodSandbox, ctr *api.Container) {
 }
 
 func (m *mockPlugin) Synchronize(_ context.Context, pods []*api.PodSandbox, ctrs []*api.Container) ([]*api.ContainerUpdate, error) {
+	if m.synchronize != nil {
+		return m.synchronize(m, pods, ctrs)
+	}
+
 	for _, pod := range pods {
 		m.track(pod, nil)
 	}
@@ -634,6 +672,19 @@ func (m *mockPlugin) Synchronize(_ context.Context, pods []*api.PodSandbox, ctrs
 
 func (m *mockPlugin) Shutdown(_ context.Context) {
 	m.q.Add(PluginShutdown)
+}
+
+func (m *mockPlugin) UpdatePluginStatus(_ context.Context, status api.PluginStatus, reason string) error {
+	m.Log("status in the runtime: %s (%s)", status, reason)
+
+	switch status {
+	case api.PluginStatus_PLUGIN_STATUS_LIVE:
+		m.q.Add(PluginLive)
+	case api.PluginStatus_PLUGIN_STATUS_RETIRED:
+		m.q.Add(PluginRetired)
+	}
+
+	return nil
 }
 
 func (m *mockPlugin) RunPodSandbox(_ context.Context, pod *api.PodSandbox) error {
@@ -758,14 +809,16 @@ func nopStopContainer(*mockPlugin, *api.PodSandbox, *api.Container) ([]*api.Cont
 type EventType string
 
 const (
-	CreateError  = "create-error"
-	Started      = "started"
-	Configured   = "configured"
-	Synchronized = "synchronized"
-	StartupError = "startup-error"
-	Shutdown     = "shutdown"
-	Disconnected = "closed"
-	Stopped      = "stopped"
+	CreateError   = "create-error"
+	Started       = "started"
+	Configured    = "configured"
+	Synchronized  = "synchronized"
+	StartupError  = "startup-error"
+	Shutdown      = "shutdown"
+	StatusLive    = "status-live"
+	StatusRetired = "status-retired"
+	Disconnected  = "closed"
+	Stopped       = "stopped"
 
 	RunPodSandbox        = "RunPodSandbox"
 	UpdatePodSandbox     = "UpdatePodSandbox"
@@ -799,6 +852,8 @@ var (
 	PluginSynchronized  = &Event{Type: Synchronized}
 	PluginStartupError  = &Event{Type: StartupError}
 	PluginShutdown      = &Event{Type: Shutdown}
+	PluginLive          = &Event{Type: StatusLive}
+	PluginRetired       = &Event{Type: StatusRetired}
 	PluginDisconnected  = &Event{Type: Disconnected}
 	PluginStopped       = &Event{Type: Stopped}
 
@@ -903,6 +958,11 @@ func (q *EventQ) Wait(w *Event, deadline <-chan time.Time) (*Event, error) {
 	}
 	q.c = make(chan *Event, 16)
 	defer func() {
+		// Take the lock: an event can be added as this Wait() returns.
+		// Dropping the channel without it also lets Add() send on a
+		// channel which is already closed.
+		q.Lock()
+		defer q.Unlock()
 		c := q.c
 		q.c = nil
 		close(c)

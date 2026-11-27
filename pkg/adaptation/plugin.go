@@ -51,24 +51,52 @@ var (
 	timeoutCfgLock            sync.RWMutex
 )
 
+// pluginOrigin tells where a plugin came from.
+type pluginOrigin int
+
+const (
+	// originBuiltin is a plugin compiled into the runtime.
+	originBuiltin pluginOrigin = iota
+	// originLaunched is a pre-installed plugin started by the runtime.
+	originLaunched
+	// originExternal is a plugin which connected to our socket.
+	originExternal
+)
+
+// String returns the name of a plugin origin.
+func (o pluginOrigin) String() string {
+	switch o {
+	case originBuiltin:
+		return "builtin"
+	case originLaunched:
+		return "pre-installed"
+	case originExternal:
+		return "external"
+	}
+	return "unknown"
+}
+
 type plugin struct {
 	sync.Mutex
-	idx    string
-	base   string
-	cfg    string
-	pid    int
-	cmd    *exec.Cmd
-	mux    multiplex.Mux
-	rpcc   *ttrpc.Client
-	rpcl   stdnet.Listener
-	rpcs   *ttrpc.Server
-	events EventMask
-	policy *FailurePolicy
-	closed bool
-	regC   chan error
-	closeC chan struct{}
-	r      *Adaptation
-	impl   *pluginType
+	origin     pluginOrigin
+	idx        string
+	base       string
+	cfg        string
+	pid        int
+	cmd        *exec.Cmd
+	mux        multiplex.Mux
+	rpcc       *ttrpc.Client
+	rpcl       stdnet.Listener
+	rpcs       *ttrpc.Server
+	events     EventMask
+	policy     *FailurePolicy
+	registered bool
+	closed     bool
+	live       bool
+	regC       chan error
+	closeC     chan struct{}
+	r          *Adaptation
+	impl       *pluginType
 }
 
 // SetPluginRegistrationTimeout sets the timeout for plugin registration.
@@ -115,11 +143,12 @@ func (r *Adaptation) newLaunchedPlugin(dir, idx, base, cfg string) (p *plugin, r
 			return nil, fmt.Errorf("load WASM plugin %s: %w", fullPath, err)
 		}
 		return &plugin{
-			cfg:  cfg,
-			idx:  idx,
-			base: base,
-			r:    r,
-			impl: &pluginType{wasmImpl: wasm},
+			origin: originLaunched,
+			cfg:    cfg,
+			idx:    idx,
+			base:   base,
+			r:      r,
+			impl:   &pluginType{wasmImpl: wasm},
 		}, nil
 	}
 
@@ -151,6 +180,7 @@ func (r *Adaptation) newLaunchedPlugin(dir, idx, base, cfg string) (p *plugin, r
 	}
 
 	p = &plugin{
+		origin: originLaunched,
 		cfg:    cfg,
 		cmd:    cmd,
 		idx:    idx,
@@ -177,6 +207,7 @@ func (r *Adaptation) newBuiltinPlugin(b *builtin.BuiltinPlugin) (*plugin, error)
 	}
 
 	return &plugin{
+		origin: originBuiltin,
 		idx:    b.Index,
 		base:   b.Base,
 		closeC: make(chan struct{}),
@@ -212,6 +243,7 @@ func isWasm(path string) bool {
 // Create a plugin (stub) for an accepted external plugin connection.
 func (r *Adaptation) newExternalPlugin(conn stdnet.Conn) (p *plugin, retErr error) {
 	p = &plugin{
+		origin: originExternal,
 		regC:   make(chan error, 1),
 		closeC: make(chan struct{}),
 		r:      r,
@@ -337,6 +369,8 @@ func (p *plugin) start(name, version string) (err error) {
 		select {
 		case err = <-p.regC:
 			if err != nil {
+				p.close()
+				p.stop()
 				return fmt.Errorf("failed to register plugin: %w", err)
 			}
 		case <-p.closeC:
@@ -362,6 +396,8 @@ func (p *plugin) start(name, version string) (err error) {
 func (p *plugin) close() {
 	if p.impl.isWasm() || p.impl.isBuiltin() {
 		p.closed = true
+		p.live = false
+		p.r.registry.Release(p)
 		return
 	}
 
@@ -372,6 +408,8 @@ func (p *plugin) close() {
 	}
 
 	p.closed = true
+	p.live = false
+	p.r.registry.Release(p)
 	p.mux.Close()
 	p.rpcc.Close()
 	p.rpcs.Close()
@@ -382,6 +420,22 @@ func (p *plugin) isClosed() bool {
 	p.Lock()
 	defer p.Unlock()
 	return p.closed
+}
+
+// setLive marks the plugin as live, or no longer live. A live plugin is
+// the one the runtime considers the current instance for its name: it is
+// among the runtime's plugins, it is relayed requests and events, and it
+// is allowed to make requests back to the runtime.
+func (p *plugin) setLive(live bool) {
+	p.Lock()
+	defer p.Unlock()
+	p.live = live
+}
+
+func (p *plugin) isLive() bool {
+	p.Lock()
+	defer p.Unlock()
+	return p.live
 }
 
 // stop a plugin (if it was launched by us)
@@ -433,19 +487,78 @@ func (p *plugin) qualifiedName() string {
 	return kind + ":" + idx + "-" + base + pid
 }
 
-// RegisterPlugin handles the plugin's registration request.
-func (p *plugin) RegisterPlugin(ctx context.Context, req *RegisterPluginRequest) (*RegisterPluginResponse, error) {
+// notifyRegistrationStatus delivers a registration status back to start().
+func (p *plugin) notifyRegistrationStatus(err error) {
+	// Notes:
+	//   The non-blocking send is currently just a precaution. We shouldn't
+	//   hit the default branch, as we only deliver one status for now.
+	//
+	//   Also, delivering a status wakes up start(). For a non-nil status
+	//   start() closes the connection. Delivering an error returned from
+	//   RegisterPlugin races with that, and only gets to the plugin if it
+	//   wins the race. The runtime log will always contain the real reason
+	//   for registration failure.
+	select {
+	case p.regC <- err:
+	default:
+	}
+}
+
+// admitRegistration returns an error if a plugin is not allowed to
+// register. It takes an external plugin's index and name from the
+// request, so a plugin picks its name exactly once.
+func (p *plugin) admitRegistration(ctx context.Context, req *RegisterPluginRequest) error {
+	p.Lock()
+	defer p.Unlock()
+
+	if p.closed {
+		log.Errorf(ctx, "plugin %q attempted to register on a closed connection",
+			p.name())
+		return errors.New("plugin connection closed")
+	}
+
+	if p.registered {
+		log.Errorf(ctx, "plugin %q attempted to register multiple times", p.name())
+		return errors.New("plugin already registered")
+	}
+
 	if p.isExternal() {
 		if err := api.CheckPluginName(req.PluginName); err != nil {
-			p.regC <- fmt.Errorf("plugin registered with an invalid name: %w", err)
-			return &RegisterPluginResponse{}, fmt.Errorf("invalid plugin name: %w", err)
+			log.Errorf(ctx, "plugin %q attempted to register with an invalid name: %v",
+				p.qualifiedName(), err)
+			return p.refuseRegistration(err)
 		}
 		if err := api.CheckPluginIndex(req.PluginIdx); err != nil {
-			p.regC <- fmt.Errorf("plugin %q registered with an invalid index: %w", req.PluginName, err)
-			return &RegisterPluginResponse{}, fmt.Errorf("invalid plugin index: %w", err)
+			log.Errorf(ctx, "plugin %q attempted to register with an invalid index: %v",
+				p.qualifiedName(), err)
+			return p.refuseRegistration(err)
 		}
-		p.base = req.PluginName
-		p.idx = req.PluginIdx
+
+		p.idx, p.base = req.PluginIdx, req.PluginName
+
+		// Claim the name with the plugin lock held. close() takes the
+		// same lock before it releases a claim, so a connection going
+		// down now cannot leave the name claimed for good.
+		if err := p.r.registry.Claim(p); err != nil {
+			return p.refuseRegistration(err)
+		}
+	}
+
+	p.registered = true
+
+	return nil
+}
+
+// refuseRegistration tells start() why a registration was refused.
+func (p *plugin) refuseRegistration(err error) error {
+	p.notifyRegistrationStatus(err)
+	return err
+}
+
+// RegisterPlugin handles the plugin's registration request.
+func (p *plugin) RegisterPlugin(ctx context.Context, req *RegisterPluginRequest) (*RegisterPluginResponse, error) {
+	if err := p.admitRegistration(ctx, req); err != nil {
+		return nil, err
 	}
 
 	nriVersion := "unknown"
@@ -455,18 +568,38 @@ func (p *plugin) RegisterPlugin(ctx context.Context, req *RegisterPluginRequest)
 	log.Infof(ctx, "plugin %q registered as %q (with NRI version %s)",
 		p.qualifiedName(), p.name(), nriVersion)
 
-	p.regC <- nil
+	p.notifyRegistrationStatus(nil)
 	return &RegisterPluginResponse{}, nil
 }
 
 // UpdateContainers relays container update request to the runtime.
 func (p *plugin) UpdateContainers(ctx context.Context, req *UpdateContainersRequest) (*UpdateContainersResponse, error) {
+	if !p.isLive() {
+		log.Warnf(ctx, "refusing container updates requested by plugin %q: not a live plugin", p.name())
+		return nil, fmt.Errorf("plugin %q is not a live plugin, refusing container updates", p.name())
+	}
+
 	log.Infof(ctx, "plugin %q requested container updates", p.name())
 
 	failed, err := p.r.updateContainers(ctx, req.Update)
 	return &UpdateContainersResponse{
 		Failed: failed,
 	}, err
+}
+
+// updateStatus tells the plugin its status in the runtime.
+func (p *plugin) updateStatus(ctx context.Context, status api.PluginStatus, reason string) {
+	ctx, cancel := context.WithTimeout(ctx, getPluginRequestTimeout())
+	defer cancel()
+
+	req := &UpdatePluginStatusRequest{
+		Status: status,
+		Reason: reason,
+	}
+
+	if _, err := p.impl.UpdatePluginStatus(ctx, req); err != nil {
+		log.Warnf(ctx, "failed to tell plugin %q it is %s: %v", p.name(), status, err)
+	}
 }
 
 // configure the plugin and subscribe it for the events it requested.

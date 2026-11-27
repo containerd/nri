@@ -131,6 +131,11 @@ func (b *BuiltinPlugin) Shutdown(context.Context, *api.ShutdownRequest) (*api.Sh
 	return &api.ShutdownResponse{}, nil
 }
 
+// UpdatePluginStatus implements PluginService of the NRI API.
+func (b *BuiltinPlugin) UpdatePluginStatus(context.Context, *api.UpdatePluginStatusRequest) (*api.UpdatePluginStatusResponse, error) {
+	return &api.UpdatePluginStatusResponse{}, nil
+}
+
 // RunPodSandbox implements PluginService of the NRI API.
 func (b *BuiltinPlugin) RunPodSandbox(ctx context.Context, req *api.RunPodSandboxRequest) (*api.RunPodSandboxResponse, error) {
 	if b.Handlers.RunPodSandbox != nil {

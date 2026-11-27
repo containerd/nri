@@ -293,7 +293,13 @@ func (m *mux) reader() {
 		err error
 	)
 
-	<-m.blockC
+	// A mux can be closed before it is unblocked for reading. Nothing
+	// unblocks the reader after a close, so give up here.
+	select {
+	case <-m.blockC:
+	case <-m.doneC:
+		return
+	}
 
 	for {
 		select {

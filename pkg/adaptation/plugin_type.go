@@ -64,6 +64,21 @@ func (p *pluginType) Synchronize(ctx context.Context, req *SynchronizeRequest) (
 	return nil, errUnknownImpl
 }
 
+// UpdatePluginStatus handles type-specific details of relaying a plugin
+// UpdatePluginStatus request.
+func (p *pluginType) UpdatePluginStatus(ctx context.Context, req *UpdatePluginStatusRequest) (*UpdatePluginStatusResponse, error) {
+	switch {
+	case p.ttrpcImpl != nil:
+		return p.ttrpcImpl.UpdatePluginStatus(ctx, req)
+	case p.builtinImpl != nil:
+		return p.builtinImpl.UpdatePluginStatus(ctx, req)
+	case p.wasmImpl != nil:
+		return p.wasmImpl.UpdatePluginStatus(ctx, req)
+	}
+
+	return nil, errUnknownImpl
+}
+
 // Configure handles type-specific details of relaying a plugin Configure request.
 func (p *pluginType) Configure(ctx context.Context, req *ConfigureRequest) (*ConfigureResponse, error) {
 	switch {

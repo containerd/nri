@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -132,6 +133,33 @@ func TestClose(t *testing.T) {
 		_, err := pConn.Read(buf)
 		require.Error(t, err)
 	})
+}
+
+// Nothing unblocks a mux after it is closed. Closing one that was
+// never unblocked must still stop its reader.
+func TestCloseOfBlockedMux(t *testing.T) {
+	const count = 32
+
+	before := runtime.NumGoroutine()
+
+	for range count {
+		lMux, pMux, err := connectMuxes(mux.WithBlockedRead())
+		require.NoError(t, err)
+		require.NoError(t, lMux.Close())
+		require.NoError(t, pMux.Close())
+	}
+
+	// Each mux has a reader of its own, so count muxes leave 2*count
+	// goroutines behind if a close does not stop them.
+	leaked := func() int { return runtime.NumGoroutine() - before }
+	for deadline := time.Now().Add(5 * time.Second); time.Now().Before(deadline); {
+		if leaked() < count {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	require.Less(t, leaked(), count, "goroutines left behind by closed muxes")
 }
 
 func TestDial(t *testing.T) {

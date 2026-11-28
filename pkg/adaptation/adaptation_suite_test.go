@@ -18,6 +18,7 @@ package adaptation_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -27,6 +28,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/containerd/ttrpc"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/stretchr/testify/require"
@@ -36,6 +38,7 @@ import (
 	rspec "github.com/opencontainers/runtime-spec/specs-go"
 
 	nri "github.com/containerd/nri/pkg/adaptation"
+	"github.com/containerd/nri/pkg/adaptation/builtin"
 	"github.com/containerd/nri/pkg/api"
 	nriplugin "github.com/containerd/nri/pkg/plugin"
 	validator "github.com/containerd/nri/plugins/default-validator/builtin"
@@ -264,6 +267,195 @@ func TestPluginConnection(t *testing.T) {
 		s.StartPlugins(plugin1)
 		require.NoError(t, plugin1.Wait(PluginDisconnected, timeout))
 	})
+}
+
+// maxSyncMsgs is the maximum number of sync messages a test plugin
+// answers. A looping runtime hits this bound and fails the test.
+const maxSyncMsgs = 64
+
+// syncTestPlugin returns a builtin plugin that synchronizes with fn.
+func syncTestPlugin(fn func(context.Context, *api.SynchronizeRequest) (*api.SynchronizeResponse, error)) *builtin.BuiltinPlugin {
+	return &builtin.BuiltinPlugin{
+		Base:  "sync-test",
+		Index: "00",
+		Handlers: builtin.BuiltinHandlers{
+			Synchronize: fn,
+		},
+	}
+}
+
+// syncTestRuntime returns a mock runtime with p as a builtin plugin and
+// the given number of pods and containers in it.
+func syncTestRuntime(pods, ctrs int, p *builtin.BuiltinPlugin) *mockRuntime {
+	runtime := &mockRuntime{
+		pods:    map[string]*api.PodSandbox{},
+		ctrs:    map[string]*api.Container{},
+		options: []nri.Option{nri.WithBuiltinPlugins(p)},
+	}
+
+	for i := range pods {
+		id := fmt.Sprintf("pod%d", i)
+		runtime.pods[id] = &api.PodSandbox{Id: id}
+	}
+	for i := range ctrs {
+		id := fmt.Sprintf("ctr%d", i)
+		runtime.ctrs[id] = &api.Container{Id: id, PodSandboxId: "pod0"}
+	}
+
+	return runtime
+}
+
+// oversizedMessageError is the error a ttrpc connection returns for a
+// message that exceeds the maximum message size.
+func oversizedMessageError() error {
+	return ttrpc.OversizedMessageError(12 << 20)
+}
+
+func TestPluginSynchronizeOversizedState(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		containers int
+		envVars    int
+	}{
+		{name: "uneven snapshot", containers: 9, envVars: 8},
+		{name: "fewer than eight objects", containers: 4, envVars: 16},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			// Each snapshot exceeds the ttRPC limit, while each container fits on its own.
+			value := strings.Repeat("x", 72<<10)
+			env := make([]string, tc.envVars)
+			for i := range env {
+				env[i] = fmt.Sprintf("VAR_%d=%s", i, value)
+			}
+
+			pod := &api.PodSandbox{Id: "pod0"}
+			ctrs := make(map[string]*api.Container, tc.containers)
+			for i := range tc.containers {
+				id := fmt.Sprintf("ctr%d", i)
+				ctrs[id] = &api.Container{Id: id, PodSandboxId: pod.Id, Env: env}
+			}
+
+			runtime := &mockRuntime{pods: map[string]*api.PodSandbox{pod.Id: pod}, ctrs: ctrs}
+			plugin := &mockPlugin{idx: "00", name: "test"}
+			s := &Suite{}
+			s.Prepare(t, runtime, plugin)
+			s.Startup()
+
+			plugin.mu.Lock()
+			defer plugin.mu.Unlock()
+			require.Len(t, plugin.pods, 1)
+			require.True(t, protoEqual(pod, plugin.pods[pod.Id]), "pod %q was not synchronized", pod.Id)
+			require.Len(t, plugin.ctrs, len(ctrs))
+			for id, ctr := range ctrs {
+				require.True(t, protoEqual(ctr, plugin.ctrs[id]), "container %q was not synchronized", id)
+			}
+		})
+	}
+}
+
+// TestPluginSynchronizeSplitMessages verifies that an oversized sync
+// message gets split into smaller ones, that every retry shrinks, that no
+// message is empty, and that every pod and container reaches the plugin.
+// Splitting fails cleanly once a single object does not fit a message.
+func TestPluginSynchronizeSplitMessages(t *testing.T) {
+	type testCase struct {
+		name string
+		pods int
+		ctrs int
+		// maxObjsPerMsg is how many objects fit a message. Zero means
+		// that none do.
+		maxObjsPerMsg int
+		expectFail    bool
+	}
+
+	cases := []testCase{
+		{name: "a single pod and twenty containers", pods: 1, ctrs: 20, maxObjsPerMsg: 10},
+		{name: "more pods than fit a message", pods: 10, ctrs: 20, maxObjsPerMsg: 10},
+		{name: "a single pod and many containers", pods: 1, ctrs: 30, maxObjsPerMsg: 28},
+		{name: "a single object per message", pods: 3, ctrs: 4, maxObjsPerMsg: 1},
+	}
+
+	// A state of any size must shrink down to a single object per message
+	// before synchronization gives up.
+	for objs := 2; objs <= 128; objs++ {
+		cases = append(cases, testCase{
+			name:       fmt.Sprintf("%d objects that never fit a message", objs),
+			pods:       1,
+			ctrs:       objs - 1,
+			expectFail: true,
+		})
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var (
+				sizes     []int
+				rejected  []int
+				sentPods  int
+				sentCtrs  int
+				emptyMsgs int
+			)
+
+			plugin := syncTestPlugin(func(_ context.Context, req *api.SynchronizeRequest) (*api.SynchronizeResponse, error) {
+				objs := len(req.Pods) + len(req.Containers)
+				sizes = append(sizes, objs)
+
+				// End a loop that would hang the test.
+				if len(sizes) > maxSyncMsgs {
+					return nil, errors.New("too many sync messages")
+				}
+
+				// Every case here has pods and containers, so an empty
+				// message delivers nothing.
+				if objs == 0 {
+					emptyMsgs++
+					return nil, errors.New("empty sync message")
+				}
+
+				if objs > tc.maxObjsPerMsg {
+					rejected = append(rejected, objs)
+					return nil, oversizedMessageError()
+				}
+
+				sentPods += len(req.Pods)
+				sentCtrs += len(req.Containers)
+
+				return &api.SynchronizeResponse{More: req.More}, nil
+			})
+
+			runtime := syncTestRuntime(tc.pods, tc.ctrs, plugin)
+			s := &Suite{}
+			dir := s.Prepare(t, runtime)
+
+			// The runtime drops a plugin that fails to synchronize, so
+			// starting it succeeds even for a failing case.
+			require.NoError(t, runtime.Start(dir))
+
+			objs := tc.pods + tc.ctrs
+
+			require.Zero(t, emptyMsgs,
+				"the plugin got an empty sync message, objects per message: %v", sizes)
+			require.LessOrEqual(t, len(sizes), maxSyncMsgs,
+				"synchronization did not stop, objects per message: %v", sizes)
+			require.Greater(t, len(sizes), 1, "the state was not split into several messages")
+			require.Equal(t, objs, sizes[0], "the first message must carry all %d objects", objs)
+
+			for i := 1; i < len(rejected); i++ {
+				require.Less(t, rejected[i], rejected[i-1],
+					"retry %d does not shrink the rejected message: %v", i+1, rejected)
+			}
+
+			if tc.expectFail {
+				require.Equal(t, 1, sizes[len(sizes)-1],
+					"splitting gave up at %v objects per message", sizes)
+				require.Zero(t, sentPods+sentCtrs, "the plugin synchronized objects")
+				return
+			}
+
+			require.Equal(t, tc.pods, sentPods, "synchronized pods")
+			require.Equal(t, tc.ctrs, sentCtrs, "synchronized containers")
+		})
+	}
 }
 
 func TestPodAndContainerRequestsAndEvents(t *testing.T) {
